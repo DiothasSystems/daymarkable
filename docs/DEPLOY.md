@@ -34,6 +34,51 @@ AAAA  app     <VPS IPv6>     (optional)
 Email sending (`EMAIL_FROM`): verify `daymarkable.com` in Resend and add the DKIM/SPF/DMARC
 records Resend gives you to the same zone; send from `notes@daymarkable.com`.
 
+## 0b. Alternative host: Hetzner Cloud (cheaper, same runbook)
+
+The compose stack is host-agnostic. Hetzner Cloud is the most cost-effective Docker VPS for
+this workload; everything from section 1 onward applies verbatim.
+
+| Plan | Spec | Approx. monthly | Fit |
+|---|---|---|---|
+| CX22 | 2 vCPU, 4 GB, 40 GB | ~$4.50 | Runs; rebuilds on the box are slow |
+| **CX32** | 4 vCPU, 8 GB, 80 GB | ~$7.50 | **Recommended through Phase 2** |
+| CAX (Arm) | 2–4 Arm cores | ~$4–7 | Only with multi-arch image builds (see below) |
+
+Console steps (https://console.hetzner.cloud):
+
+1. **Project → Add Server.** Location: Ashburn (`ash`) or Hillsboro (`hil`) for US users.
+   Image: **Apps → Docker CE** (Ubuntu with Docker Engine + Compose preinstalled). Type:
+   Shared vCPU **x86** CX32. Add your SSH key. Optional: enable backups (20% of the server
+   price) for the Postgres volume.
+2. **Firewall** (Networking → Firewalls): allow inbound TCP 22 from your IP, TCP 80 and 443
+   from anywhere; deny everything else. The app itself only listens on `127.0.0.1:3000`.
+3. **DNS**: point `app.daymarkable.com` at the server's IPv4 (and IPv6) in Hostinger's DNS
+   zone, or move the zone to Hetzner DNS (free) if you prefer one console.
+4. `ssh root@<ip>`, then continue at section 2 (clone), 3 (environment), 4 (start).
+
+Migrating from Hostinger (or any previous box):
+
+```bash
+# old box
+docker compose exec -T db pg_dump -U daymarkable daymarkable > daymarkable.sql
+# new box, after `docker compose up -d db`
+docker compose exec -T db psql -U daymarkable daymarkable < daymarkable.sql
+```
+
+Copy `DATA_ENCRYPTION_KEY` unchanged: the stored device token, meeting bodies, and cache
+files are sealed with it. The 1-day cache does not need to move; the next run rebuilds it.
+Switch DNS last, then run `docker compose --profile edge up -d caddy` on the new box for the
+certificate.
+
+Arm servers (CAX) or Oracle Cloud Always Free: the images must be built for `linux/arm64`.
+Either build on the Arm box itself (`docker compose build` there) or publish multi-arch images
+from a laptop with `docker buildx build --platform linux/amd64,linux/arm64`. All dependencies
+(PGlite, pdf-lib, pypdfium2, resvg-py, rmscene) ship Arm builds.
+
+Object storage for Phase 2's external cache: Hetzner Object Storage or Cloudflare R2 (no
+egress fees) are the low-cost S3-compatible choices.
+
 ## 1. Prepare the VPS
 
 Hostinger "VPS" or "Docker" plan, Ubuntu 22.04+ with Docker Engine and the Compose plugin:
