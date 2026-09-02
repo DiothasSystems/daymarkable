@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -5,7 +6,10 @@ import fontkit from "@pdf-lib/fontkit";
 import type { PDFDocument, PDFFont } from "pdf-lib";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const FONT_DIR = path.resolve(here, "..", "fonts");
+/** Fonts ship in packages/compose/fonts; bundlers relocate this module, so try the known homes. */
+const FONT_DIR = [process.env.DAYMARKABLE_FONTS_DIR, path.resolve(here, "..", "fonts"), path.resolve(here, "..", "..", "fonts"), path.resolve(process.cwd(), "packages", "compose", "fonts"), path.resolve(process.cwd(), "..", "..", "packages", "compose", "fonts")]
+  .filter((p): p is string => !!p)
+  .find((p) => existsSync(path.join(p, "PublicSans-Regular.ttf"))) ?? path.resolve(here, "..", "fonts");
 
 export interface BrandFonts {
   /** Source Serif 4 Bold — wordmark, page titles. */

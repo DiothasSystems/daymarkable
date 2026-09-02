@@ -17,7 +17,10 @@
     "render:dev": "cd services/render && python -m uvicorn app:app --host 127.0.0.1 --port 8787",
     "render:up": "docker compose up -d render",
     "db:dev": "pnpm --filter @daymarkable/db dev-server",
-    "web:dev": "pnpm --filter @daymarkable/web dev"
+    "web:dev": "pnpm --filter @daymarkable/web dev",
+    "admin:hash": "pnpm --filter @daymarkable/web admin:hash",
+    "web:build": "pnpm --filter @daymarkable/web build",
+    "web:start": "pnpm --filter @daymarkable/web start"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

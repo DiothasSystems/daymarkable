@@ -1,0 +1,87 @@
+# dayMarkable on a Hostinger VPS: app (web + scheduler) + Postgres + render container.
+# Every secret comes from the host environment (Hostinger's env config or a root .env that is
+# never committed). See docs/DEPLOY.md.
+name: daymarkable
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-daymarkable}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the host environment}
+      POSTGRES_DB: ${POSTGRES_DB:-daymarkable}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-daymarkable} -d ${POSTGRES_DB:-daymarkable}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  render:
+    build: ./services/render
+    restart: unless-stopped
+    expose:
+      - "8787"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8787/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      render:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      APP_URL: ${APP_URL:?set APP_URL, e.g. https://app.daymarkable.com}
+      DATABASE_URL: postgres://${POSTGRES_USER:-daymarkable}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-daymarkable}
+      RENDER_SERVICE_URL: http://render:8787
+      DAYMARKABLE_STATE_DIR: /data
+      DAYMARKABLE_SCHEDULER: "1"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?set DATA_ENCRYPTION_KEY (32 bytes base64)}
+      DECODE_MODEL: ${DECODE_MODEL:-claude-haiku-4-5}
+      DECODE_ESCALATION_MODEL: ${DECODE_ESCALATION_MODEL:-claude-sonnet-5}
+      DECODE_MODEL_ROTATION: ${DECODE_MODEL_ROTATION:-}
+      DECODE_CONFIDENCE_THRESHOLD: ${DECODE_CONFIDENCE_THRESHOLD:-0.7}
+      EMAIL_API_KEY: ${EMAIL_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-dayMarkable <notes@daymarkable.app>}
+      USER_EMAIL: ${USER_EMAIL:?set USER_EMAIL (the registered login address)}
+      USER_TIMEZONE: ${USER_TIMEZONE:-America/New_York}
+      RMAPI_DEVICE_TOKEN: ${RMAPI_DEVICE_TOKEN:-}
+      ADMIN_LOGIN_ID: ${ADMIN_LOGIN_ID:-}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+    volumes:
+      - dmstate:/data
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  # Optional HTTPS edge. Start with `docker compose --profile edge up -d` once APP_DOMAIN points at the VPS.
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["edge"]
+    restart: unless-stopped
+    depends_on:
+      - app
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN, e.g. app.daymarkable.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  dmstate:
+  caddy_data:
+  caddy_config:

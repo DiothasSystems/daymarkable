@@ -7,7 +7,8 @@
     "dev": "next dev --webpack -p 3000",
     "build": "next build --webpack",
     "start": "next start -p 3000",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "admin:hash": "node scripts/admin-hash.mjs"
   },
   "dependencies": {
     "@daymarkable/core": "workspace:*",

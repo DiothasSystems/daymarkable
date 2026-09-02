@@ -4,7 +4,7 @@
  *   DATABASE_URL=pglite://<dir>   -> embedded Postgres (PGlite) for local dev/tests
  *   DATABASE_URL=pglite://memory  -> in-memory PGlite (unit tests)
  */
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
@@ -25,7 +25,11 @@ export interface DbHandle {
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const MIGRATIONS_DIR = path.resolve(here, "..", "drizzle");
+/** Migrations ship in packages/db/drizzle; bundlers relocate this module, so try the known homes. */
+export const MIGRATIONS_DIR =
+  [process.env.DAYMARKABLE_MIGRATIONS_DIR, path.resolve(here, "..", "drizzle"), path.resolve(process.cwd(), "packages", "db", "drizzle"), path.resolve(process.cwd(), "..", "..", "packages", "db", "drizzle")]
+    .filter((p): p is string => !!p)
+    .find((p) => existsSync(path.join(p, "meta", "_journal.json"))) ?? path.resolve(here, "..", "drizzle");
 
 export async function openDb(url = process.env.DATABASE_URL): Promise<DbHandle> {
   if (!url) throw new Error("DATABASE_URL is not set");

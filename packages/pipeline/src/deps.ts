@@ -52,6 +52,7 @@ export async function openRuntime(mode: RuntimeMode, options: { log?: (msg: stri
   const log = options.log ?? defaultLog;
   const config = loadConfig();
   if (!process.env.DATA_ENCRYPTION_KEY) {
+    if (process.env.NODE_ENV === "production") throw new Error("DATA_ENCRYPTION_KEY must be set in the host environment (openssl rand -base64 32)");
     writeEnvValue("DATA_ENCRYPTION_KEY", generateKey());
     log("generated DATA_ENCRYPTION_KEY into .env (keep it: it unlocks the cache and stored tokens)");
   }

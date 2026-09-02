@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/*.tsbuildinfo
+.git
+.daymarkable
+.env
+.env.*
+!.env.example
+design
+docs
+services/render/__pycache__
+*.zip
+.claude
