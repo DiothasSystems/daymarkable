@@ -38,7 +38,7 @@ export interface CalendarItem {
   confidence: number;
 }
 
-export type InboxKind = "task" | "event" | "meeting_request";
+export type InboxKind = "task" | "event" | "meeting_request" | "margin_note";
 
 export interface InboxItem {
   id: string;

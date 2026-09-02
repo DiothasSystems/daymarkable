@@ -101,6 +101,8 @@ export interface TabletProvider {
   ): Promise<UploadResult>;
   /** Move a document to a folder (used for planner archive rotation). */
   moveDocument(doc: TabletDocument, folder: TabletFolder): Promise<UploadResult>;
+  /** Rename a document in place (archive rotation stamps the date on yesterday's planner). */
+  renameDocument(doc: TabletDocument, name: string): Promise<UploadResult>;
   /** Move a document to the trash. */
   deleteDocument(doc: TabletDocument): Promise<void>;
 }

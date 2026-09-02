@@ -11,9 +11,15 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
   DAY, WEEK, MONTH, QUARTER, YEAR, INBOX, ACTIONS, or MEETINGS. If you see such a code, set
   page_kind to "planner" and copy the code into planner_page_code exactly.
 - Checkbox rows: a square box, the item text, and a short monospace item code at the right edge
-  (A01, A02... for actions; I01, I02... for Inbox items). Report every box whose state you can
-  see in checkbox_updates: checked = a tick, cross, or fill inside the box; struck = the text is
+  (A01, A02... actions; I01... Inbox items; M01... meeting invites to confirm; W01... tasks on
+  the Week page; F01... "Focus this week"). Report every box whose state you can see in
+  checkbox_updates: checked = a tick, cross, or fill inside the box; struck = the text is
   crossed out with a line through it (that means "drop this"). Copy the item code exactly.
+  Empty printed boxes with a ruled line and no code are "Add by hand" rows: handwriting there is
+  a NEW task (emit it in tasks, not checkbox_updates).
+- Week page: one row per day with the day's events; Month/Quarter/Year pages: calendar grids
+  where a filled square is today and small dots mark days with commitments. Handwriting inside
+  a grid cell is an event on that cell's date.
 - A ruled column on the right titled "Margin". Handwriting there is a margin_note attached to the
   nearest checkbox row (put the item code in item_code) or, when it is free-standing, a normal
   note/task with page context.
@@ -44,7 +50,11 @@ Rules:
 3. Tasks: something the user must do. Follow-ups: something to chase with a person.
    Events: dated/timed commitments already agreed ("dentist Tue 2pm").
    Meeting requests: intent to SET UP a meeting ("set up 30 min with Priya next Tue").
-   Notes: meeting-note content grouped by meeting topic; loose notes use meeting_topic null.
+   Notes: meeting-note content. meeting_topic names the MEETING itself (who it was with or
+   what it was about, usually the page's title line, e.g. "Dave from Plume"), never a section
+   heading inside the notes. A page is normally ONE meeting: put its whole content in one
+   notes entry (keep section headings inside text) and set meeting_date from the page's date
+   line when present. Loose notes that are not from a meeting use meeting_topic null.
 4. Confidence is about legibility AND interpretation. Below 0.7 means a human should confirm.
    Set needs_escalation true only if the page is so hard to read that a stronger model
    should retry it.

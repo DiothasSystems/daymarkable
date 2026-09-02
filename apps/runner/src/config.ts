@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
@@ -7,9 +8,18 @@ import { STARTER_CONVENTIONS, validateConventions, type UserInkConventions } fro
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(here, "..", "..", "..");
 export const ENV_PATH = path.join(REPO_ROOT, ".env");
-export const STATE_DIR = path.join(REPO_ROOT, ".daymarkable");
-
 dotenv.config({ path: ENV_PATH });
+
+/**
+ * Runtime state (embedded DB, encrypted 1-day cache) lives OUTSIDE the repo by default so a
+ * synced folder (OneDrive/Dropbox) never mirrors it and never locks PGlite's files.
+ * Override with DAYMARKABLE_STATE_DIR (the Docker image sets it to a volume).
+ */
+export const STATE_DIR =
+  process.env.DAYMARKABLE_STATE_DIR ||
+  (process.platform === "win32"
+    ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "dayMarkable")
+    : path.join(os.homedir(), ".daymarkable"));
 
 export interface RunnerConfig {
   deviceToken: string | null;

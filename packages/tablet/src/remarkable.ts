@@ -262,6 +262,15 @@ export class RemarkableCloudProvider implements TabletProvider {
     }
   }
 
+  async renameDocument(doc: TabletDocument, name: string): Promise<UploadResult> {
+    try {
+      const ref = await this.api.rename({ id: doc.id, hash: doc.hash }, name, true);
+      return { id: ref.id, hash: ref.hash };
+    } catch (err) {
+      throw wrap(err, `Renaming "${doc.name}" failed`);
+    }
+  }
+
   async deleteDocument(doc: TabletDocument): Promise<void> {
     try {
       await this.api.delete({ id: doc.id, hash: doc.hash }, true);

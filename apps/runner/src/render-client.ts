@@ -1,4 +1,4 @@
-/** Thin HTTP client for services/render. Falls back to the PDF path when the .rm parser fails. */
+/** Thin HTTP client for services/render. */
 
 export interface RenderedSegment {
   pageId: string;
@@ -68,17 +68,20 @@ function fromWire(s: WireSegment, pageId: string): RenderedSegment {
 
 export async function renderRmPages(
   baseUrl: string,
-  pages: ReadonlyArray<{ pageId: string; rm: Uint8Array | null }>,
+  pages: ReadonlyArray<{ pageId: string; rm: Uint8Array | null; pdfPageIndex?: number | null }>,
+  basePdf: Uint8Array | null = null,
   longEdge = 1568,
 ): Promise<{ segments: RenderedSegment[]; errors: RenderFailure[] }> {
   if (pages.length === 0) return { segments: [], errors: [] };
-  const out = await post<{ segments: WireSegment[]; errors: Array<{ page_id: string; code: string; message: string }> }>(
-    `${baseUrl}/render`,
-    {
-      long_edge: longEdge,
-      pages: pages.map((p) => ({ page_id: p.pageId, rm_b64: p.rm ? Buffer.from(p.rm).toString("base64") : null })),
-    },
-  );
+  const out = await post<{ segments: WireSegment[]; errors: Array<{ page_id: string; code: string; message: string }> }>(`${baseUrl}/render`, {
+    long_edge: longEdge,
+    pdf_b64: basePdf ? Buffer.from(basePdf).toString("base64") : null,
+    pages: pages.map((p) => ({
+      page_id: p.pageId,
+      rm_b64: p.rm ? Buffer.from(p.rm).toString("base64") : null,
+      pdf_page_index: p.pdfPageIndex ?? null,
+    })),
+  });
   return {
     segments: out.segments.map((s) => fromWire(s, s.page_id!)),
     errors: out.errors.map((e) => ({ pageId: e.page_id, code: e.code, message: e.message })),
@@ -86,12 +89,7 @@ export async function renderRmPages(
 }
 
 /** PDF fallback: segments are keyed by zero-based page index (returned in `pageId` as a string). */
-export async function renderPdfPages(
-  baseUrl: string,
-  pdf: Uint8Array,
-  pageIndexes: number[] | null,
-  longEdge = 1568,
-): Promise<RenderedSegment[]> {
+export async function renderPdfPages(baseUrl: string, pdf: Uint8Array, pageIndexes: number[] | null, longEdge = 1568): Promise<RenderedSegment[]> {
   const out = await post<{ segments: WireSegment[]; errors: Array<{ code: string; message: string }> }>(`${baseUrl}/render-pdf`, {
     pdf_b64: Buffer.from(pdf).toString("base64"),
     page_indexes: pageIndexes,

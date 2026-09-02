@@ -5,6 +5,8 @@
     { "path": "packages/tablet" },
     { "path": "packages/decode" },
     { "path": "packages/compose" },
+    { "path": "packages/db" },
+    { "path": "packages/mail" },
     { "path": "apps/runner" }
   ]
 }

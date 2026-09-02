@@ -1,0 +1,22 @@
+{
+  "document": {
+    "id": "9ee3344b-6089-41d1-90d3-c103ad7c99c7",
+    "hash": "3e91ff89368d54fe978458de27fbd011f71688cd832ab8b66fed231d7708dfa2",
+    "name": "Plume",
+    "path": "/Plume",
+    "parentId": "",
+    "fileType": "notebook",
+    "lastModified": null,
+    "pageCount": 1
+  },
+  "pages": [
+    {
+      "pageId": "4af66ed3-e275-4b28-912d-e3970a99f7ec",
+      "index": 0,
+      "hash": "29e0f663ac8a2eb59129d19b59aaa56e3d36b10f101f7e9e43184e69f46987bb",
+      "file": "pages/000-4af66ed3-e275-4b28-912d-e3970a99f7ec.rm"
+    }
+  ],
+  "basePdf": null,
+  "downloadedAt": "2026-09-02T01:36:55.176Z"
+}

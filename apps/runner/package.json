@@ -5,13 +5,17 @@
   "type": "module",
   "scripts": {
     "spike": "tsx src/spike.ts",
-    "dev:run": "tsx src/run.ts",
+    "dev:run": "tsx src/main.ts",
+    "serve": "tsx src/main.ts --live --serve",
+    "dump": "tsx src/dump.ts",
     "build": "tsc -b"
   },
   "dependencies": {
     "@daymarkable/compose": "workspace:*",
     "@daymarkable/core": "workspace:*",
+    "@daymarkable/db": "workspace:*",
     "@daymarkable/decode": "workspace:*",
+    "@daymarkable/mail": "workspace:*",
     "@daymarkable/tablet": "workspace:*",
     "dotenv": "^16.4.7",
     "luxon": "^3.6.1"

@@ -1,0 +1,113 @@
+{
+  "schema_version": 1,
+  "page_kind": "notes",
+  "planner_page_code": null,
+  "transcription": "Dave from Plume                                          9-1-26\n\n- W.I.F 8                                    [Jim Jet]\n- Cellular Failover\n- Uprises\n\nJoel Waterman - Device\n                 Integration\n\nRoadmap\n  Wi-Fi 8\n  No Answers\n  Target by ESY\n\nPFA - Plume Firmware Agent\n  -New Devices - W.I.F 8\n  - PRPL, RDR, ...\n  - TR-369 Based\n\nLarge TI Already Know\n\nNetwork X - QCA PFA\n\nTDS has seen PFA\nRoadmap\nCall w/Sean on Wi-Fi 8\nCould be Completely\n  Issues\n\n- PFA Beta w/Test\n\nCellular Failover\n  -Secondary SSID\n  For Backup From Phone\n  -Integrated Solution\n    -Backup\n    -Terrible Solution\n  -Asker Invincible Wi-F\n  -Battery Optional\n\nQoS OpenSync Backup\n\nReady to enable\nPFA\n\nJim McGlenn - MDU\n              Read",
+  "tasks": [
+    {
+      "text": "Call w/Sean on Wi-Fi 8",
+      "due": null,
+      "due_time": null,
+      "priority": "normal",
+      "kind": "action",
+      "project": null,
+      "people": [
+        "Sean"
+      ],
+      "source_convention": null,
+      "confidence": 0.75
+    },
+    {
+      "text": "PFA Beta w/Test",
+      "due": null,
+      "due_time": null,
+      "priority": "normal",
+      "kind": "action",
+      "project": "PFA",
+      "people": [],
+      "source_convention": null,
+      "confidence": 0.7
+    },
+    {
+      "text": "Ready to enable PFA",
+      "due": null,
+      "due_time": null,
+      "priority": "normal",
+      "kind": "action",
+      "project": "PFA",
+      "people": [],
+      "source_convention": null,
+      "confidence": 0.65
+    },
+    {
+      "text": "QoS OpenSync Backup",
+      "due": null,
+      "due_time": null,
+      "priority": "normal",
+      "kind": "action",
+      "project": null,
+      "people": [],
+      "source_convention": null,
+      "confidence": 0.65
+    }
+  ],
+  "events": [
+    {
+      "title": "W.I.F 8",
+      "date": "2026-09-01",
+      "start_time": null,
+      "end_time": null,
+      "location": null,
+      "people": [
+        "Jim Jet"
+      ],
+      "confidence": 0.65
+    }
+  ],
+  "meeting_requests": [],
+  "notes": [
+    {
+      "meeting_topic": "Roadmap",
+      "meeting_date": null,
+      "meeting_time": null,
+      "attendees": [
+        "Joel Waterman"
+      ],
+      "text": "Roadmap: Wi-Fi 8, No Answers, Target by ESY",
+      "decisions": [],
+      "confidence": 0.7
+    },
+    {
+      "meeting_topic": "PFA - Plume Firmware Agent",
+      "meeting_date": null,
+      "meeting_time": null,
+      "attendees": [],
+      "text": "New Devices - W.I.F 8, PRPL, RDR, TR-369 Based. Large TI Already Know. Network X - QCA PFA. TDS has seen PFA Roadmap.",
+      "decisions": [],
+      "confidence": 0.68
+    },
+    {
+      "meeting_topic": "Cellular Failover",
+      "meeting_date": null,
+      "meeting_time": null,
+      "attendees": [],
+      "text": "Secondary SSID for Backup From Phone. Integrated Solution - Backup, Terrible Solution. Asker Invincible Wi-F, Battery Optional.",
+      "decisions": [],
+      "confidence": 0.65
+    },
+    {
+      "meeting_topic": "Jim McGlenn",
+      "meeting_date": null,
+      "meeting_time": null,
+      "attendees": [
+        "Jim McGlenn"
+      ],
+      "text": "MDU Read",
+      "decisions": [],
+      "confidence": 0.6
+    }
+  ],
+  "checkbox_updates": [],
+  "overall_confidence": 0.68,
+  "needs_escalation": false
+}
