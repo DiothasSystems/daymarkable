@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@11.25.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "pnpm -r --filter './packages/**' run build",
     "typecheck": "tsc -b tsconfig.json",
@@ -13,7 +15,9 @@
     "dev:run": "pnpm --filter @daymarkable/runner dev:run",
     "db:migrate": "pnpm --filter @daymarkable/db migrate",
     "render:dev": "cd services/render && python -m uvicorn app:app --host 127.0.0.1 --port 8787",
-    "render:up": "docker compose up -d render"
+    "render:up": "docker compose up -d render",
+    "db:dev": "pnpm --filter @daymarkable/db dev-server",
+    "web:dev": "pnpm --filter @daymarkable/web dev"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

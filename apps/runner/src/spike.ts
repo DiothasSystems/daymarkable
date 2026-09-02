@@ -25,8 +25,7 @@ import {
   type DownloadedDocument,
   type TabletDocument,
 } from "@daymarkable/tablet";
-import { STATE_DIR, loadConfig, writeEnvValue } from "./config.js";
-import { renderHealthy, renderPdfPages, renderRmPages } from "./render-client.js";
+import { STATE_DIR, loadConfig, writeEnvValue, renderHealthy, renderPdfPages, renderRmPages } from "@daymarkable/pipeline";
 
 const SPIKE_DIR = path.join(STATE_DIR, "spike");
 

@@ -8,6 +8,6 @@
     { "path": "../../packages/decode" },
     { "path": "../../packages/compose" },
     { "path": "../../packages/db" },
-    { "path": "../../packages/mail" }
+    { "path": "../../packages/pipeline" }
   ]
 }

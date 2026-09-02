@@ -42,7 +42,8 @@ export async function openDb(url = process.env.DATABASE_URL): Promise<DbHandle> 
       close: () => client.close(),
     };
   }
-  const pool = new pg.Pool({ connectionString: url });
+  // PG_POOL_MAX=1 when the server is the PGlite socket (single-connection database); default 10 for real Postgres.
+  const pool = new pg.Pool({ connectionString: url, max: Number(process.env.PG_POOL_MAX ?? 10) });
   const db = drizzlePg(pool, { schema });
   return {
     db,

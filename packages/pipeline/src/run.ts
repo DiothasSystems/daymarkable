@@ -41,6 +41,8 @@ export interface PipelineParams {
   upload?: boolean;
   /** Process pages regardless of the previous-day window (first-run bootstrap of one notebook). */
   windowHours?: number;
+  /** Called as soon as the run row exists (web "Sync now" returns the id and polls). */
+  onStarted?: (runId: string) => void;
 }
 
 export interface RunOutcome {
@@ -135,10 +137,11 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     }
   }
 
-  const seq = params.kind === "nightly" ? 0 : await repo.nextOnDemandSeq(db, user.id, localDate);
+  const seq = await repo.nextSeq(db, user.id, localDate, params.kind);
   const lastSuccess = await repo.lastSuccessfulRun(db, user.id);
   const run = await repo.createRun(db, { userId: user.id, localDate, kind: params.kind, seq, requestedVia: params.requestedVia, decodeModel: deps.decodeModel, cacheDir: null });
   await repo.updateRun(db, run.id, { cacheDir: deps.cache.location(run.id) });
+  params.onStarted?.(run.id);
   const runLabel = params.kind === "nightly" ? "nightly" : `on-demand ${seq}`;
   const stats = emptyStats();
   log(`run ${run.id.slice(0, 8)} started: ${runLabel} for ${localDate} (${tz})`);

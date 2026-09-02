@@ -1,22 +1,20 @@
 {
-  "name": "@daymarkable/runner",
+  "name": "@daymarkable/pipeline",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "spike": "tsx src/spike.ts",
-    "dev:run": "tsx src/main.ts",
-    "serve": "tsx src/main.ts --live --serve",
-    "dump": "tsx src/dump.ts",
-    "build": "tsc -b"
-  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": { "build": "tsc -b" },
   "dependencies": {
     "@daymarkable/compose": "workspace:*",
     "@daymarkable/core": "workspace:*",
     "@daymarkable/db": "workspace:*",
     "@daymarkable/decode": "workspace:*",
-    "@daymarkable/pipeline": "workspace:*",
+    "@daymarkable/mail": "workspace:*",
     "@daymarkable/tablet": "workspace:*",
+    "dotenv": "^16.4.7",
     "luxon": "^3.6.1"
   },
   "devDependencies": {

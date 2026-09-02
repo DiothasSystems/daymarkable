@@ -85,12 +85,23 @@ export async function lastSuccessfulRun(db: Db, userId: string): Promise<RunRow 
   });
 }
 
-export async function nextOnDemandSeq(db: Db, userId: string, localDate: string): Promise<number> {
+/**
+ * Next sequence number for (user, local-date, kind). Nightly attempts start at 0 and only
+ * grow when an earlier attempt failed (a succeeded date is skipped before we get here);
+ * on-demand runs start at 1 (rule 11 keys).
+ */
+export async function nextSeq(db: Db, userId: string, localDate: string, kind: "nightly" | "on_demand"): Promise<number> {
   const [row] = await db
-    .select({ max: sql<number>`coalesce(max(${schema.runs.seq}), 0)` })
+    .select({ max: sql<number>`max(${schema.runs.seq})` })
     .from(schema.runs)
-    .where(and(eq(schema.runs.userId, userId), eq(schema.runs.localDate, localDate), eq(schema.runs.kind, "on_demand")));
-  return Number(row?.max ?? 0) + 1;
+    .where(and(eq(schema.runs.userId, userId), eq(schema.runs.localDate, localDate), eq(schema.runs.kind, kind)));
+  const max = row?.max === null || row?.max === undefined ? null : Number(row.max);
+  if (kind === "nightly") return max === null ? 0 : max + 1;
+  return (max ?? 0) + 1;
+}
+
+export async function nextOnDemandSeq(db: Db, userId: string, localDate: string): Promise<number> {
+  return nextSeq(db, userId, localDate, "on_demand");
 }
 
 /** Rule 11: on-demand syncs in the rolling 24h window, counted across every surface. */
@@ -115,6 +126,19 @@ export async function updateRun(db: Db, runId: string, patch: Partial<typeof sch
 
 export async function finishRun(db: Db, runId: string, status: "succeeded" | "failed" | "skipped", stats: RunStats | null, error: string | null): Promise<void> {
   await db.update(schema.runs).set({ status, finishedAt: new Date(), stats, error }).where(eq(schema.runs.id, runId));
+}
+
+/**
+ * Runs still marked "running" whose process is gone (restart, crash). The process that owns
+ * run execution calls this at boot with maxAgeMinutes 0; others use a generous age.
+ */
+export async function failStaleRuns(db: Db, maxAgeMinutes: number): Promise<number> {
+  const cutoff = new Date(Date.now() - maxAgeMinutes * 60_000);
+  const stale = await db.query.runs.findMany({ where: and(eq(schema.runs.status, "running"), sql`coalesce(${schema.runs.startedAt}, ${schema.runs.createdAt}) <= ${cutoff}`) });
+  for (const r of stale) {
+    await db.update(schema.runs).set({ status: "failed", finishedAt: new Date(), error: "interrupted: process restarted before the run finished" }).where(eq(schema.runs.id, r.id));
+  }
+  return stale.length;
 }
 
 export async function unpurgedPreviousRuns(db: Db, userId: string, currentRunId: string): Promise<RunRow[]> {

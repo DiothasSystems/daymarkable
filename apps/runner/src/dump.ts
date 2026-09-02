@@ -6,8 +6,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Sealer, desc, openDb, schema, sql } from "@daymarkable/db";
-import { LocalCacheStore } from "./cache.js";
-import { STATE_DIR } from "./config.js";
+import { LocalCacheStore, STATE_DIR } from "@daymarkable/pipeline";
 
 const out = process.argv[2];
 if (!out) {
