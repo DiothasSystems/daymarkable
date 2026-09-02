@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #f7f0e3; font-family: 'Public Sans', sans-serif; color: #1e2a44; }
+a { color: #b8862f; } a:hover { color: #94691f; }
+@keyframes dmLogo { 0% { opacity: 0; transform: scale(0.82) rotate(-18deg); } 6% { opacity: 1; transform: scale(1) rotate(0deg); } 17% { opacity: 1; transform: scale(1) rotate(0deg); } 23%, 100% { opacity: 0; transform: scale(1.08) rotate(0deg); } }
+@keyframes dmScene { 0%, 17% { opacity: 0; } 24%, 100% { opacity: 1; } }
+@keyframes dmDraw { 0%, 22% { stroke-dashoffset: 1; opacity: 1; } 46% { stroke-dashoffset: 0; } 88% { stroke-dashoffset: 0; opacity: 1; } 94% { opacity: 0; } 97% { stroke-dashoffset: 1; opacity: 0; } 100% { stroke-dashoffset: 1; opacity: 1; } }
+@keyframes dmArrow { 0%, 42% { opacity: 0; } 48%, 88% { opacity: 1; } 94%, 100% { opacity: 0; } }
+@keyframes dmCard1 { 0%, 48% { opacity: 0; transform: translateX(-16px); } 54%, 88% { opacity: 1; transform: translateX(0); } 94%, 100% { opacity: 0; transform: translateX(-16px); } }
+@keyframes dmCard2 { 0%, 55% { opacity: 0; transform: translateX(-16px); } 61%, 88% { opacity: 1; transform: translateX(0); } 94%, 100% { opacity: 0; transform: translateX(-16px); } }
+@keyframes dmCard3 { 0%, 62% { opacity: 0; transform: translateX(-16px); } 68%, 88% { opacity: 1; transform: translateX(0); } 94%, 100% { opacity: 0; transform: translateX(-16px); } }
+@keyframes dmTick { 0%, 66% { stroke-dashoffset: 1; } 72%, 100% { stroke-dashoffset: 0; } }
+</style>
+</helmet>
+<div>
+  <!-- NAV -->
+  <nav style="display: flex; align-items: center; justify-content: space-between; max-width: 1080px; margin: 0 auto; padding: 22px 48px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <img src="assets/emblem.png" alt="dayMarkable" style="width: 40px; height: 40px;">
+      <span style="font-family: 'Source Serif 4', serif; font-size: 22px; font-weight: 700;"><span style="color: #b8862f;">day</span>Markable</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 28px; font-size: 14px; font-weight: 600;">
+      <a href="#how" style="color: #4a5266; text-decoration: none;">How it works</a>
+      <a href="#pages" style="color: #4a5266; text-decoration: none;">Your pages</a>
+      <a href="#pricing" style="color: #4a5266; text-decoration: none;">Pricing</a>
+      <a href="#" style="background: #1e2a44; color: #f7f0e3; text-decoration: none; border-radius: 4px; padding: 10px 20px;">Start free</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header style="max-width: 1080px; margin: 0 auto; padding: 64px 48px 80px; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center;">
+    <div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #b8862f; margin-bottom: 18px;">NOTE TO ACTION ORGANIZER · FOR reMARKABLE</div>
+      <h1 style="font-family: 'Source Serif 4', serif; font-size: 54px; font-weight: 700; line-height: 1.12; letter-spacing: -0.01em; margin: 0;">You write by hand. We turn it into tomorrow.</h1>
+      <p style="font-size: 18px; line-height: 1.65; color: #4a5266; max-width: 480px; margin: 22px 0 32px;">Every night, dayMarkable reads the notebooks on your reMarkable tablet and returns a plan by morning: meeting summaries, action items, and follow-ups for the day, week, and month ahead.</p>
+      <div style="display: flex; gap: 14px; align-items: center;">
+        <a href="#" style="background: #1e2a44; color: #f7f0e3; text-decoration: none; border-radius: 4px; padding: 14px 28px; font-size: 15px; font-weight: 600;">Start free — 14 days</a>
+        <a href="#how" style="font-size: 15px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px;">See how it works →</a>
+      </div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f; margin-top: 20px;">NO APP TO LEARN · YOUR PEN, YOUR PAPER, YOUR HANDWRITING</div>
+    </div>
+    <div style="position: relative;">
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; animation: dmLogo 12s ease-in-out infinite; pointer-events: none;">
+        <img src="assets/emblem.png" alt="dayMarkable emblem" style="width: 230px; height: 230px;">
+        <div style="font-family: 'Source Serif 4', serif; font-size: 28px; font-weight: 700;"><span style="color: #b8862f;">day</span>Markable</div>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; gap: 18px; animation: dmScene 12s linear infinite;">
+      <!-- tablet with handwriting -->
+      <div style="width: 210px; height: 280px; background: #fbfbf9; border: 2px solid #1e2a44; border-radius: 10px; padding: 18px 16px; box-sizing: border-box; box-shadow: 0 4px 14px rgba(30,42,68,0.12); flex-shrink: 0;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.12em; color: #9a9a9a; margin-bottom: 8px;">MEETING-NOTES · p.6</div>
+        <svg width="100%" height="205" viewBox="0 0 178 205" fill="none" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round">
+          <path pathLength="1" style="stroke-dasharray: 1; animation: dmDraw 12s linear infinite;" d="M 8 18 C 20 10 28 24 40 16 C 50 10 58 22 72 15 C 84 9 94 20 108 14"></path>
+          <path pathLength="1" style="stroke-dasharray: 1; animation: dmDraw 12s linear infinite; animation-delay: 0.3s;" d="M 8 46 C 24 38 34 52 52 44 C 66 38 76 50 92 43 C 108 36 122 48 140 42 C 150 39 158 44 166 41"></path>
+          <path pathLength="1" style="stroke-dasharray: 1; animation: dmDraw 12s linear infinite; animation-delay: 0.6s;" d="M 8 74 C 22 66 32 80 48 72 C 62 66 74 78 90 71 C 102 66 112 74 124 70"></path>
+          <path pathLength="1" style="stroke-dasharray: 1; animation: dmDraw 12s linear infinite; animation-delay: 0.9s;" d="M 8 108 L 20 108 M 30 104 C 44 98 54 110 70 103 C 84 97 96 108 112 102 C 126 96 138 106 152 101"></path>
+          <path pathLength="1" style="stroke-dasharray: 1; animation: dmDraw 12s linear infinite; animation-delay: 1.2s;" d="M 8 136 C 26 128 38 142 58 134 C 74 128 86 140 104 133 C 116 128 126 136 138 132"></path>
+          <path pathLength="1" style="stroke-dasharray: 1; animation: dmDraw 12s linear infinite; animation-delay: 1.5s;" d="M 8 170 C 18 164 26 174 38 168 C 50 162 60 172 74 166 M 90 168 C 102 161 112 172 128 165 C 142 159 154 168 168 163"></path>
+        </svg>
+      </div>
+      <!-- arrow -->
+      <svg width="34" height="34" viewBox="0 0 34 34" style="animation: dmArrow 12s linear infinite; flex-shrink: 0;" fill="none" stroke="#b8862f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 17 L 27 17 M 19 8 L 28 17 L 19 26"></path></svg>
+      <!-- outputs -->
+      <div style="display: flex; flex-direction: column; gap: 12px; width: 224px; flex-shrink: 0;">
+        <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(30,42,68,0.08); animation: dmCard1 12s linear infinite;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M 3 7 L 12 13 L 21 7"></path></svg>
+            <span style="font-size: 12px; font-weight: 700;">Meeting summary</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #b8862f; margin-left: auto;">02:14</span>
+          </div>
+          <div style="font-size: 11px; color: #4a5266; margin-top: 6px; line-height: 1.45;">Q3 Planning — launch date settled, 2 follow-ups found.</div>
+        </div>
+        <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(30,42,68,0.08); animation: dmCard2 12s linear infinite;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path pathLength="1" style="stroke-dasharray: 1; animation: dmTick 12s linear infinite;" d="M 8 12 L 11 15 L 17 8" stroke="#b8862f"></path></svg>
+            <span style="font-size: 12px; font-weight: 700;">Action item</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #b8862f; margin-left: auto;">DUE WED</span>
+          </div>
+          <div style="font-size: 11px; color: #4a5266; margin-top: 6px; line-height: 1.45;">Send vendor shortlist to Maya — from p.6, line 4.</div>
+        </div>
+        <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(30,42,68,0.08); animation: dmCard3 12s linear infinite;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg>
+            <span style="font-size: 12px; font-weight: 700;">Week updated</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #8a7d5f; margin-left: auto;">WK 36</span>
+          </div>
+          <div style="font-size: 11px; color: #4a5266; margin-top: 6px; line-height: 1.45;">2 due dates placed · daily page ready for your pen.</div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- HOW IT WORKS -->
+  <section id="how" style="background: #1e2a44; color: #f7f0e3;">
+    <div style="max-width: 1080px; margin: 0 auto; padding: 72px 48px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #c9973f; margin-bottom: 10px;">HOW IT WORKS</div>
+      <h2 style="font-family: 'Source Serif 4', serif; font-size: 34px; font-weight: 700; margin: 0 0 44px;">Today's notes → tomorrow's actions. While you sleep.</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px;">
+        <div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #c9973f; margin-bottom: 12px;">01 · YOU WRITE</div>
+          <p style="font-size: 15px; line-height: 1.65; color: #cfc9ba; margin: 0;">Take notes the way you always have — meetings, ideas, to-dos, margins and all. No tags, no syntax, no changing your habits.</p>
+        </div>
+        <div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #c9973f; margin-bottom: 12px;">02 · WE READ · 02:14</div>
+          <p style="font-size: 15px; line-height: 1.65; color: #cfc9ba; margin: 0;">Overnight, dayMarkable reads your notebooks, finds the decisions, commitments, and follow-ups, and links every one back to the page it came from.</p>
+        </div>
+        <div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #c9973f; margin-bottom: 12px;">03 · YOU WAKE UP READY</div>
+          <p style="font-size: 15px; line-height: 1.65; color: #cfc9ba; margin: 0;">By morning: a meeting-notes email in your inbox, and fresh daily, weekly, monthly, and yearly pages on your tablet — ready for your pen.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- YOUR PAGES -->
+  <section id="pages" style="max-width: 1080px; margin: 0 auto; padding: 80px 48px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.2em; color: #b8862f; margin-bottom: 10px;">DELIVERED NIGHTLY</div>
+    <h2 style="font-family: 'Source Serif 4', serif; font-size: 34px; font-weight: 700; margin: 0 0 12px;">Pages that land on your tablet. Email that lands in your inbox.</h2>
+    <p style="font-size: 16px; line-height: 1.6; color: #4a5266; max-width: 600px; margin: 0 0 44px;">Every page keeps room for your handwriting — checkboxes to tick with a pen, ruled lines for new notes. The ink is always the authority; the summary is the index.</p>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 28px;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 14px;"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M 8 12 L 11 15 L 17 8"></path></svg>
+        <div style="font-weight: 700; font-size: 16px; margin-bottom: 8px;">Daily page</div>
+        <p style="font-size: 14px; line-height: 1.6; color: #4a5266; margin: 0;">Today's actions and schedule on one sheet — carried-over items flagged, notes space below.</p>
+      </div>
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 28px;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 14px;"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg>
+        <div style="font-weight: 700; font-size: 16px; margin-bottom: 8px;">Week · Month · Year</div>
+        <p style="font-size: 14px; line-height: 1.6; color: #4a5266; margin: 0;">At-a-glance calendars with your open actions down the side, refreshed every night as things get done.</p>
+      </div>
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 28px;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 14px;"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M 3 7 L 12 13 L 21 7"></path></svg>
+        <div style="font-weight: 700; font-size: 16px; margin-bottom: 8px;">Meeting-notes email</div>
+        <p style="font-size: 14px; line-height: 1.6; color: #4a5266; margin: 0;">Each meeting summarized with its decisions and follow-ups — quoting your own ink, page references included.</p>
+      </div>
+    </div>
+    <div style="margin-top: 28px; border-left: 3px solid #c9973f; background: #fdfaf3; border-top: 1px solid #e3d9c2; border-right: 1px solid #e3d9c2; border-bottom: 1px solid #e3d9c2; border-radius: 0 6px 6px 0; padding: 18px 24px; display: flex; align-items: baseline; gap: 14px;">
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">MEETING-NOTES/Q3-PLANNING · p.6 · 14:32</span>
+      <span style="font-size: 14px; font-style: italic; color: #4a5266;">"vendor shortlist → Maya by Wed"</span>
+      <span style="font-size: 13px; color: #4a5266;">— became an action, due Wednesday, without you typing a thing.</span>
+    </div>
+  </section>
+
+  <!-- FOR WHOM -->
+  <section style="border-top: 1px solid #d9cdb4; border-bottom: 1px solid #d9cdb4; background: #fdfaf3;">
+    <div style="max-width: 1080px; margin: 0 auto; padding: 64px 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center;">
+      <div>
+        <h2 style="font-family: 'Source Serif 4', serif; font-size: 30px; font-weight: 700; margin: 0 0 16px;">Built for people who never stopped writing.</h2>
+        <p style="font-size: 16px; line-height: 1.7; color: #4a5266; margin: 0;">You think with a pen. You've tried the task apps and gone back to paper every time. dayMarkable doesn't ask you to change — it does the typing, filing, and reminding, and leaves the thinking in your hand.</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; gap: 12px; font-size: 15px;"><span style="color: #b8862f; font-weight: 700;">→</span> Nothing to install on the tablet — pages arrive like any notebook</div>
+        <div style="display: flex; gap: 12px; font-size: 15px;"><span style="color: #b8862f; font-weight: 700;">→</span> Your handwriting stays private — read, summarized, never shared</div>
+        <div style="display: flex; gap: 12px; font-size: 15px;"><span style="color: #b8862f; font-weight: 700;">→</span> Tick a box with your pen — it's marked done by the next sync</div>
+        <div style="display: flex; gap: 12px; font-size: 15px;"><span style="color: #b8862f; font-weight: 700;">→</span> Every summary links to the page and line it came from</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING / CTA -->
+  <section id="pricing" style="max-width: 1080px; margin: 0 auto; padding: 80px 48px; text-align: center;">
+    <img src="assets/emblem.png" alt="" style="width: 88px; height: 88px; margin-bottom: 20px;">
+    <h2 style="font-family: 'Source Serif 4', serif; font-size: 34px; font-weight: 700; margin: 0 0 12px;">Tonight's notes could be tomorrow's plan.</h2>
+    <p style="font-size: 16px; color: #4a5266; margin: 0 0 28px;">$8/month after a 14-day free trial. One tablet, unlimited notebooks. Cancel anytime.</p>
+    <a href="#" style="display: inline-block; background: #1e2a44; color: #f7f0e3; text-decoration: none; border-radius: 4px; padding: 15px 34px; font-size: 16px; font-weight: 600;">Start free — connect your tablet</a>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f; margin-top: 18px;">FIRST SUMMARY IN YOUR INBOX TOMORROW · 02:14</div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer style="border-top: 1px solid #d9cdb4;">
+    <div style="max-width: 1080px; margin: 0 auto; padding: 28px 48px; display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <img src="assets/emblem.png" alt="" style="width: 24px; height: 24px;">
+        <span style="font-family: 'Source Serif 4', serif; font-size: 16px; font-weight: 700;"><span style="color: #b8862f;">day</span>Markable</span>
+      </div>
+      <div style="display: flex; gap: 24px; font-size: 13px;">
+        <a href="#" style="color: #4a5266; text-decoration: none;">Privacy</a>
+        <a href="#" style="color: #4a5266; text-decoration: none;">Terms</a>
+        <a href="#" style="color: #4a5266; text-decoration: none;">Support</a>
+      </div>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">© 2026 dayMarkable · Not affiliated with reMarkable AS</span>
+    </div>
+  </footer>
+</div>
+</x-dc>
+</body>
+</html>

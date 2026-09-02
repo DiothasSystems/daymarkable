@@ -108,11 +108,15 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
           {registry.meetings.length === 0 ? <div className="card muted">No meetings decoded yet. Title a page with the meeting and date.</div> : null}
           {registry.meetings.map((m) => (
             <article className="card" key={m.id}>
-              <h2>{m.topic}</h2>
-              <p className="meta">{m.date ? fmtDate(m.date) : "undated"}{m.time ? ` · ${m.time}` : ""} · with {m.attendees.length ? m.attendees.join(", ") : "—"} · from {m.source.notebook} p{m.source.pageIndex + 1}</p>
-              <p style={{ whiteSpace: "pre-wrap" }}>{m.text}</p>
-              {m.decisions.length ? (<><p className="kicker">Decisions</p><ul>{m.decisions.map((d, i) => <li key={i}>{d}</li>)}</ul></>) : null}
-              {m.actions.length ? (<><p className="kicker">Actions</p><ul>{m.actions.map((a, i) => <li key={i}>{a}</li>)}</ul></>) : null}
+              <div className="row between" style={{ alignItems: "baseline" }}>
+                <h2 style={{ marginBottom: 4 }}>{m.topic}</h2>
+                <span className="meta">{m.time ? `${m.time} · ` : ""}p.{m.source.pageIndex + 1}</span>
+              </div>
+              <p className="meta" style={{ marginBottom: 12 }}>{m.date ? fmtDate(m.date) : "undated"} · with {m.attendees.length ? m.attendees.join(", ") : "—"}</p>
+              <p className="muted" style={{ whiteSpace: "pre-wrap", fontSize: 14 }}>{m.text}</p>
+              {m.decisions[0] ? (<><div className="quote">“{m.decisions[0]}”</div><div className="source-ref">{m.source.notebook.toUpperCase()} · p.{m.source.pageIndex + 1}</div></>) : null}
+              {m.decisions.length ? (<><p className="kicker" style={{ marginTop: 14 }}>Decisions</p><ul className="list">{m.decisions.map((d, i) => <li key={i}><span className="arrow">→</span><span>{d}</span></li>)}</ul></>) : null}
+              {m.actions.length ? (<><p className="kicker" style={{ marginTop: 14 }}>Actions</p><ul className="list">{m.actions.map((a, i) => <li key={i}><span className="arrow">→</span><span>{a}</span></li>)}</ul></>) : null}
             </article>
           ))}
         </div>

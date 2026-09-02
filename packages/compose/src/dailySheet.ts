@@ -1,129 +1,176 @@
 /**
- * The Daily Sheet (README core feature 3): today's date, calendar block, prioritized action
- * list with checkboxes, carried-over dot counts, Inbox to confirm, and a margin column.
+ * The Daily page ("Tablet Pages and Email", panel 2): two columns. Left ACTIONS, CARRIED
+ * OVER, CONFIRM (Inbox + invites) and a NOTES area of ruled lines; right a SCHEDULE of hourly
+ * rows with filled chips for confirmed meetings and outlined chips for tentative ones.
  *
- * Layout contract with the decoder: see PLANNER_LAYOUT_DESCRIPTION in packages/decode.
- * Change both together (CLAUDE.md rule 6).
+ * Layout contract with the decoder: PLANNER_LAYOUT_DESCRIPTION in packages/decode. Change
+ * both together (CLAUDE.md rule 6).
  */
 import type { ActionItem, CalendarItem, DailySheetModel, PrintedItem } from "@daymarkable/core";
-import { INK, INK_30, INK_60 } from "./brand.js";
-import { newDocument } from "./canvas.js";
-import { BODY_SIZE, LINE_H, MAIN_X, ROW_GAP, Section, formatLongDate, formatShortDate, type ComposeContext, type RowItem } from "./section.js";
+import { CARRIED, CHECKBOX_PX, INK, RULE, SECONDARY, TERTIARY } from "./brand.js";
+import { BODY_BOTTOM, CONTENT_RIGHT, CONTENT_W, CONTENT_X, addPage, newDocument, type Canvas } from "./canvas.js";
+import { formatShortDate, formatTag, formatTitleDate, generatedStamp, pageCode, type ComposeContext } from "./section.js";
 
 export { formatLongDate, formatShortDate } from "./section.js";
 
 export function dailyPageCode(date: string, page: number): string {
-  return `dM/DAY/${date}/${page}`;
+  return pageCode("DAY", date, page);
 }
 
-function actionMeta(a: ActionItem): string | null {
-  const parts: string[] = [];
-  if (a.due) parts.push(`${formatShortDate(a.due)}${a.dueTime ? ` ${a.dueTime}` : ""}`);
-  if (a.kind === "follow_up") parts.push("follow-up");
-  if (a.priority === "high") parts.push("HIGH");
-  if (a.project) parts.push(a.project);
-  if (a.people.length) parts.push(a.people.join(", "));
-  return parts.join(" · ") || null;
+const COL_GAP = 60;
+const COL_W = (CONTENT_W - COL_GAP) / 2;
+const LEFT_X = CONTENT_X;
+const RIGHT_X = CONTENT_X + COL_W + COL_GAP;
+const ROW_SIZE = 36; // mock 12px ×3
+const ROW_GAP = 27; // mock 9px ×3
+const SIDE_SIZE = 33; // mock 11px ×3
+
+interface Codes {
+  ctx: ComposeContext;
+  page: string;
+  counters: Map<string, number>;
 }
 
-export function actionRowItem(a: ActionItem): RowItem {
-  return { id: a.id, type: "task", text: a.text, meta: actionMeta(a), carriedCount: a.carriedCount, emphasis: true };
+function nextCode(c: Codes, prefix: string, type: PrintedItem["itemType"], id: string): string {
+  const n = (c.counters.get(prefix) ?? 0) + 1;
+  c.counters.set(prefix, n);
+  const code = `${prefix}${String(n).padStart(2, "0")}`;
+  c.ctx.printed.push({ pageCode: c.page, itemCode: code, itemType: type, itemId: id });
+  return code;
 }
 
-function schedule(s: Section, events: CalendarItem[]): void {
-  const f = s.canvas.fonts;
-  const timed = events.filter((e) => e.startTime);
-  const untimed = events.filter((e) => !e.startTime);
-  for (const e of untimed) {
-    s.ensure(LINE_H);
-    s.canvas.text("ALL DAY", MAIN_X, s.y + BODY_SIZE, { font: f.mono, size: 19, color: INK_60 });
-    s.canvas.text(e.title, MAIN_X + 120, s.y + BODY_SIZE, { font: f.uiMedium, size: BODY_SIZE });
-    s.y += LINE_H;
+export function actionTag(a: ActionItem, today: string): string | null {
+  if (a.carriedCount > 0) return `CARRIED ${a.carriedCount}D`;
+  if (a.due) {
+    if (a.due === today) return "TODAY";
+    return `DUE ${formatTag(a.due)}`;
   }
-  if (untimed.length) s.y += ROW_GAP;
+  if (a.priority === "high") return "PRIORITY";
+  if (a.kind === "follow_up") return "FOLLOW-UP";
+  return null;
+}
 
-  const startHour = Math.min(7, ...timed.map((e) => Number(e.startTime!.slice(0, 2))));
-  const endHour = Math.max(18, ...timed.map((e) => Number((e.endTime ?? e.startTime)!.slice(0, 2)) + 1));
-  const rowH = 46;
-  const hours = endHour - startHour;
-  s.ensure(hours * rowH + 20);
-  const top = s.y;
-  const right = MAIN_X + s.mainWidth;
-  for (let h = 0; h <= hours; h++) {
-    const yy = top + h * rowH;
-    s.canvas.hline(MAIN_X + 84, right, yy, h === 0 || h === hours ? 1.5 : 1, INK_30);
-    if (h < hours) {
-      s.canvas.text(`${String(startHour + h).padStart(2, "0")}:00`, MAIN_X, yy + 26, { font: f.mono, size: 19, color: INK_60 });
+/** One checkbox row inside a column; returns the height used, or 0 if it did not fit. */
+function columnRow(c: Canvas, codes: Codes, x: number, y: number, width: number, bottom: number, item: { id: string; type: PrintedItem["itemType"]; text: string; tag: string | null; carried: boolean }, prefix: string): number {
+  const f = c.fonts;
+  const textX = x + CHECKBOX_PX + 24;
+  const codeW = 80;
+  const tagW = item.tag ? c.textWidth(item.tag, f.mono, 24) + 24 : 0;
+  const textW = width - (textX - x) - codeW - tagW;
+  const lines = c.wrap(item.text, f.ui, ROW_SIZE, textW);
+  const h = lines.length * 46 + ROW_GAP;
+  if (y + h > bottom) return 0;
+  const code = nextCode(codes, prefix, item.type, item.id);
+  c.checkbox(x, y + 4, CHECKBOX_PX, item.carried ? SECONDARY : INK);
+  lines.forEach((l, i) => c.text(l, textX, y + ROW_SIZE + i * 46, { font: f.ui, size: ROW_SIZE, color: item.carried ? CARRIED : INK }));
+  c.text(code, x + width, y + ROW_SIZE, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
+  if (item.tag) c.text(item.tag, x + width - codeW, y + ROW_SIZE, { font: f.mono, size: 24, color: item.carried ? TERTIARY : SECONDARY, align: "right", tracking: 0.04 });
+  return h;
+}
+
+function schedule(c: Canvas, m: DailySheetModel, x: number, top: number, bottom: number, width: number): void {
+  const f = c.fonts;
+  let y = top;
+  y += c.label("Schedule", x, y);
+  const allDay = m.events.filter((e) => !e.startTime);
+  const timed = m.events.filter((e) => e.startTime);
+  if (allDay.length) {
+    for (const e of allDay) {
+      c.text("ALL DAY", x, y + 26, { font: f.mono, size: 24, color: SECONDARY });
+      c.text(c.fit(e.title, f.uiSemibold, SIDE_SIZE, width - 130), x + 130, y + 28, { font: f.uiSemibold, size: SIDE_SIZE });
+      y += 48;
+    }
+    y += 12;
+  }
+  const startHour = Math.min(8, ...timed.map((e) => Number(e.startTime!.slice(0, 2))));
+  const endHour = Math.max(17, ...timed.map((e) => Number((e.endTime ?? e.startTime)!.slice(0, 2))));
+  const hours = endHour - startHour + 1;
+  const rowH = Math.max(66, Math.min(120, Math.floor((bottom - y) / hours)));
+  const hourX = 78; // mock 26px ×3
+  const drafts = m.meetingRequests.filter((r) => r.proposedDate === m.date && r.proposedTime);
+  for (let h = 0; h < hours; h++) {
+    const hh = startHour + h;
+    const rowTop = y + h * rowH;
+    c.hline(x, x + width, rowTop, 3, RULE);
+    c.text(String(hh).padStart(2, "0"), x, rowTop + 18 + SIDE_SIZE * 0.7, { font: f.mono, size: SIDE_SIZE, color: SECONDARY });
+    let cx = x + hourX + 12;
+    const chipY = rowTop + Math.max(12, (rowH - (SIDE_SIZE + 18)) / 2);
+    const inHour = [
+      ...timed.filter((e) => Number(e.startTime!.slice(0, 2)) === hh).map((e) => ({ text: `${e.title}${e.endTime ? ` ${e.startTime}–${e.endTime}` : e.startTime!.endsWith(":00") ? "" : ` ${e.startTime}`}`, filled: true })),
+      ...drafts.filter((r) => Number(r.proposedTime!.slice(0, 2)) === hh).map((r) => ({ text: r.topic, filled: false })),
+    ];
+    for (const item of inHour) {
+      const remaining = x + width - cx;
+      if (remaining < 160) break;
+      cx += c.chip(item.text, cx, chipY, { filled: item.filled, size: SIDE_SIZE, maxWidth: remaining }) + 12;
     }
   }
-  for (const e of timed) {
-    const sh = Number(e.startTime!.slice(0, 2)) + Number(e.startTime!.slice(3, 5)) / 60;
-    const eh = e.endTime ? Number(e.endTime.slice(0, 2)) + Number(e.endTime.slice(3, 5)) / 60 : sh + 1;
-    const y1 = top + (sh - startHour) * rowH;
-    const h = Math.max(rowH * 0.9, (eh - sh) * rowH - 4);
-    s.canvas.rect(MAIN_X + 92, y1 + 2, 10, h, { fill: INK });
-    const label = `${e.startTime}${e.endTime ? `–${e.endTime}` : ""}  ${e.title}${e.location ? ` · ${e.location}` : ""}`;
-    s.canvas.text(label, MAIN_X + 116, y1 + 30, { font: f.uiSemibold, size: 25 });
-  }
-  s.y = top + hours * rowH + 28;
+  c.hline(x, x + width, y + hours * rowH, 3, RULE);
 }
 
 export function writeDailySheet(ctx: ComposeContext, m: DailySheetModel): void {
-  const time = m.generatedAt.slice(11, 16);
-  const subtitle = `DAILY SHEET · ${m.runLabel.toUpperCase()} · generated ${time}`;
-  const s = new Section(ctx, "DAY", (p) => (p === 1 ? formatLongDate(m.date) : `${formatShortDate(m.date)} · cont.`), subtitle);
-  s.newPage();
+  const c = addPage(ctx.doc, ctx.fonts, ctx.doc.getPageCount() + 1);
+  const page = dailyPageCode(m.date, 1);
+  const codes: Codes = { ctx, page, counters: new Map() };
+  const top = c.header(formatTitleDate(m.date), `dayMarkable DAILY · ${generatedStamp(ctx)} · ${ctx.runLabel.toUpperCase()}`);
+  c.footer(page);
+  const bottom = BODY_BOTTOM;
 
-  s.sectionTitle("Today", m.events.length ? `${m.events.length} on the calendar` : undefined);
-  schedule(s, m.events);
+  // ---- left column
+  let y = top;
+  const open = m.actions.filter((a) => a.carriedCount === 0);
+  const carried = m.actions.filter((a) => a.carriedCount > 0);
+  const confirm = [
+    ...m.meetingRequests.map((r) => ({ id: r.id, type: "meeting_request" as const, text: `Invite: ${r.topic}${r.proposedDate ? ` · ${formatShortDate(r.proposedDate)}${r.proposedTime ? ` ${r.proposedTime}` : ""}` : ""}`, tag: "TICK TO SEND", prefix: "M" })),
+    ...m.inbox.map((i) => ({ id: i.id, type: "inbox" as const, text: i.text, tag: `${Math.round(i.confidence * 100)}%`, prefix: "I" })),
+  ];
+  const notesMin = 4 * 84 + 60; // keep room for at least four ruled lines
+  const sectionBottom = bottom - notesMin;
 
-  if (m.upcoming.length) {
-    s.sectionTitle("Coming up", "next 7 days");
-    for (const e of m.upcoming) {
-      s.ensure(LINE_H);
-      const f = s.canvas.fonts;
-      s.canvas.text(`${formatShortDate(e.date!)}${e.startTime ? ` ${e.startTime}` : ""}`, MAIN_X, s.y + BODY_SIZE, { font: f.mono, size: 19, color: INK_60 });
-      s.canvas.text(e.title, MAIN_X + 190, s.y + BODY_SIZE, { font: f.ui, size: BODY_SIZE });
-      s.y += LINE_H;
+  y += c.label("Actions", LEFT_X, y);
+  let shown = 0;
+  if (open.length === 0) {
+    c.text("Nothing open. Write something down.", LEFT_X, y + ROW_SIZE, { font: c.fonts.displayItalic, size: 33, color: SECONDARY });
+    y += 46 + ROW_GAP;
+  }
+  for (const a of open) {
+    const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: a.id, type: "task", text: a.text, tag: actionTag(a, m.date), carried: false }, "A");
+    if (!h) break;
+    y += h;
+    shown++;
+  }
+  if (shown < open.length) {
+    c.text(`+${open.length - shown} more on the Action List`, LEFT_X + CHECKBOX_PX + 24, y + 26, { font: c.fonts.mono, size: 24, color: TERTIARY });
+    y += 40;
+  }
+
+  if (carried.length && y + 120 < sectionBottom) {
+    y += 20;
+    y += c.label("Carried over", LEFT_X, y);
+    for (const a of carried) {
+      const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: a.id, type: "task", text: `${a.text} (${a.carriedCount} day${a.carriedCount === 1 ? "" : "s"})`, tag: null, carried: true }, "C");
+      if (!h) break;
+      y += h;
     }
-    s.y += ROW_GAP;
   }
 
-  s.sectionTitle("Actions", `${m.actions.length} shown`);
-  if (m.actions.length === 0) s.note("Nothing open. Write something down.");
-  for (const a of m.actions) s.checkboxRow(actionRowItem(a), "A");
-  s.blankRows(3);
-
-  if (m.meetingRequests.length) {
-    s.sectionTitle("Confirm to send", "tick = draft the invite");
-    for (const r of m.meetingRequests) {
-      s.checkboxRow(
-        {
-          id: r.id,
-          type: "meeting_request",
-          text: `Invite: ${r.topic}`,
-          meta: [r.proposedDate ? formatShortDate(r.proposedDate) : null, r.proposedTime, r.durationMinutes ? `${r.durationMinutes} min` : null, r.attendees.length ? r.attendees.join(", ") : null].filter(Boolean).join(" · ") || null,
-          carriedCount: 0,
-          emphasis: true,
-        },
-        "M",
-      );
+  if (confirm.length && y + 120 < sectionBottom) {
+    y += 20;
+    y += c.label("Confirm · tick = yes · strike = drop", LEFT_X, y);
+    for (const it of confirm) {
+      const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: it.id, type: it.type, text: it.text, tag: it.tag, carried: false }, it.prefix);
+      if (!h) break;
+      y += h;
     }
   }
 
-  if (m.inbox.length) {
-    s.sectionTitle("Inbox — confirm these", "tick = yes · strike = drop");
-    for (const it of m.inbox) s.checkboxRow({ id: it.id, type: "inbox", text: it.text, meta: it.detail, carriedCount: 0, emphasis: false }, "I");
-  }
+  y += 24;
+  y += c.label("Notes", LEFT_X, y);
+  for (let ly = y + 60; ly <= bottom; ly += 84) c.hline(LEFT_X, LEFT_X + COL_W, ly, 3, RULE);
 
-  s.ensure(60);
-  const st = m.stats;
-  s.canvas.text(
-    `read ${st.pagesRead} page${st.pagesRead === 1 ? "" : "s"} · ${st.tasksFound} tasks · ${st.eventsFound} events · ${st.meetingRequestsFound} meeting requests`,
-    MAIN_X,
-    s.y + 30,
-    { font: s.canvas.fonts.mono, size: 18, color: INK_60 },
-  );
+  // ---- right column
+  c.vline(RIGHT_X - COL_GAP / 2, top, bottom, 3, RULE);
+  schedule(c, m, RIGHT_X, top, bottom, COL_W);
 }
 
 /** Standalone Daily Sheet (used by the Milestone 1 spike). */
@@ -131,6 +178,9 @@ export async function composeDailySheet(model: DailySheetModel): Promise<Uint8Ar
   const { doc, fonts } = await newDocument();
   const printed: PrintedItem[] = [];
   writeDailySheet({ doc, fonts, date: model.date, generatedAt: model.generatedAt, runLabel: model.runLabel, printed }, model);
-  doc.setTitle(`dayMarkable Daily Sheet ${model.date}`);
+  doc.setTitle(`dayMarkable Daily ${model.date}`);
   return doc.save();
 }
+
+export type { CalendarItem };
+export { CONTENT_RIGHT };

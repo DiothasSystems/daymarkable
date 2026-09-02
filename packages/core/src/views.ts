@@ -53,8 +53,10 @@ export interface WeekModel {
   start: string;
   end: string;
   days: DayCell[];
-  /** Tasks due this week but not tied to a day (none) plus undated high-priority items. */
+  /** Overdue and undated high-priority items. */
   focus: StoredTask[];
+  /** Open actions for the sidebar: due this week first, then the rest in canonical order. */
+  open: StoredTask[];
 }
 
 export interface MonthModel {
@@ -70,9 +72,19 @@ export interface QuarterModel {
   months: MonthModel[];
 }
 
+export interface ProgressBar {
+  label: string;
+  /** 0..1 */
+  value: number;
+  /** Mono text at the right, e.g. "70%" or "6/9". */
+  text: string;
+}
+
 export interface YearModel {
   year: number;
   months: MonthModel[];
+  /** "YEAR GOALS · PROGRESS" bars, computed from the working set (no LLM prose). */
+  progress: ProgressBar[];
 }
 
 export interface InboxPageModel {
@@ -126,7 +138,9 @@ export function buildWeek(state: WorkingSet, opts: ViewOptions): WeekModel {
   const days = Array.from({ length: 7 }, (_, i) => cell(addDays(start, i), opts, events, tasks, true));
   const end = addDays(start, 6);
   const focus = tasks.filter((t) => (t.due === null && t.priority === "high") || (t.due !== null && t.due < start)).slice(0, 8);
-  return { start, end, days, focus };
+  const thisWeek = tasks.filter((t) => t.due !== null && t.due >= start && t.due <= end);
+  const open = [...thisWeek, ...tasks.filter((t) => !thisWeek.includes(t))].slice(0, 12);
+  return { start, end, days, focus, open };
 }
 
 export function buildMonth(state: WorkingSet, year: number, month: number, opts: ViewOptions): MonthModel {
@@ -163,7 +177,20 @@ export function buildQuarter(state: WorkingSet, opts: ViewOptions): QuarterModel
 
 export function buildYear(state: WorkingSet, opts: ViewOptions): YearModel {
   const year = Number(opts.today.slice(0, 4));
-  return { year, months: Array.from({ length: 12 }, (_, i) => buildMonth(state, year, i + 1, opts)) };
+  const thisYear = (d: string | null) => d !== null && d.startsWith(`${year}-`);
+  const tasks = state.tasks.filter((t) => thisYear(t.createdOn));
+  const done = tasks.filter((t) => t.status === "done").length;
+  const open = tasks.filter((t) => t.status === "open" || t.status === "carried").length;
+  const inbox = state.inbox.filter((i) => thisYear(i.createdOn));
+  const confirmed = inbox.filter((i) => i.status === "accepted").length;
+  const decided = inbox.filter((i) => i.status !== "pending").length;
+  const meetings = state.meetings.filter((m) => thisYear(m.date)).length;
+  const progress: ProgressBar[] = [
+    { label: "Actions closed", value: done + open ? done / (done + open) : 0, text: `${done}/${done + open}` },
+    { label: "Inbox confirmed", value: decided ? confirmed / decided : 0, text: decided ? `${Math.round((confirmed / decided) * 100)}%` : "—" },
+    { label: "Meetings captured", value: Math.min(1, meetings / 100), text: String(meetings) },
+  ];
+  return { year, months: Array.from({ length: 12 }, (_, i) => buildMonth(state, year, i + 1, opts)), progress };
 }
 
 export function buildDaily(state: WorkingSet, opts: ViewOptions): DailySheetModel {

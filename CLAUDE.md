@@ -76,8 +76,9 @@ unchanged.
    rest. No user content in logs — log counts and hashes, not text. (Fixtures from the
    founder's own pages are the sanctioned exception.)
 6. **Every planner page is an input form.** When changing planner templates, keep checkboxes
-   ≥ 28px, keep the margin column, and update the decode prompt's description of the planner
-   layout in the same PR — the decoder must always know what the composer draws.
+   ≥ 28px, keep a ruled handwriting area on every page (NOTES lines, sidebar lines, goal
+   lines), and update the decode prompt's description of the planner layout in the same PR —
+   the decoder must always know what the composer draws.
 7. **Invites never auto-send by default.** A decoded meeting_request becomes a DRAFT; it is
    sent only after explicit user confirmation (planner checkbox or web/email link). Auto-send
    is an opt-in setting and even then only for high-confidence requests with no external
@@ -133,11 +134,32 @@ model per stage in `run_costs`.
 ## Brand
 
 Product name is always spelled **dayMarkable** (lowercase d, capital M) — in copy, UI, code
-identifiers where casing allows, and email subjects. Logo and design style for all service
-elements come from the Claude Design brand board ("dayMarkable Brand"): beacon-triangle
-mark, Paper #F7F4EE / Ink #211F1A / Beacon #CE4B18 palette, Instrument Serif (display) +
-Public Sans (UI) + IBM Plex Mono (data), high-contrast monochrome for anything rendered to
-the tablet.
+identifiers where casing allows, and email subjects. The design source of truth is the brand
+handoff in `design/design_handoff_daymarkable/` (style guide, tablet page + email mocks,
+`assets/emblem.png`, `assets/full-lockup.png`); `README.md` there summarises every token.
+
+- **Wordmark**: Source Serif 4 Bold, "day" in Gold (#B8862F on light / #C9973F on dark),
+  "Markable" in Midnight (#1E2A44) on light or Parchment (#F7F0E3) on dark. Never another
+  typeface; never swap the split. Below 48px or on dark, the compass rose SVG (circle + four
+  diamond points, `viewBox 0 0 72 72`) stands in for the emblem.
+- **Palette**: Midnight #1E2A44 (ink, headings, primary buttons), Compass Gold #C9973F
+  (accents, active states), Gold text #B8862F, Parchment #F7F0E3 (page), Notepaper #FDFAF3
+  (cards), Sunrise #F0DDA9 (highlights), Border #E3D9C2, Border-strong #D9CDB4, Body muted
+  #4A5266, Meta #8A7D5F. Ratio ~70% Parchment / 20% Notepaper / 8% Midnight / ≤2% Gold.
+- **Type**: Source Serif 4 600–700 (titles, headlines), Public Sans 400–700 (UI, body), IBM
+  Plex Mono 400–500 (timestamps, sync status, page refs, uppercase section labels with
+  0.12–0.2em tracking).
+- **Web UI**: cards Notepaper, 1px #E3D9C2 border, 6px radius, shadow no heavier than
+  `0 2px 8px rgba(30,42,68,.08)`; primary button Midnight/Parchment 4px radius; secondary
+  1.5px Midnight outline; tertiary gold underlined link; nav active = gold text + 2px gold
+  underline; header shows `SYNCED HH:MM` in mono.
+- **Tablet pages (e-ink)**: grayscale only — paper #FBFBF9, ink #1A1A1A, secondary #6E6E6E,
+  tertiary #9A9A9A, rules #D8D4C8, shaded cells #F1EFE7. Header = Source Serif title + mono
+  subtitle (`dayMarkable DAILY · GENERATED 02:14`) + monochrome compass rose right + 2px rule.
+  Layouts follow `Tablet Pages and Email.dc.html` (Daily two-column with SCHEDULE chips; Week
+  and Month with an actions sidebar; Year period cards), scaled ×3 from the 468px mocks.
+- **Email**: 560px Parchment container, Midnight brand bar (rose + wordmark + SYNCED), Source
+  Serif headline, Notepaper card per meeting, gold-arrow action rows, Midnight CTA.
 
 ## Gotchas
 

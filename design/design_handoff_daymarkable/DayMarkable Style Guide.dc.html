@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #f7f0e3; font-family: 'Public Sans', sans-serif; color: #1e2a44; }
+a { color: #b8862f; } a:hover { color: #94691f; }
+</style>
+</helmet>
+<div style="max-width: 1080px; margin: 0 auto; padding: 0 48px 120px;">
+
+  <!-- COVER -->
+  <header data-screen-label="Cover" style="display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 88px 0 72px; border-bottom: 1px solid #d9cdb4;">
+    <img src="assets/emblem.png" alt="DayMarkable emblem" style="width: 260px; height: 260px;">
+    <div style="font-family: 'Source Serif 4', serif; font-size: 64px; font-weight: 700; letter-spacing: -0.01em;"><span style="color: #b8862f;">day</span><span style="color: #1e2a44;">Markable</span></div>
+    <div style="font-size: 15px; font-weight: 600; letter-spacing: 0.32em; color: #1e2a44; text-transform: uppercase;">Note to Action Organizer</div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8a7d5f; letter-spacing: 0.1em; margin-top: 16px;">BRAND &amp; STYLE GUIDELINES · V1.0 · AUGUST 2026</div>
+  </header>
+
+  <!-- LOGO -->
+  <section data-screen-label="Logo" style="padding: 72px 0; border-bottom: 1px solid #d9cdb4;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #b8862f; letter-spacing: 0.2em; margin-bottom: 8px;">01</div>
+    <h2 style="font-family: 'Source Serif 4', serif; font-size: 36px; font-weight: 700; margin: 0 0 12px;">Logo</h2>
+    <p style="font-size: 15px; line-height: 1.6; color: #4a5266; max-width: 620px; margin: 0 0 40px;">The emblem is a compass of the day: night and notes on the left, sunrise and the road ahead on the right. It reads at large sizes; the wordmark and monogram carry the brand everywhere else.</p>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 36px; display: flex; flex-direction: column; align-items: center; gap: 18px;">
+        <img src="assets/full-lockup.png" alt="Primary lockup" style="width: 100%; max-width: 420px;">
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f; letter-spacing: 0.12em;">PRIMARY LOCKUP — marketing, cover pages, splash</div>
+      </div>
+      <div style="display: grid; grid-template-rows: 1fr 1fr; gap: 24px;">
+        <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 24px; display: flex; align-items: center; justify-content: center; gap: 20px;">
+          <img src="assets/emblem.png" alt="Emblem" style="width: 110px; height: 110px;">
+          <div>
+            <div style="font-family: 'Source Serif 4', serif; font-size: 30px; font-weight: 700;"><span style="color: #b8862f;">day</span>Markable</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f; letter-spacing: 0.12em; margin-top: 8px;">HORIZONTAL LOCKUP — headers, docs</div>
+          </div>
+        </div>
+        <div style="background: #1e2a44; border-radius: 6px; padding: 24px; display: flex; align-items: center; justify-content: center; gap: 20px;">
+          <svg width="72" height="72" viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="26" fill="none" stroke="#c9973f" stroke-width="4"></circle>
+            <path d="M 36 2 L 41 12 L 36 18 L 31 12 Z" fill="#c9973f"></path>
+            <path d="M 36 70 L 41 60 L 36 54 L 31 60 Z" fill="#c9973f"></path>
+            <path d="M 2 36 L 12 31 L 18 36 L 12 41 Z" fill="#c9973f"></path>
+            <path d="M 70 36 L 60 31 L 54 36 L 60 41 Z" fill="#c9973f"></path>
+          </svg>
+          <div>
+            <div style="font-family: 'Source Serif 4', serif; font-size: 30px; font-weight: 700; color: #f7f0e3;"><span style="color: #c9973f;">day</span>Markable</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #a09372; letter-spacing: 0.12em; margin-top: 8px;">REVERSED — the compass rose stands in for the emblem on dark</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-top: 24px;">
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 28px;">
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px;">Clearspace</div>
+        <p style="font-size: 13px; line-height: 1.6; color: #4a5266; margin: 0;">Keep clear space around every lockup equal to the height of the wordmark's "d". Nothing enters this zone — not taglines, not rules, not edges.</p>
+      </div>
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 28px;">
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px;">Minimum sizes</div>
+        <p style="font-size: 13px; line-height: 1.6; color: #4a5266; margin: 0;">Emblem: 48px / 14mm. Below that, use the compass rose. Wordmark: 120px / 30mm wide. Never scale the primary lockup below 200px wide.</p>
+      </div>
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 28px;">
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 10px;">Don't</div>
+        <p style="font-size: 13px; line-height: 1.6; color: #4a5266; margin: 0;">Don't recolor the emblem, set the wordmark in another typeface, add drop shadows, place the emblem on busy photography, or swap the gold/navy split of the wordmark.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- COLOR -->
+  <section data-screen-label="Color" style="padding: 72px 0; border-bottom: 1px solid #d9cdb4;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #b8862f; letter-spacing: 0.2em; margin-bottom: 8px;">02</div>
+    <h2 style="font-family: 'Source Serif 4', serif; font-size: 36px; font-weight: 700; margin: 0 0 12px;">Color</h2>
+    <p style="font-size: 15px; line-height: 1.6; color: #4a5266; max-width: 620px; margin: 0 0 40px;">A paper-light system: parchment surfaces, midnight navy ink, and gold reserved for what matters — the marks, the actions, the next move.</p>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px;">
+      <div style="border-radius: 6px; overflow: hidden; border: 1px solid #e3d9c2;">
+        <div style="height: 110px; background: #1e2a44;"></div>
+        <div style="padding: 14px; background: #fdfaf3;"><div style="font-weight: 700; font-size: 13px;">Midnight</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">#1E2A44</div><div style="font-size: 11px; color: #4a5266; margin-top: 6px;">Ink, headings, dark UI</div></div>
+      </div>
+      <div style="border-radius: 6px; overflow: hidden; border: 1px solid #e3d9c2;">
+        <div style="height: 110px; background: #c9973f;"></div>
+        <div style="padding: 14px; background: #fdfaf3;"><div style="font-weight: 700; font-size: 13px;">Compass Gold</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">#C9973F</div><div style="font-size: 11px; color: #4a5266; margin-top: 6px;">Accents, "day", actions</div></div>
+      </div>
+      <div style="border-radius: 6px; overflow: hidden; border: 1px solid #e3d9c2;">
+        <div style="height: 110px; background: #f7f0e3;"></div>
+        <div style="padding: 14px; background: #fdfaf3;"><div style="font-weight: 700; font-size: 13px;">Parchment</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">#F7F0E3</div><div style="font-size: 11px; color: #4a5266; margin-top: 6px;">Page background</div></div>
+      </div>
+      <div style="border-radius: 6px; overflow: hidden; border: 1px solid #e3d9c2;">
+        <div style="height: 110px; background: #fdfaf3;"></div>
+        <div style="padding: 14px; background: #fdfaf3; border-top: 1px solid #e3d9c2;"><div style="font-weight: 700; font-size: 13px;">Notepaper</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">#FDFAF3</div><div style="font-size: 11px; color: #4a5266; margin-top: 6px;">Cards, surfaces</div></div>
+      </div>
+      <div style="border-radius: 6px; overflow: hidden; border: 1px solid #e3d9c2;">
+        <div style="height: 110px; background: #f0dda9;"></div>
+        <div style="padding: 14px; background: #fdfaf3;"><div style="font-weight: 700; font-size: 13px;">Sunrise</div><div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">#F0DDA9</div><div style="font-size: 11px; color: #4a5266; margin-top: 6px;">Highlights, fills, charts</div></div>
+      </div>
+    </div>
+    <div style="display: flex; gap: 16px; margin-top: 20px; font-size: 13px; color: #4a5266;">
+      <div style="flex: 1; background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 20px;"><strong style="color: #1e2a44;">Ratio.</strong> Parchment ~70%, Notepaper ~20%, Midnight ~8%, Gold ≤2%. Gold is punctuation, never a wall of color.</div>
+      <div style="flex: 1; background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 20px;"><strong style="color: #1e2a44;">Accessibility.</strong> Body text is always Midnight on Parchment/Notepaper (11.9:1). Gold text only at 18px+ bold, or on Midnight.</div>
+    </div>
+  </section>
+
+  <!-- TYPOGRAPHY -->
+  <section data-screen-label="Typography" style="padding: 72px 0; border-bottom: 1px solid #d9cdb4;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #b8862f; letter-spacing: 0.2em; margin-bottom: 8px;">03</div>
+    <h2 style="font-family: 'Source Serif 4', serif; font-size: 36px; font-weight: 700; margin: 0 0 12px;">Typography</h2>
+    <p style="font-size: 15px; line-height: 1.6; color: #4a5266; max-width: 620px; margin: 0 0 40px;">A serif with the manners of print for the brand voice, a plain-spoken sans for the interface, and a mono for timestamps and metadata — the machine's handwriting.</p>
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 32px; display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: center;">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">Source Serif 4</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f; margin-top: 6px;">DISPLAY · 600–700</div>
+          <div style="font-size: 12px; color: #4a5266; margin-top: 10px; line-height: 1.5;">Wordmark, page titles, daily summary headlines.</div>
+        </div>
+        <div style="font-family: 'Source Serif 4', serif; font-size: 40px; font-weight: 600; line-height: 1.2;">Tuesday left you three things to do.</div>
+      </div>
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 32px; display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: center;">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">Public Sans</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">UI &amp; BODY · 400–700</div>
+          <div style="font-size: 12px; color: #4a5266; margin-top: 10px; line-height: 1.5;">Interface labels, body copy, buttons, lists.</div>
+        </div>
+        <div style="font-size: 17px; line-height: 1.65; color: #1e2a44;">Every night, DayMarkable reads the notebooks you wrote by hand and returns them as a plan: meeting summaries, decisions, and the follow-ups due tomorrow, this week, this month.</div>
+      </div>
+      <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 32px; display: grid; grid-template-columns: 220px 1fr; gap: 32px; align-items: center;">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">IBM Plex Mono</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">META · 400–500</div>
+          <div style="font-size: 12px; color: #4a5266; margin-top: 10px; line-height: 1.5;">Timestamps, sync status, page references, tags.</div>
+        </div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #4a5266; line-height: 1.9;">SYNCED 02:14 · 3 NOTEBOOKS · 11 PAGES READ<br>MEETING-NOTES/Q3-PLANNING · p.4–7</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ICONOGRAPHY -->
+  <section data-screen-label="Iconography" style="padding: 72px 0; border-bottom: 1px solid #d9cdb4;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #b8862f; letter-spacing: 0.2em; margin-bottom: 8px;">04</div>
+    <h2 style="font-family: 'Source Serif 4', serif; font-size: 36px; font-weight: 700; margin: 0 0 12px;">Iconography</h2>
+    <p style="font-size: 15px; line-height: 1.6; color: #4a5266; max-width: 620px; margin: 0 0 40px;">Pen-weight line icons, echoing the margin icons of the emblem: 2px stroke, rounded caps, drawn on a 24px grid. Midnight by default; gold only for the active state.</p>
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <div style="width: 132px; background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8a7d5f;">CALENDAR</span>
+      </div>
+      <div style="width: 132px; background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M 8 12 L 11 15 L 17 8"></path></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8a7d5f;">ACTION</span>
+      </div>
+      <div style="width: 132px; background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M 4 21 C 4 16.5 7.5 14 12 14 C 16.5 14 20 16.5 20 21"></path></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8a7d5f;">PEOPLE</span>
+      </div>
+      <div style="width: 132px; background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round"><line x1="5" y1="20" x2="5" y2="14"></line><line x1="12" y1="20" x2="12" y2="9"></line><line x1="19" y1="20" x2="19" y2="4"></line></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8a7d5f;">TRENDS</span>
+      </div>
+      <div style="width: 132px; background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1e2a44" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 19 L 4 5 C 4 5 7 3.5 12 5 C 17 6.5 20 5 20 5 L 20 19 C 20 19 17 20.5 12 19 C 7 17.5 4 19 4 19 Z"></path><line x1="12" y1="5" x2="12" y2="19"></line></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8a7d5f;">NOTEBOOK</span>
+      </div>
+      <div style="width: 132px; background: #1e2a44; border-radius: 6px; padding: 20px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#c9973f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M 8 12 L 11 15 L 17 8"></path></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #a09372;">ACTIVE / ON DARK</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- WEB UI -->
+  <section data-screen-label="Web UI" style="padding: 72px 0; border-bottom: 1px solid #d9cdb4;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #b8862f; letter-spacing: 0.2em; margin-bottom: 8px;">05</div>
+    <h2 style="font-family: 'Source Serif 4', serif; font-size: 36px; font-weight: 700; margin: 0 0 12px;">Web UI</h2>
+    <p style="font-size: 15px; line-height: 1.6; color: #4a5266; max-width: 620px; margin: 0 0 40px;">Calm, paper-first surfaces. Cards sit like sheets on a desk: hairline borders, 6px radius, no shadows heavier than a resting page.</p>
+    <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 8px; overflow: hidden;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; border-bottom: 1px solid #e3d9c2;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <svg width="28" height="28" viewBox="0 0 72 72"><circle cx="36" cy="36" r="26" fill="none" stroke="#c9973f" stroke-width="5"></circle><path d="M 36 2 L 41 12 L 36 18 L 31 12 Z" fill="#c9973f"></path><path d="M 36 70 L 41 60 L 36 54 L 31 60 Z" fill="#c9973f"></path><path d="M 2 36 L 12 31 L 18 36 L 12 41 Z" fill="#c9973f"></path><path d="M 70 36 L 60 31 L 54 36 L 60 41 Z" fill="#c9973f"></path></svg>
+          <span style="font-family: 'Source Serif 4', serif; font-size: 20px; font-weight: 700;"><span style="color: #b8862f;">day</span>Markable</span>
+        </div>
+        <div style="display: flex; gap: 28px; font-size: 14px; font-weight: 600;">
+          <span style="color: #b8862f; border-bottom: 2px solid #c9973f; padding-bottom: 4px;">Today</span>
+          <span style="color: #4a5266;">Notebooks</span>
+          <span style="color: #4a5266;">Actions</span>
+          <span style="color: #4a5266;">Meetings</span>
+        </div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">SYNCED 02:14</span>
+      </div>
+      <div style="padding: 32px 28px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; background: #f7f0e3;">
+        <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 28px;">
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f; letter-spacing: 0.12em; margin-bottom: 10px;">DAILY SUMMARY · TUE AUG 31</div>
+          <div style="font-family: 'Source Serif 4', serif; font-size: 26px; font-weight: 600; line-height: 1.25; margin-bottom: 14px;">Two meetings, one decision, three follow-ups.</div>
+          <p style="font-size: 14px; line-height: 1.65; color: #4a5266; margin: 0 0 20px;">Q3 planning settled the launch date; you agreed to send Maya the vendor shortlist. Your 1:1 notes flag the hiring plan as slipping — revisit Thursday.</p>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 12px; font-size: 14px;"><input type="checkbox" style="width: 16px; height: 16px; accent-color: #c9973f;"> Send vendor shortlist to Maya <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #b8862f; margin-left: auto;">TOMORROW</span></label>
+            <label style="display: flex; align-items: center; gap: 12px; font-size: 14px;"><input type="checkbox" style="width: 16px; height: 16px; accent-color: #c9973f;"> Review hiring plan with Sam <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f; margin-left: auto;">THIS WEEK</span></label>
+            <label style="display: flex; align-items: center; gap: 12px; font-size: 14px;"><input type="checkbox" style="width: 16px; height: 16px; accent-color: #c9973f;"> Draft launch comms outline <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f; margin-left: auto;">THIS MONTH</span></label>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 24px;">
+          <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 24px; display: flex; flex-direction: column; gap: 14px;">
+            <div style="font-weight: 700; font-size: 14px;">Buttons</div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button style="background: #1e2a44; color: #f7f0e3; border: none; border-radius: 4px; padding: 10px 20px; font-family: 'Public Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #2a3a5e;">Mark it done</button>
+              <button style="background: transparent; color: #1e2a44; border: 1.5px solid #1e2a44; border-radius: 4px; padding: 10px 20px; font-family: 'Public Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;" style-hover="background: #efe6d2;">Open notebook</button>
+              <button style="background: transparent; color: #b8862f; border: none; padding: 10px 4px; font-family: 'Public Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;">Snooze →</button>
+            </div>
+          </div>
+          <div style="background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 24px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-weight: 700; font-size: 14px;">Source reference</div>
+            <div style="border-left: 3px solid #c9973f; padding: 8px 14px; background: #f7f0e3; font-size: 13px; color: #4a5266; font-style: italic;">"vendor shortlist → Maya by Wed"</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8a7d5f;">MEETING-NOTES · p.6 · 14:32</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size: 13px; color: #4a5266; margin: 16px 4px 0;">Every summary links back to the handwritten source — the ink is always the authority, the summary is the index.</p>
+  </section>
+
+  <!-- MOBILE APP ICON -->
+  <section data-screen-label="App Icon" style="padding: 72px 0;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #b8862f; letter-spacing: 0.2em; margin-bottom: 8px;">06</div>
+    <h2 style="font-family: 'Source Serif 4', serif; font-size: 36px; font-weight: 700; margin: 0 0 12px;">Mobile app icon</h2>
+    <p style="font-size: 15px; line-height: 1.6; color: #4a5266; max-width: 620px; margin: 0 0 40px;">The full emblem on notepaper for the store; the compass rose alone at small sizes, where detail would blur.</p>
+    <div style="display: flex; gap: 40px; align-items: flex-end; flex-wrap: wrap;">
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <div style="width: 140px; height: 140px; border-radius: 32px; background: #fdfaf3; border: 1px solid #e3d9c2; display: flex; align-items: center; justify-content: center;">
+          <img src="assets/emblem.png" alt="App icon" style="width: 112px; height: 112px;">
+        </div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8a7d5f;">iOS / ANDROID · 1024px</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <div style="width: 80px; height: 80px; border-radius: 18px; background: #1e2a44; display: flex; align-items: center; justify-content: center;">
+          <svg width="52" height="52" viewBox="0 0 72 72"><circle cx="36" cy="36" r="26" fill="none" stroke="#c9973f" stroke-width="4"></circle><path d="M 36 2 L 41 12 L 36 18 L 31 12 Z" fill="#c9973f"></path><path d="M 36 70 L 41 60 L 36 54 L 31 60 Z" fill="#c9973f"></path><path d="M 2 36 L 12 31 L 18 36 L 12 41 Z" fill="#c9973f"></path><path d="M 70 36 L 60 31 L 54 36 L 60 41 Z" fill="#c9973f"></path></svg>
+        </div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8a7d5f;">SMALL · ≤80px</span>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <div style="width: 48px; height: 48px; border-radius: 11px; background: #1e2a44; display: flex; align-items: center; justify-content: center;">
+          <svg width="32" height="32" viewBox="0 0 72 72"><circle cx="36" cy="36" r="26" fill="none" stroke="#c9973f" stroke-width="6"></circle><path d="M 36 2 L 41 12 L 36 18 L 31 12 Z" fill="#c9973f"></path><path d="M 36 70 L 41 60 L 36 54 L 31 60 Z" fill="#c9973f"></path><path d="M 2 36 L 12 31 L 18 36 L 12 41 Z" fill="#c9973f"></path><path d="M 70 36 L 60 31 L 54 36 L 60 41 Z" fill="#c9973f"></path></svg>
+        </div>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8a7d5f;">FAVICON · 48px</span>
+      </div>
+      <div style="flex: 1; min-width: 260px; background: #fdfaf3; border: 1px solid #e3d9c2; border-radius: 6px; padding: 24px; font-size: 13px; line-height: 1.6; color: #4a5266;"><strong style="color: #1e2a44;">Rules.</strong> Notepaper or Midnight background only. The rose never rotates, never gains gradients or shadows. No wordmark inside the icon at any size.</div>
+    </div>
+  </section>
+</div>
+
+</x-dc>
+</body>
+</html>

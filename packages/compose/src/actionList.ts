@@ -3,11 +3,11 @@
  * regenerated in full each night. Ticks roll items off, strikes drop them, blank rows add.
  */
 import type { ActionListModel } from "@daymarkable/core";
-import { INK_60 } from "./brand.js";
+import { SECONDARY } from "./brand.js";
 import { newDocument } from "./canvas.js";
-import { actionRowItem } from "./dailySheet.js";
+import { actionTag } from "./dailySheet.js";
 import type { ComposedDocument } from "./planner.js";
-import { BODY_SIZE, LINE_H, MAIN_X, Section, formatLongDate, formatShortDate, type ComposeContext } from "./section.js";
+import { BODY_SIZE, LINE_H, MAIN_X, Section, formatShortDate, formatTag, generatedStamp, type ComposeContext } from "./section.js";
 
 export interface ActionListInput {
   model: ActionListModel;
@@ -19,24 +19,28 @@ export interface ActionListInput {
 export async function composeActionList(input: ActionListInput): Promise<ComposedDocument> {
   const { doc, fonts } = await newDocument();
   const ctx: ComposeContext = { doc, fonts, date: input.date, generatedAt: input.generatedAt, runLabel: input.runLabel, printed: [] };
-  const subtitle = `ACTION LIST · ${input.runLabel.toUpperCase()} · generated ${input.generatedAt.slice(11, 16)}`;
-  const s = new Section(ctx, "ACTIONS", (p) => (p === 1 ? "Action List" : "Action List · cont."), subtitle);
-  s.newPage();
   const m = input.model;
-  s.sectionTitle(formatLongDate(input.date), `${m.openCount} open`);
+  const s = new Section(ctx, "ACTIONS", (p) => (p === 1 ? "Action List" : "Action List · cont."), () => `dayMarkable ACTIONS · ${m.openCount} OPEN · ${generatedStamp(ctx)}`);
+  s.newPage();
   if (m.openCount === 0) s.note("Nothing open. Write something down.");
   for (const g of m.groups) {
     const label = g.date ? (g.date === input.date ? "Today" : formatShortDate(g.date)) : g.label;
-    s.subheading(label, `${g.tasks.length}`);
-    for (const t of g.tasks) s.checkboxRow(actionRowItem(t), "A");
+    s.label(label, `${g.tasks.length}`);
+    for (const t of g.tasks) {
+      const tag = g.date ? (t.carriedCount ? `CARRIED ${t.carriedCount}D` : t.dueTime ?? null) : actionTag(t, input.date);
+      const meta = [t.kind === "follow_up" ? "follow-up" : null, t.project, t.people.length ? t.people.join(", ") : null, `${t.source.notebook} · p.${t.source.pageIndex + 1}`].filter(Boolean).join(" · ");
+      s.checkboxRow({ id: t.id, type: "task", text: t.text, tag: g.label === "Overdue" && t.due ? `DUE ${formatTag(t.due)}` : tag, meta, carried: t.carriedCount > 0, emphasis: t.priority === "high" }, "A");
+    }
+    s.y += 12;
   }
-  s.subheading("Add by hand");
+  s.label("Add by hand");
   s.blankRows(5);
   if (m.completedRecently.length) {
-    s.subheading("Done since yesterday", `${m.completedRecently.length}`);
+    s.y += 12;
+    s.label("Done since yesterday", `${m.completedRecently.length}`);
     for (const t of m.completedRecently) {
       s.ensure(LINE_H);
-      s.canvas.text(`✓ ${t.text}`, MAIN_X, s.y + BODY_SIZE, { font: s.canvas.fonts.ui, size: 24, color: INK_60 });
+      s.canvas.text(`✓ ${t.text}`, MAIN_X, s.y + BODY_SIZE, { font: s.canvas.fonts.ui, size: 33, color: SECONDARY });
       s.y += LINE_H;
     }
   }

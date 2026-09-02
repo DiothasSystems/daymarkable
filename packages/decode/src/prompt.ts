@@ -5,24 +5,33 @@ import { SCHEMA_DESCRIPTION } from "./schema.js";
  * Description of what the composer draws (CLAUDE.md rule 6): whenever a planner template
  * changes, update this text in the same PR so the decoder always knows the layout.
  */
-export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look like this:
-- Header: a small solid triangle mark and the word "dayMarkable" top-left; the date top-right.
+export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look like this (grayscale, typeset):
+- Header: a large serif title top-left (a date, "Week 36 · Aug 31 – Sep 6", "September 2026",
+  "2026", "Action List", "Meeting Notes"), a small monospace subtitle under it starting with
+  "dayMarkable" (e.g. "dayMarkable DAILY · GENERATED 02:14"), a compass-rose mark (circle with
+  four diamond points) top-right, and a thick black rule under the header.
 - A monospace footer code bottom-left of the form dM/<KIND>/<YYYY-MM-DD>/<page>, where KIND is
   DAY, WEEK, MONTH, QUARTER, YEAR, INBOX, ACTIONS, or MEETINGS. If you see such a code, set
   page_kind to "planner" and copy the code into planner_page_code exactly.
-- Checkbox rows: a square box, the item text, and a short monospace item code at the right edge
-  (A01, A02... actions; I01... Inbox items; M01... meeting invites to confirm; W01... tasks on
-  the Week page; F01... "Focus this week"). Report every box whose state you can see in
-  checkbox_updates: checked = a tick, cross, or fill inside the box; struck = the text is
-  crossed out with a line through it (that means "drop this"). Copy the item code exactly.
-  Empty printed boxes with a ruled line and no code are "Add by hand" rows: handwriting there is
-  a NEW task (emit it in tasks, not checkbox_updates).
-- Week page: one row per day with the day's events; Month/Quarter/Year pages: calendar grids
-  where a filled square is today and small dots mark days with commitments. Handwriting inside
-  a grid cell is an event on that cell's date.
-- A ruled column on the right titled "Margin". Handwriting there is a margin_note attached to the
-  nearest checkbox row (put the item code in item_code) or, when it is free-standing, a normal
-  note/task with page context.
+- Section labels are small uppercase monospace (ACTIONS, CARRIED OVER, CONFIRM, NOTES,
+  SCHEDULE, OPEN ACTIONS, WEEK GOALS, MONTH FOCUS, YEAR GOALS).
+- Checkbox rows: a small square box, the item text, and a short monospace item code at the
+  right edge of the row (A01, A02... actions; C01... carried-over items; I01... Inbox items to
+  confirm; M01... meeting invites to confirm; W01... tasks on the Week page; F01... "Focus"
+  and goal rows). Report every box whose state you can see in checkbox_updates: checked = a
+  tick, cross, or fill inside the box; struck = the text is crossed out with a line through it
+  (that means "drop this"). Copy the item code exactly.
+- Ruled lines with no printed text (NOTES areas, blank goal lines, sidebar lines) are for
+  handwriting: anything written there is a NEW task or note (emit it in tasks or notes, not in
+  checkbox_updates), with the page's date as context.
+- Daily page: two columns. Left ACTIONS / CARRIED OVER / CONFIRM checkbox rows and a NOTES area
+  of ruled lines; right a SCHEDULE of hourly rows where filled black chips are confirmed
+  meetings and outlined chips are tentative ones. Handwriting on an hour row is an event at that
+  hour.
+- Week page: left sidebar of open actions with due tags, right one row per day (today shaded);
+  Month page: left sidebar of open actions, right a 7-column grid (today outlined, weekends
+  shaded); Year page: six period cards and progress bars. Handwriting inside a day row or grid
+  cell is an event on that date.
 - Printed (typeset) text is the planner's own content: never re-emit printed planner rows as new
   tasks or events. Only HANDWRITTEN additions are new items.`;
 

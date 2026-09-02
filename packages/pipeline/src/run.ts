@@ -254,7 +254,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       runLabel,
       stats: { pagesRead: stats.pagesDecoded, tasksFound: stats.tasksFound, eventsFound: stats.eventsFound, meetingRequestsFound: stats.meetingRequestsFound, notesFound: stats.meetingsFound },
     });
-    const planner = await composePlanner(views.planner);
+    const planner = await composePlanner(views.planner, merged.state.tasks);
     const actionList = await composeActionList({ model: views.actionList, date: localDate, generatedAt, runLabel });
     const meetingNotes = await composeMeetingNotes({ model: views.meetingNotes, date: localDate, generatedAt, runLabel });
     const outputs = [
@@ -288,7 +288,12 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // ---- 7. email: one per decoded meeting, registered address only (rule 10) -------
     if (settings.email.meetingNotes) {
       for (const m of merged.newMeetings) {
-        const mail = buildMeetingMail(user.email, user.id, m);
+        const mail = buildMeetingMail(user.email, user.id, m, {
+          syncedAt: now().setZone(tz).toFormat("HH:mm"),
+          ...(process.env.APP_URL ? { appUrl: `${process.env.APP_URL.replace(/\/$/, "")}/documents?tab=meetings` } : {}),
+          notebooksRead: stats.docsChanged,
+          pagesRead: stats.pagesDecoded,
+        });
         if (await repo.emailAlreadySent(db, mail.idempotencyKey)) continue;
         const res = await deps.mail.send(mail);
         await repo.logEmail(db, { userId: user.id, runId: run.id, idempotencyKey: mail.idempotencyKey, toEmail: user.email, subject: mail.subject, status: res.status, providerId: res.providerId, error: res.error });

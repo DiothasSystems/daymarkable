@@ -125,6 +125,30 @@ export async function getRegistry(userId: string) {
   return { today, actions, events, meetings, inbox, doneRecently, meetingRequests: state.meetingRequests.filter((m) => m.state !== "dropped") };
 }
 
+/** Header status per the style guide: `SYNCED 02:14` (user's timezone), or null before the first run. */
+export async function lastSyncLabel(userId: string): Promise<string | null> {
+  const rt = await getRuntime();
+  const [user, last] = await Promise.all([repo.getUser(rt.db, userId), repo.lastSuccessfulRun(rt.db, userId)]);
+  if (!last?.finishedAt) return null;
+  const t = DateTime.fromJSDate(last.finishedAt).setZone(user.timezone);
+  const today = DateTime.now().setZone(user.timezone).toISODate();
+  return `SYNCED ${t.toISODate() === today ? "" : `${t.toFormat("ccc d LLL").toUpperCase()} `}${t.toFormat("HH:mm")}`;
+}
+
+/** Due tag copy from the Web UI mock: TOMORROW / THIS WEEK / THIS MONTH / date. */
+export function dueTag(due: string | null, today: string): { label: string; soon: boolean } | null {
+  if (!due) return null;
+  const d = DateTime.fromISO(due);
+  const t = DateTime.fromISO(today);
+  const days = Math.round(d.diff(t, "days").days);
+  if (days < 0) return { label: "OVERDUE", soon: true };
+  if (days === 0) return { label: "TODAY", soon: true };
+  if (days === 1) return { label: "TOMORROW", soon: true };
+  if (days <= 7) return { label: "THIS WEEK", soon: false };
+  if (d.hasSame(t, "month")) return { label: "THIS MONTH", soon: false };
+  return { label: d.toFormat("d LLL").toUpperCase(), soon: false };
+}
+
 // ------------------------------------------------------------------ runs + sync now
 export type RunLabel = "Automatic" | "On-demand";
 
