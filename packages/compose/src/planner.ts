@@ -38,7 +38,7 @@ function sidebar(c: Canvas, codes: Codes, x: number, top: number, bottom: number
   let y = top;
   y += c.label(title, x, y);
   const textX = x + SIDE_BOX + 18;
-  const textW = width - (textX - x) - 6;
+  const textW = width - (textX - x) - 70; // leave room for the item code at the right edge
   for (const t of tasks) {
     const lines = c.wrap(t.text, f.ui, SIDE_SIZE, textW).slice(0, 2);
     const tag = tagOf(t);
