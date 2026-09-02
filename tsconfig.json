@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core" },
+    { "path": "packages/tablet" },
+    { "path": "packages/decode" },
+    { "path": "packages/compose" },
+    { "path": "apps/runner" }
+  ]
+}

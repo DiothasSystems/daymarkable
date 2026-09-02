@@ -1,0 +1,22 @@
+{
+  "name": "@daymarkable/runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "spike": "tsx src/spike.ts",
+    "dev:run": "tsx src/run.ts",
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@daymarkable/compose": "workspace:*",
+    "@daymarkable/core": "workspace:*",
+    "@daymarkable/decode": "workspace:*",
+    "@daymarkable/tablet": "workspace:*",
+    "dotenv": "^16.4.7",
+    "luxon": "^3.6.1"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.6.2"
+  }
+}
