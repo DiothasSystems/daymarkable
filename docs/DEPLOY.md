@@ -5,6 +5,35 @@ scheduler inside it), `db` (Postgres 16), and `render` (the Python rmscene servi
 optional `caddy` container terminates HTTPS. Every secret is read from the host environment;
 nothing secret is committed.
 
+## 0. Which Hostinger product
+
+dayMarkable needs a real Linux box that runs Docker: **Hostinger VPS (KVM), not Web/Cloud
+shared hosting**. Shared and "Cloud" website plans cannot run Docker, a Node server process, a
+Python service, or a 3AM scheduler.
+
+| Plan | Fits? | Why |
+|---|---|---|
+| Web / Business / Cloud hosting | No | PHP-oriented shared hosting; no Docker, no long-running Node processes |
+| **KVM 2** (2 vCPU, 8 GB RAM, 100 GB NVMe) | **Yes — recommended for Phase 0–2** | Next.js build + Postgres + the Python render container fit comfortably; headroom for a few hundred users |
+| KVM 1 (1 vCPU, 4 GB) | Marginal | `next build` on the box needs ~3 GB; runs but rebuilds are slow |
+| KVM 4+ | Later | Only when nightly decode volume or concurrent on-demand syncs demand it |
+
+Choose the **Docker-ready template** ("Ubuntu 24.04 with Docker") when creating the VPS; it
+ships Docker Engine + Compose. Pick the data centre closest to you (US East for New York
+time). Hostinger's 1-click "Docker Manager" is optional; this runbook uses plain
+`docker compose` over SSH, which the Docker Manager can also import.
+
+Domain: `daymarkable.com` is registered. Use the apex for the Phase 2 marketing site and put
+the app on **`app.daymarkable.com`**. In Hostinger's DNS zone (hPanel → Domains → DNS):
+
+```
+A     app     <VPS IPv4>     TTL 300
+AAAA  app     <VPS IPv6>     (optional)
+```
+
+Email sending (`EMAIL_FROM`): verify `daymarkable.com` in Resend and add the DKIM/SPF/DMARC
+records Resend gives you to the same zone; send from `notes@daymarkable.com`.
+
 ## 1. Prepare the VPS
 
 Hostinger "VPS" or "Docker" plan, Ubuntu 22.04+ with Docker Engine and the Compose plugin:
@@ -31,7 +60,7 @@ Compose reads them from the shell environment; the simplest way is `set -a; sour
 
 | Variable | Required | Notes |
 |---|---|---|
-| `APP_URL` | yes | `https://app.daymarkable.com` (used in magic links and emails) |
+| `APP_URL` | yes | `https://app.daymarkable.com` (magic links, email CTA) |
 | `APP_DOMAIN` | edge profile | `app.daymarkable.com` for Caddy |
 | `POSTGRES_PASSWORD` | yes | any long random string |
 | `DATA_ENCRYPTION_KEY` | yes | `openssl rand -base64 32`; losing it makes stored tokens and caches unreadable |
