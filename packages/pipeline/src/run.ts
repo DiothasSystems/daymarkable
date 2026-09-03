@@ -56,6 +56,8 @@ export interface RunOutcome {
 const OUTPUT_FOLDER = "/dayMarkable";
 const ARCHIVE_FOLDER = "/dayMarkable/Archive";
 const ARCHIVE_DAYS = 7;
+/** How far the very first run for an account looks back (see changeWindowStart). */
+export const FIRST_RUN_LOOKBACK_DAYS = 7;
 
 function emptyStats(): RunStats {
   return {
@@ -96,13 +98,14 @@ export function selectDocuments(docs: TabletDocument[], settings: { watchFolders
 
 /** "Only files modified during the previous day": the window opens at local midnight of the day before the run date. */
 export function changeWindowStart(localDate: string, timezone: string, lastSuccessStartedAt: Date | null, windowHours?: number): DateTime {
-  const base = DateTime.fromISO(localDate, { zone: timezone }).startOf("day").minus({ days: 1 });
+  const midnight = DateTime.fromISO(localDate, { zone: timezone }).startOf("day");
+  const base = midnight.minus({ days: 1 });
   if (windowHours !== undefined) return DateTime.utc().minus({ hours: windowHours });
-  if (lastSuccessStartedAt) {
-    const last = DateTime.fromJSDate(lastSuccessStartedAt).minus({ hours: 1 });
-    if (last < base) return last; // catch-up after a missed night
-  }
-  return base;
+  // No successful run yet means no snapshots exist, so a fresh account starts from a week of
+  // notes rather than a single day — otherwise the first planner is nearly empty.
+  if (!lastSuccessStartedAt) return midnight.minus({ days: FIRST_RUN_LOOKBACK_DAYS });
+  const last = DateTime.fromJSDate(lastSuccessStartedAt).minus({ hours: 1 });
+  return last < base ? last : base; // catch-up after a missed night
 }
 
 /**
@@ -156,7 +159,8 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     stats.docsSeen = candidates.length;
     const snapshots = await repo.loadDocSnapshots(db, user.id);
     const windowStart = changeWindowStart(localDate, tz, lastSuccess?.startedAt ?? null, params.windowHours);
-    log(`sync: ${tree.documents.length} documents, ${candidates.length} watched; window opens ${windowStart.toISO()}`);
+    const windowWhy = params.windowHours !== undefined ? ` (${params.windowHours}h override)` : lastSuccess ? "" : ` (first run: ${FIRST_RUN_LOOKBACK_DAYS}-day lookback)`;
+    log(`sync: ${tree.documents.length} documents, ${candidates.length} watched; window opens ${windowStart.toISO()}${windowWhy}`);
 
     const downloaded: Array<{ doc: DownloadedDocument; changedPageIds: string[] }> = [];
     const baselineOnly: TabletDocument[] = [];

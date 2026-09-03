@@ -254,9 +254,13 @@ do nothing.
       "TODO" = action) unless you already mark your notes differently. *Save*, *Next*.
 - [ ] **E6. Email preferences.** Keep "one email per decoded meeting" on. *Save*, then
       *Finish setup*.
-- [ ] **E7. First sync.** On the *Today* page press **Sync now**. It reads pages written since
-      yesterday (so write a test page on the tablet first if you like: a title, a date, a line
-      like `* call Steve Tuesday 2pm`). Two or three minutes later the page refreshes.
+- [ ] **E7. First sync.** On the *Today* page press **Sync now**. Your very first run reads
+      everything you wrote in the **last 7 days**, so the first planner arrives with real
+      content; every run after that reads only what changed since the previous day. Two or
+      three minutes later the page refreshes.
+
+      Cost note: decoding runs about three to five cents a page, so a busy week might cost a
+      dollar or two once. The exact figure appears on the *Runs* page.
 - [ ] **E8. Look at the tablet.** Sync the reMarkable (it syncs on its own when connected to
       Wi-Fi, or tap the sync icon). A folder **dayMarkable** now contains *Planner*, *Action
       List*, and *Meeting Notes*. Tick a box on the planner: it will be read tonight.

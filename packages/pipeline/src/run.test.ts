@@ -125,9 +125,17 @@ describe("selection and windows", () => {
     expect(pageChanged({ pageId: "new-unknown", hash: "h", modified: null }, snap, w)).toBe(true);
     expect(pageChanged({ pageId: "blank", hash: null, modified: null }, snap, w)).toBe(false);
   });
-  it("opens the window at local midnight of the previous day, earlier when catching up", () => {
-    const w = changeWindowStart("2026-09-02", "America/New_York", null);
+  it("opens the window at local midnight of the previous day once the account has run", () => {
+    const w = changeWindowStart("2026-09-02", "America/New_York", new Date("2026-09-01T07:00:00Z"));
     expect(w.toISO()).toBe("2026-09-01T00:00:00.000-04:00");
+  });
+  it("looks back a week on the very first run, so the first planner is not empty", () => {
+    const first = changeWindowStart("2026-09-02", "America/New_York", null);
+    expect(first.toISO()).toBe("2026-08-26T00:00:00.000-04:00");
+    // An explicit override still wins.
+    expect(changeWindowStart("2026-09-02", "America/New_York", null, 48).toUTC() <= DateTime.utc().minus({ hours: 47 })).toBe(true);
+  });
+  it("reaches further back when catching up after a missed night", () => {
     const catchUp = changeWindowStart("2026-09-05", "America/New_York", new Date("2026-09-02T07:30:00Z"));
     expect(catchUp.toUTC().toISO()).toBe("2026-09-02T06:30:00.000Z");
   });
