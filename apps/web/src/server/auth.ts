@@ -56,13 +56,16 @@ export async function requestMagicLink(rawEmail: string): Promise<MagicLinkResul
     to: email,
     subject: "Your dayMarkable sign-in link",
     text: `Sign in to dayMarkable:\n\n${link}\n\nThis link works once and expires in 15 minutes. If you did not request it, ignore this email.`,
-    html: `<p style="font-family:Public Sans,Helvetica,Arial,sans-serif">Sign in to <strong>dayMarkable</strong>:</p><p><a href="${link}" style="display:inline-block;padding:10px 16px;background:#CE4B18;color:#fff;border-radius:6px;text-decoration:none;font-family:Public Sans,Helvetica,Arial,sans-serif">Sign in</a></p><p style="font-family:Public Sans,Helvetica,Arial,sans-serif;color:#6b6760;font-size:13px">This link works once and expires in 15 minutes. If you did not request it, ignore this email.</p>`,
+    html: `<p style="font-family:Public Sans,Helvetica,Arial,sans-serif;color:#1e2a44">Sign in to <strong>dayMarkable</strong>:</p><p><a href="${link}" style="display:inline-block;padding:12px 28px;background:#1e2a44;color:#f7f0e3;border-radius:4px;text-decoration:none;font-weight:600;font-family:Public Sans,Helvetica,Arial,sans-serif">Sign in</a></p><p style="font-family:Public Sans,Helvetica,Arial,sans-serif;color:#8a7d5f;font-size:13px">This link works once and expires in 15 minutes. If you did not request it, ignore this email.</p>`,
     idempotencyKey: `login:${sha256(token)}`,
   });
-  if (res.status === "skipped" && process.env.NODE_ENV !== "production") {
+  if (res.status === "skipped") {
+    // No email provider configured. The link goes to the server log so the operator can still
+    // sign in (bootstrapping a fresh host); it is only returned to the browser outside production.
     console.log(`[web] magic link for ${email}: ${link}`);
-    return { ok: true, devLink: link };
+    return process.env.NODE_ENV === "production" ? { ok: true } : { ok: true, devLink: link };
   }
+  if (res.status === "failed") console.error(`[web] sign-in email to ${email} failed: ${res.error}`);
   return { ok: true };
 }
 
