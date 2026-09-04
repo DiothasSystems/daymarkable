@@ -58,6 +58,13 @@ export const appRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
       }
     }),
+    calibrate: protectedProcedure.mutation(async ({ ctx }) => {
+      try {
+        return await svc.calibrateNow(ctx.user.id);
+      } catch (err) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+      }
+    }),
     skip: protectedProcedure.mutation(({ ctx }) => svc.skipCalibration(ctx.user.id)),
     setLexicon: protectedProcedure.input(z.object({ terms: z.array(z.string().max(80)).max(400) })).mutation(({ ctx, input }) => svc.updateLexicon(ctx.user.id, input.terms)),
   }),

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
-import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, validateConventions } from "@daymarkable/decode";
-import { CALIBRATION_NOTEBOOK, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, repo, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
+import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
+import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, repo, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
@@ -86,10 +86,15 @@ export async function listTabletFolders(userId: string) {
   }
   // The tablet's root is a real place to keep notebooks, so it is offered like any folder.
   const root = { path: ROOT_FOLDER, label: "Root (notebooks not in a folder)", notebooks: counts.get(ROOT_FOLDER) ?? 0 };
-  const folders = tree.folders
-    .filter((f) => !f.path.startsWith("/dayMarkable"))
-    .map((f) => ({ path: f.path, label: f.path, notebooks: counts.get(f.path) ?? 0 }));
-  return [root, ...folders];
+  // Two folders can share a name and therefore a path; watching one watches both, so merge
+  // them into a single row rather than offering the same path twice.
+  const byPath = new Map<string, { path: string; label: string; notebooks: number }>();
+  for (const f of tree.folders) {
+    if (f.path.startsWith("/dayMarkable")) continue;
+    // counts is keyed by path and already covers every folder sharing it, so set once.
+    if (!byPath.has(f.path)) byPath.set(f.path, { path: f.path, label: f.path, notebooks: counts.get(f.path) ?? 0 });
+  }
+  return [root, ...[...byPath.values()].sort((a, b) => a.path.localeCompare(b.path))];
 }
 
 export function listTimezones(): string[] {
@@ -282,6 +287,61 @@ export async function createCalibrationSheet(userId: string, profile: WriterProf
   // Seed the lexicon with the terms the passage deliberately used.
   const added = await repo.addLexiconTerms(rt.db, userId, passage.terms);
   return { id: row.id, expectedText: passage.text, notebookName: CALIBRATION_NOTEBOOK, lexiconAdded: added.length, costUsd: passage.costUsd };
+}
+
+/**
+ * Read the written sample now, on the user's say-so, rather than waiting for a sync: download
+ * the sheet, render it, transcribe it, score it against the passage we asked for, and store it.
+ * On success the very first extraction (7-day lookback) is started so the user gets their
+ * lists immediately after calibrating.
+ */
+export async function calibrateNow(userId: string) {
+  const rt = await getRuntime();
+  if (!rt.config.anthropicApiKey) throw new Error("ANTHROPIC_API_KEY is not configured on this host");
+  const pending = await repo.activeCalibration(rt.db, userId);
+  if (!pending || pending.status !== "pending") throw new Error("no handwriting sample is waiting; generate one first");
+
+  const tablet = await tabletFor(rt, userId);
+  const tree = await tablet.listTree();
+  const doc = tree.documents.find((d) => d.name === pending.notebookName && d.path.startsWith("/dayMarkable"));
+  if (!doc) throw new Error(`"${pending.notebookName}" is not on the tablet yet — sync the tablet and try again`);
+
+  const refs = await tablet.listPages(doc);
+  const inked = refs.filter((p) => p.hash);
+  if (inked.length === 0) throw new Error("that sheet has no handwriting on it yet — write the lines, sync the tablet, then calibrate");
+
+  const renderer = new HttpRenderer(rt.config.renderServiceUrl);
+  await renderer.check();
+  const dl = await tablet.downloadDocument(doc, { onlyPageIds: inked.map((p) => p.pageId) });
+  const { pages } = await renderer.renderDocument(dl, inked.map((p) => p.pageId));
+  if (pages.length === 0) throw new Error("could not render that page; try syncing the tablet again");
+
+  // Score every written page and keep the best match: the user may have written on page 2.
+  const client = anthropicClient(rt.config.anthropicApiKey);
+  let best: { accuracy: number; text: string; image: Uint8Array } | null = null;
+  for (const p of pages) {
+    const r = await transcribePage(p.segments, rt.config.decodeModel, client, { context: `Handwriting calibration sheet, page ${p.pageIndex + 1}.` });
+    if (r.error) continue;
+    const accuracy = transcriptionAccuracy(pending.expectedText, r.text);
+    if (!best || accuracy > best.accuracy) best = { accuracy, text: r.text, image: p.segments[0]! };
+  }
+  if (!best) throw new Error("could not read that page at all; check the render service");
+  if (best.accuracy < CALIBRATION_MIN_ACCURACY) {
+    return { ok: false as const, accuracy: best.accuracy, transcribedText: best.text, message: `Only ${Math.round(best.accuracy * 100)}% of the passage came back. Check you copied the printed lines onto the ruled lines, then sync the tablet and try again.` };
+  }
+  await repo.captureCalibration(rt.db, rt.sealer, pending.id, { image: best.image, transcribedText: best.text, accuracy: best.accuracy, runId: null });
+
+  // First extraction: a brand-new account has no successful run, so this reads the last 7 days.
+  let firstRunId: string | null = null;
+  const priorRun = await repo.lastSuccessfulRun(rt.db, userId);
+  if (!priorRun) {
+    try {
+      firstRunId = (await startOnDemandSync(rt, userId, "web")).runId;
+    } catch {
+      firstRunId = null; // quota or a run already going; the user can press Sync now
+    }
+  }
+  return { ok: true as const, accuracy: best.accuracy, transcribedText: best.text, firstRunId, message: `Calibrated: ${Math.round(best.accuracy * 100)}% of the passage read back.` };
 }
 
 export async function skipCalibration(userId: string) {

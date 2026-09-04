@@ -254,9 +254,14 @@ do nothing.
       "TODO" = action) unless you already mark your notes differently. *Save*, *Next*.
 - [ ] **E5b. Handwriting sample.** Enter your role and industry; dayMarkable writes a short
       passage using words, names and symbols from your own field and sends it to the tablet as
-      **Handwriting Sample**. Copy the printed lines onto the ruled lines below them, in your
-      normal hand. The next sync captures it, and from then on every page is read against that
-      sample. You may skip it, but expect more items to land in the Inbox for confirmation.
+      **Handwriting Sample**.
+      1. Sync the reMarkable and open that notebook in the dayMarkable folder.
+      2. Copy the printed lines onto the numbered ruled lines beneath them, in your normal
+         hand (not your best hand — the point is how you actually write).
+      3. Sync the tablet again, then press **"I have written it — calibrate"** in the web UI.
+      It reads that one page, tells you what percentage came back, and then immediately starts
+      your first extraction of the last 7 days. You may skip calibration, but expect more items
+      to land in the Inbox for confirmation rather than straight onto the action list.
 - [ ] **E6. Email preferences.** Keep "one email per decoded meeting" on. *Save*, then
       *Finish setup*.
 - [ ] **E7. First sync.** On the *Today* page press **Sync now**. Your very first run reads

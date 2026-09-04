@@ -35,6 +35,8 @@ export interface TranscriptionResult {
 export interface TranscribeOptions {
   /** Names, companies and acronyms this writer uses; the single biggest accuracy lever. */
   lexicon?: readonly string[];
+  /** A page this writer copied out, with the text they were copying: a letterform example. */
+  calibration?: { text: string; image: Uint8Array } | null;
   context?: string;
   maxTokens?: number;
 }
@@ -48,11 +50,18 @@ export async function transcribePage(
 ): Promise<TranscriptionResult> {
   const started = Date.now();
   const hints: string[] = [];
+  if (opts.calibration) {
+    hints.push(`The FIRST image is a sample this same writer copied by hand. It says exactly:
+"""
+${opts.calibration.text}
+"""
+Use it to learn their letterforms. Do not transcribe it; transcribe only the page that follows.`);
+  }
   if (opts.context) hints.push(opts.context);
   if (opts.lexicon?.length) {
     hints.push(`Words this writer uses often (prefer these spellings when the ink is ambiguous): ${opts.lexicon.join(", ")}.`);
   }
-  hints.push("Transcribe this page.");
+  hints.push(opts.calibration ? "Transcribe the page after the sample." : "Transcribe this page.");
   try {
     const message = await client.messages.create({
       model,
@@ -62,6 +71,14 @@ export async function transcribePage(
         {
           role: "user",
           content: [
+            ...(opts.calibration
+              ? [
+                  {
+                    type: "image" as const,
+                    source: { type: "base64" as const, media_type: "image/png" as const, data: Buffer.from(opts.calibration.image).toString("base64") },
+                  },
+                ]
+              : []),
             ...images.map(
               (png): Anthropic.Messages.ImageBlockParam => ({
                 type: "image",

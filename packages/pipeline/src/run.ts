@@ -56,6 +56,8 @@ export interface RunOutcome {
 const OUTPUT_FOLDER = "/dayMarkable";
 /** The notebook the calibration sheet is uploaded as; its written page trains the decoder. */
 export const CALIBRATION_NOTEBOOK = "Handwriting Sample";
+/** Below this share of the passage read back, the sheet is assumed not written yet. */
+export const CALIBRATION_MIN_ACCURACY = 0.25;
 const ARCHIVE_FOLDER = "/dayMarkable/Archive";
 const ARCHIVE_DAYS = 7;
 /** How far the very first run for an account looks back (see changeWindowStart). */
@@ -255,15 +257,18 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         }
         stats.pagesDecoded++;
         decodedKinds.set(r.key, { kind: r.extraction.page_kind, confidence: r.extraction.overall_confidence });
-        // The calibration sheet is a training sample, never content: capture it and move on.
-        if (pendingCalibration && meta.doc.document.name === CALIBRATION_NOTEBOOK) {
-          const accuracy = transcriptionAccuracy(pendingCalibration.expectedText, r.extraction.transcription);
-          const image = renderedByKey.get(r.key)?.[0];
-          if (image && accuracy >= 0.25) {
-            await repo.captureCalibration(db, deps.sealer, pendingCalibration.id, { image, transcribedText: r.extraction.transcription, accuracy, runId: run.id });
-            log(`calibration captured: ${Math.round(accuracy * 100)}% of the sample text read back`);
-          } else {
-            log(`calibration page ignored: only ${Math.round(accuracy * 100)}% matched the expected text (is it written yet?)`);
+        // The calibration sheet is a training sample, never content. It is skipped from the
+        // merge always, and captured here only while a sample is still waiting to be written.
+        if (meta.doc.document.name === CALIBRATION_NOTEBOOK) {
+          if (pendingCalibration?.status === "pending") {
+            const accuracy = transcriptionAccuracy(pendingCalibration.expectedText, r.extraction.transcription);
+            const image = renderedByKey.get(r.key)?.[0];
+            if (image && accuracy >= CALIBRATION_MIN_ACCURACY) {
+              await repo.captureCalibration(db, deps.sealer, pendingCalibration.id, { image, transcribedText: r.extraction.transcription, accuracy, runId: run.id });
+              log(`calibration captured: ${Math.round(accuracy * 100)}% of the sample text read back`);
+            } else {
+              log(`calibration page ignored: only ${Math.round(accuracy * 100)}% matched the expected text (is it written yet?)`);
+            }
           }
           continue;
         }

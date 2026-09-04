@@ -34,6 +34,27 @@ export function CalibrationPanel({ initial, onDone, compact = false }: { initial
     }
   }
 
+  async function calibrate() {
+    setState("working");
+    setError(null);
+    setNote(null);
+    try {
+      const r = await trpc.calibration.calibrate.mutate();
+      if (!r.ok) {
+        setError(r.message);
+        setState("idle");
+        return;
+      }
+      setNote(r.firstRunId ? `${r.message} Reading your last 7 days now — the lists appear on Today in a few minutes.` : r.message);
+      setCal(await trpc.calibration.get.query());
+      setState("idle");
+      onDone?.();
+    } catch (err) {
+      setError(errorMessage(err));
+      setState("error");
+    }
+  }
+
   async function skip() {
     setState("working");
     try {
@@ -70,17 +91,22 @@ export function CalibrationPanel({ initial, onDone, compact = false }: { initial
     return (
       <div className="stack">
         <div className="notice">
-          <strong>Waiting for your handwriting.</strong> Sync your tablet, open <strong>{cal.active.notebookName}</strong> in the dayMarkable folder, and copy the printed lines onto the ruled lines below them. The next sync picks it up automatically.
+          <strong>The sheet is on your tablet.</strong> Sync the reMarkable, open <strong>{cal.active.notebookName}</strong> in the dayMarkable folder, and copy the printed lines onto the ruled lines beneath them in your normal hand. Sync again, then press Calibrate below.
         </div>
         <details>
           <summary className="kicker" style={{ cursor: "pointer" }}>The passage you were given</summary>
           <pre className="mono" style={{ whiteSpace: "pre-wrap", fontSize: 12 }}>{cal.active.expectedText}</pre>
         </details>
+        {note ? <div className="notice ok">{note}</div> : null}
+        {error ? <div className="notice bad">{error}</div> : null}
         <div className="row">
-          <button className="secondary small" onClick={() => void generate()} disabled={state === "working"}>Generate a different passage</button>
+          <button className="primary" onClick={() => void calibrate()} disabled={state === "working"}>
+            {state === "working" ? "Reading your handwriting…" : "I have written it — calibrate"}
+          </button>
+          <button className="secondary small" onClick={() => void generate()} disabled={state === "working"}>Different passage</button>
           <button className="tertiary small" onClick={() => void skip()} disabled={state === "working"}>Skip calibration</button>
         </div>
-        {error ? <div className="notice bad">{error}</div> : null}
+        <small className="meta">Calibrating reads just that one page, then starts your first extraction of the last 7 days.</small>
       </div>
     );
   }
@@ -89,7 +115,7 @@ export function CalibrationPanel({ initial, onDone, compact = false }: { initial
     <div className="stack">
       {!compact ? (
         <p className="muted" style={{ fontSize: 14 }}>
-          dayMarkable reads your handwriting far better when it has seen a sample of it. Tell us what you do, and we write a short passage using the words, names and symbols from your own field. You copy it out once on the tablet; from then on every page is read against that sample.
+          dayMarkable reads your handwriting far better when it has seen a sample of it. Tell us what you do, and we write a short passage using the words, names and symbols from your own field. You copy it out once on the tablet, press Calibrate, and from then on every page is read against that sample.
         </p>
       ) : null}
       <div className="grid two">
