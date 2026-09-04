@@ -8,7 +8,7 @@
 import { mergeRun, buildOutputSet, type MergePage, type PrintedItem } from "@daymarkable/core";
 import { composeActionList, composeMeetingNotes, composePlanner } from "@daymarkable/compose";
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
-import { totalUsage, transcriptionAccuracy, type DecodePageInput, type Decoder } from "@daymarkable/decode";
+import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
 import { buildMeetingMail, type MailProvider } from "@daymarkable/mail";
 import { TabletProviderError, type DownloadedDocument, type TabletDocument, type TabletFolder, type TabletProvider } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
@@ -239,7 +239,6 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
 
     // ---- 3. decode ------------------------------------------------------------------
     const mode = params.kind === "nightly" ? "batch" : "standard";
-    const pendingCalibration = await repo.activeCalibration(db, user.id);
     const mergePages: MergePage[] = [];
     const decodedKinds = new Map<string, { kind: string; confidence: number }>();
     if (decodeInputs.length) {
@@ -257,21 +256,9 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         }
         stats.pagesDecoded++;
         decodedKinds.set(r.key, { kind: r.extraction.page_kind, confidence: r.extraction.overall_confidence });
-        // The calibration sheet is a training sample, never content. It is skipped from the
-        // merge always, and captured here only while a sample is still waiting to be written.
-        if (meta.doc.document.name === CALIBRATION_NOTEBOOK) {
-          if (pendingCalibration?.status === "pending") {
-            const accuracy = transcriptionAccuracy(pendingCalibration.expectedText, r.extraction.transcription);
-            const image = renderedByKey.get(r.key)?.[0];
-            if (image && accuracy >= CALIBRATION_MIN_ACCURACY) {
-              await repo.captureCalibration(db, deps.sealer, pendingCalibration.id, { image, transcribedText: r.extraction.transcription, accuracy, runId: run.id });
-              log(`calibration captured: ${Math.round(accuracy * 100)}% of the sample text read back`);
-            } else {
-              log(`calibration page ignored: only ${Math.round(accuracy * 100)}% matched the expected text (is it written yet?)`);
-            }
-          }
-          continue;
-        }
+        // The calibration sheet is a training sample, never content. Capturing it is an explicit
+        // action in the web UI (it needs the printed half cropped away), so runs only skip it.
+        if (meta.doc.document.name === CALIBRATION_NOTEBOOK) continue;
         stats.tasksFound += r.extraction.tasks.length;
         stats.eventsFound += r.extraction.events.length;
         stats.meetingRequestsFound += r.extraction.meeting_requests.length;

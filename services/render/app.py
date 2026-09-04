@@ -36,6 +36,9 @@ class PageIn(BaseModel):
     page_id: str
     rm_b64: str | None = None  # None => blank page (or bare PDF page when pdf_page_index is set)
     pdf_page_index: int | None = None
+    # Fraction of the page height to drop from the top before rendering; used by the handwriting
+    # calibration sheet, whose printed reference text must not reach the decoder.
+    crop_top: float | None = None
 
 
 class RenderRequest(BaseModel):
@@ -101,7 +104,7 @@ def render(req: RenderRequest) -> RenderResponse:
             if p.rm_b64 is None:
                 rendered = [blank_page(req.long_edge)] if background is None else [Rendered(_png(background), background.width, background.height, "pdf")]
             else:
-                rendered = render_rm(base64.b64decode(p.rm_b64), req.long_edge, background)
+                rendered = render_rm(base64.b64decode(p.rm_b64), req.long_edge, background, p.crop_top)
             segments.extend(_seg(p.page_id, r) for r in rendered)
             ok += 1
         except RenderError as exc:

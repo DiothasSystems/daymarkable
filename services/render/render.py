@@ -122,18 +122,30 @@ def _rasterize_strokes(svg: str, scale: float, transparent: bool) -> Image.Image
     return Image.open(io.BytesIO(bytes(png))).convert("RGBA" if transparent else "L")
 
 
-def render_rm(rm_bytes: bytes, long_edge: int = DEFAULT_LONG_EDGE, background: Image.Image | None = None) -> list[Rendered]:
+def _crop_top(im: Image.Image, crop_top: float | None) -> Image.Image:
+    """Drop the top `crop_top` fraction of the page (used to hide printed reference text)."""
+    if not crop_top or crop_top <= 0 or crop_top >= 1:
+        return im
+    return im.crop((0, int(im.height * crop_top), im.width, im.height))
+
+
+def render_rm(
+    rm_bytes: bytes,
+    long_edge: int = DEFAULT_LONG_EDGE,
+    background: Image.Image | None = None,
+    crop_top: float | None = None,
+) -> list[Rendered]:
     """Render ink; when `background` (a rasterized PDF page) is given, composite the ink on top."""
     svg, w, h = _svg_from_rm(rm_bytes, force_page=background is not None)
     seg_h_pt = w * DEVICE_RATIO
     scale = long_edge / max(w, min(h, seg_h_pt))
     if background is None:
         gray = _rasterize_strokes(svg, scale, transparent=False)
-        return segment_image(gray, long_edge, "rmscene")
+        return segment_image(_crop_top(gray, crop_top), long_edge, "rmscene")
     ink = _rasterize_strokes(svg, scale, transparent=True)
     bg = background.convert("RGBA").resize(ink.size)
     bg.alpha_composite(ink)
-    return segment_image(bg.convert("L"), long_edge, "rmscene+pdf")
+    return segment_image(_crop_top(bg.convert("L"), crop_top), long_edge, "rmscene+pdf")
 
 
 def blank_page(long_edge: int = DEFAULT_LONG_EDGE) -> Rendered:

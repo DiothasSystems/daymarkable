@@ -278,12 +278,12 @@ export async function createCalibrationSheet(userId: string, profile: WriterProf
 
   const passage = await generateCalibrationPassage(profile, anthropicClient(rt.config.anthropicApiKey), rt.config.decodeModel);
   const today = DateTime.now().setZone(user.timezone);
-  const pdf = await composeCalibrationSheet({ text: passage.text, date: today.toISODate()!, generatedAt: today.toISO()! });
+  const sheet = await composeCalibrationSheet({ text: passage.text, date: today.toISODate()!, generatedAt: today.toISO()! });
 
   const tablet = await tabletFor(rt, userId);
   const folder = await tablet.ensureFolder("/dayMarkable");
-  const uploaded = await tablet.uploadPdf(CALIBRATION_NOTEBOOK, pdf, folder, { replace: true });
-  const row = await repo.createCalibration(rt.db, { userId, expectedText: passage.text, notebookName: CALIBRATION_NOTEBOOK, tabletDocId: uploaded.id });
+  const uploaded = await tablet.uploadPdf(CALIBRATION_NOTEBOOK, sheet.pdf, folder, { replace: true });
+  const row = await repo.createCalibration(rt.db, { userId, expectedText: passage.text, notebookName: CALIBRATION_NOTEBOOK, tabletDocId: uploaded.id, writingTop: sheet.writingTop });
   // Seed the lexicon with the terms the passage deliberately used.
   const added = await repo.addLexiconTerms(rt.db, userId, passage.terms);
   return { id: row.id, expectedText: passage.text, notebookName: CALIBRATION_NOTEBOOK, lexiconAdded: added.length, costUsd: passage.costUsd };
@@ -313,14 +313,16 @@ export async function calibrateNow(userId: string) {
   const renderer = new HttpRenderer(rt.config.renderServiceUrl);
   await renderer.check();
   const dl = await tablet.downloadDocument(doc, { onlyPageIds: inked.map((p) => p.pageId) });
-  const { pages } = await renderer.renderDocument(dl, inked.map((p) => p.pageId));
+  // Crop away the printed passage: otherwise the decoder could read the answer off the sheet
+  // instead of the handwriting, and the score would mean nothing.
+  const { pages } = await renderer.renderDocument(dl, inked.map((p) => p.pageId), { cropTop: pending.writingTop });
   if (pages.length === 0) throw new Error("could not render that page; try syncing the tablet again");
 
   // Score every written page and keep the best match: the user may have written on page 2.
   const client = anthropicClient(rt.config.anthropicApiKey);
   let best: { accuracy: number; text: string; image: Uint8Array } | null = null;
   for (const p of pages) {
-    const r = await transcribePage(p.segments, rt.config.decodeModel, client, { context: `Handwriting calibration sheet, page ${p.pageIndex + 1}.` });
+    const r = await transcribePage(p.segments, rt.config.decodeModel, client, { context: `Handwritten lines copied from a printed passage; the printed part has been cropped away. Page ${p.pageIndex + 1}.` });
     if (r.error) continue;
     const accuracy = transcriptionAccuracy(pending.expectedText, r.text);
     if (!best || accuracy > best.accuracy) best = { accuracy, text: r.text, image: p.segments[0]! };

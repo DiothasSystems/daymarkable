@@ -400,7 +400,7 @@ export async function capturedCalibration(db: Db, userId: string): Promise<Calib
   });
 }
 
-export async function createCalibration(db: Db, input: { userId: string; expectedText: string; notebookName: string; tabletDocId: string | null }): Promise<CalibrationRow> {
+export async function createCalibration(db: Db, input: { userId: string; expectedText: string; notebookName: string; tabletDocId: string | null; writingTop: number }): Promise<CalibrationRow> {
   // Only one live sample at a time: older pending ones are abandoned.
   await db.update(schema.calibrations).set({ status: "skipped" }).where(and(eq(schema.calibrations.userId, input.userId), eq(schema.calibrations.status, "pending")));
   const [row] = await db.insert(schema.calibrations).values(input).returning();

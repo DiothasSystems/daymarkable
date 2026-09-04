@@ -372,6 +372,8 @@ export const calibrations = pgTable(
     tabletDocId: text("tablet_doc_id"),
     /** Encrypted PNG of the written page, used as the few-shot image (crypto.ts). */
     sampleImageEnc: text("sample_image_enc"),
+    /** Fraction of page height above which the sheet is printed reference text, not handwriting. */
+    writingTop: real("writing_top").notNull().default(0.5),
     /** What the decoder read back, for the accuracy report shown to the user. */
     transcribedText: text("transcribed_text"),
     accuracy: real("accuracy"),

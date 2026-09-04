@@ -10,7 +10,7 @@ export interface PageImages {
 }
 
 export interface Renderer {
-  renderDocument(doc: DownloadedDocument, pageIds: readonly string[]): Promise<{ pages: PageImages[]; failed: Array<{ pageId: string; reason: string }> }>;
+  renderDocument(doc: DownloadedDocument, pageIds: readonly string[], options?: { cropTop?: number | null }): Promise<{ pages: PageImages[]; failed: Array<{ pageId: string; reason: string }> }>;
 }
 
 export class HttpRenderer implements Renderer {
@@ -20,13 +20,13 @@ export class HttpRenderer implements Renderer {
     if (!(await renderHealthy(this.baseUrl))) throw new RenderServiceError(`render service not reachable at ${this.baseUrl}`);
   }
 
-  async renderDocument(doc: DownloadedDocument, pageIds: readonly string[]): Promise<{ pages: PageImages[]; failed: Array<{ pageId: string; reason: string }> }> {
+  async renderDocument(doc: DownloadedDocument, pageIds: readonly string[], options: { cropTop?: number | null } = {}): Promise<{ pages: PageImages[]; failed: Array<{ pageId: string; reason: string }> }> {
     const want = new Set(pageIds);
     const pages = doc.pages.filter((p) => want.has(p.pageId));
     const byId = new Map(doc.pages.map((p) => [p.pageId, p] as const));
     const { segments, errors } = await renderRmPages(
       this.baseUrl,
-      pages.map((p) => ({ pageId: p.pageId, rm: p.rm, pdfPageIndex: doc.basePdf ? p.index : null })),
+      pages.map((p) => ({ pageId: p.pageId, rm: p.rm, pdfPageIndex: doc.basePdf ? p.index : null, cropTop: options.cropTop ?? null })),
       doc.basePdf,
     );
     const grouped = groupSegments(segments, (s) => s.pageId);

@@ -1,0 +1,1 @@
+ALTER TABLE "calibrations" ADD COLUMN "writing_top" real DEFAULT 0.5 NOT NULL;

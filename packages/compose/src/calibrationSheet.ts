@@ -14,7 +14,17 @@ export interface CalibrationSheetInput {
   generatedAt: string;
 }
 
-export async function composeCalibrationSheet(input: CalibrationSheetInput): Promise<Uint8Array> {
+export interface ComposedCalibrationSheet {
+  pdf: Uint8Array;
+  /**
+   * Where the ruled writing area starts, as a fraction of page height. Everything above it is
+   * the printed passage: cropped away before scoring so the decoder cannot simply read the
+   * answer instead of the handwriting.
+   */
+  writingTop: number;
+}
+
+export async function composeCalibrationSheet(input: CalibrationSheetInput): Promise<ComposedCalibrationSheet> {
   const { doc, fonts } = await newDocument();
   const c = addPage(doc, fonts, 1);
   const page = pageCode("DAY", input.date, 1).replace("/DAY/", "/SAMPLE/");
@@ -34,6 +44,8 @@ export async function composeCalibrationSheet(input: CalibrationSheetInput): Pro
   lines.forEach((l, i) => c.text(c.fit(l, fonts.mono, 27, CONTENT_W - 48), CONTENT_X + 24, y + 30 + i * 40, { font: fonts.mono, size: 27, color: INK }));
   y += printedH + 48;
 
+  // Everything above this point is printed reference text, cropped away before scoring.
+  const writingTopPx = y;
   y += c.label("Your handwriting", CONTENT_X, y);
   // One ruled line per passage line, always: shrink the gap to fit rather than dropping lines.
   const remaining = BODY_BOTTOM - y - 12;
@@ -45,5 +57,5 @@ export async function composeCalibrationSheet(input: CalibrationSheetInput): Pro
   }
 
   doc.setTitle("dayMarkable Handwriting Sample");
-  return doc.save();
+  return { pdf: await doc.save(), writingTop: writingTopPx / 1872 };
 }

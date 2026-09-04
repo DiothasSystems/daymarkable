@@ -68,7 +68,7 @@ function fromWire(s: WireSegment, pageId: string): RenderedSegment {
 
 export async function renderRmPages(
   baseUrl: string,
-  pages: ReadonlyArray<{ pageId: string; rm: Uint8Array | null; pdfPageIndex?: number | null }>,
+  pages: ReadonlyArray<{ pageId: string; rm: Uint8Array | null; pdfPageIndex?: number | null; cropTop?: number | null }>,
   basePdf: Uint8Array | null = null,
   longEdge = 1568,
 ): Promise<{ segments: RenderedSegment[]; errors: RenderFailure[] }> {
@@ -80,6 +80,7 @@ export async function renderRmPages(
       page_id: p.pageId,
       rm_b64: p.rm ? Buffer.from(p.rm).toString("base64") : null,
       pdf_page_index: p.pdfPageIndex ?? null,
+      crop_top: p.cropTop ?? null,
     })),
   });
   return {
