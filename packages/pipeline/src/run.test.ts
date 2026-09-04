@@ -8,6 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Sealer, generateKey, openDb, parseKey, schema, eq, type DbHandle } from "@daymarkable/db";
+import { zeroUsage } from "@daymarkable/decode";
 import { MemoryProvider } from "@daymarkable/mail";
 import { DateTime } from "luxon";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -92,6 +93,27 @@ describe("runPipeline (fixtures)", () => {
     // The Action List is regenerated from the canonical open set, not from tonight's (empty) pages.
     const tasks = await handle.db.query.tasks.findMany({ where: eq(schema.tasks.userId, userId) });
     expect(tasks.filter((t) => t.status === "carried").length).toBeGreaterThan(0);
+  });
+
+  it("a run whose pages all fail to decode is failed, and those pages are retried next run", async () => {
+    const u = await repo.ensureUser(handle.db, "retry@example.com", "America/New_York");
+    const failing: PipelineDeps = {
+      ...deps,
+      decoder: {
+        decodePages: async (pages, mode) =>
+          pages.map((p) => ({ key: p.key, extraction: null, raw: "", error: "API 401: invalid x-api-key", usage: [{ ...zeroUsage(), model: "fixture-model", mode, cost_usd: 0 }], escalated: false })),
+      },
+    };
+    const bad = await runPipeline(failing, { userId: u.id, kind: "on_demand", requestedVia: "test", localDate: "2026-09-10", windowHours: 24 * 30 });
+    expect(bad.status).toBe("failed");
+    expect(bad.error).toMatch(/failed to decode/);
+    // The tablet keeps yesterday's notebooks: nothing was composed or uploaded.
+    const uploadsBefore = tablet.uploads.length;
+    // Nothing was recorded as seen, so a working decoder finds the same page again.
+    const good = await runPipeline(deps, { userId: u.id, kind: "on_demand", requestedVia: "test", localDate: "2026-09-10", windowHours: 24 * 30 });
+    expect(good.status).toBe("succeeded");
+    expect(good.stats!.pagesDecoded).toBe(1);
+    expect(tablet.uploads.length).toBe(uploadsBefore + 3);
   });
 
   it("on-demand runs get sequential keys and satisfy the date for the scheduler (rule 11)", async () => {

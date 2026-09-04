@@ -202,10 +202,15 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // ---- 2. render ------------------------------------------------------------------
     const decodeInputs: DecodePageInput[] = [];
     const pageMeta = new Map<string, { doc: DownloadedDocument; pageId: string; pageIndex: number; hash: string | null }>();
+    /** Pages we could not render or decode: their hashes must NOT be snapshotted, so the next run retries them. */
+    const unprocessed = new Set<string>();
     for (const { doc, changedPageIds } of downloaded) {
       const { pages, failed } = await deps.renderer.renderDocument(doc, changedPageIds);
       stats.pagesFailed += failed.length;
-      for (const f of failed) log(`render failed for ${doc.document.id.slice(0, 8)}/${f.pageId.slice(0, 8)}: ${f.reason}`);
+      for (const f of failed) {
+        unprocessed.add(`${doc.document.id}/${f.pageId}`);
+        log(`render failed for ${doc.document.id.slice(0, 8)}/${f.pageId.slice(0, 8)}: ${f.reason}`);
+      }
       for (const p of pages) {
         for (let i = 0; i < p.segments.length; i++) await deps.cache.put(run.id, `images/${doc.document.id}/${String(p.pageIndex).padStart(3, "0")}-s${i}.png`, p.segments[i]!);
         stats.pagesRendered++;
@@ -239,6 +244,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         await deps.cache.put(run.id, `decode/${meta.doc.document.id}/${meta.pageId}.json`, Buffer.from(JSON.stringify(r)));
         if (!r.extraction) {
           stats.pagesFailed++;
+          unprocessed.add(r.key);
           log(`decode failed for ${r.key.slice(0, 8)}…: ${r.error}`);
           continue;
         }
@@ -249,6 +255,13 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         stats.meetingRequestsFound += r.extraction.meeting_requests.length;
         stats.checkboxUpdates += r.extraction.checkbox_updates.length;
         mergePages.push({ notebook: meta.doc.document.name, pageIndex: meta.pageIndex, extraction: r.extraction });
+      }
+      // Every page failing is a provider or configuration fault, not an empty night. Fail the
+      // run loudly and before compose, so yesterday's notebooks stay on the tablet (rule: never
+      // write a broken planner) and nothing is snapshotted as seen.
+      if (stats.pagesDecoded === 0) {
+        const why = results.find((r) => r.error)?.error ?? "unknown error";
+        throw new Error(`all ${decodeInputs.length} page(s) failed to decode: ${why}`);
       }
     }
 
@@ -327,8 +340,16 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     for (const d of baselineOnly) await repo.upsertDocSnapshot(db, user.id, run.id, { id: d.id, hash: d.hash, name: d.name, path: d.path, fileType: d.fileType, lastModified: d.lastModified, pageCount: d.pageCount });
     for (const { doc } of downloaded) {
       const d = doc.document;
-      await repo.upsertDocSnapshot(db, user.id, run.id, { id: d.id, hash: d.hash, name: d.name, path: d.path, fileType: d.fileType, lastModified: d.lastModified, pageCount: d.pageCount });
+      const stillPending = doc.pages.filter((p) => unprocessed.has(`${d.id}/${p.pageId}`)).length;
+      // The document hash short-circuits the per-page check, so a document with any page left
+      // unprocessed keeps its old snapshot and is examined again next run.
+      if (stillPending === 0) {
+        await repo.upsertDocSnapshot(db, user.id, run.id, { id: d.id, hash: d.hash, name: d.name, path: d.path, fileType: d.fileType, lastModified: d.lastModified, pageCount: d.pageCount });
+      } else {
+        log(`retry queued: "${d.name}" has ${stillPending} page(s) that did not process`);
+      }
       for (const p of doc.pages) {
+        if (unprocessed.has(`${d.id}/${p.pageId}`)) continue;
         const k = decodedKinds.get(`${d.id}/${p.pageId}`);
         await repo.upsertPageSnapshot(db, user.id, run.id, d.id, { pageId: p.pageId, index: p.index, hash: p.hash, kind: k?.kind ?? null, confidence: k?.confidence ?? null });
       }
