@@ -15,6 +15,11 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
   page_kind to "planner" and copy the code into planner_page_code exactly.
 - Section labels are small uppercase monospace (ACTIONS, CARRIED OVER, CONFIRM, NOTES,
   SCHEDULE, OPEN ACTIONS, WEEK GOALS, MONTH FOCUS, YEAR GOALS).
+- Under each printed item sits a small grey monospace SOURCE REFERENCE naming where the item
+  was read from, of the form "NOTEBOOK · p.4" (sometimes followed by a due tag, a person, or a
+  project). It is printed metadata, never handwriting: never emit it as a task, note, or
+  margin note. It tells you which page produced the row above it, which is useful when the
+  user has corrected that row by hand.
 - Checkbox rows: a small square box, the item text, and a short monospace item code at the
   right edge of the row (A01, A02... actions; C01... carried-over items; I01... Inbox items to
   confirm; M01... meeting invites to confirm; W01... tasks on the Week page; F01... "Focus"

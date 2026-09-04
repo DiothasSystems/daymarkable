@@ -7,7 +7,7 @@ import { SECONDARY } from "./brand.js";
 import { newDocument } from "./canvas.js";
 import { actionTag } from "./dailySheet.js";
 import type { ComposedDocument } from "./planner.js";
-import { BODY_SIZE, LINE_H, MAIN_X, Section, formatShortDate, formatTag, generatedStamp, type ComposeContext } from "./section.js";
+import { BODY_SIZE, LINE_H, MAIN_X, Section, formatShortDate, formatTag, generatedStamp, sourceRef, type ComposeContext } from "./section.js";
 
 export interface ActionListInput {
   model: ActionListModel;
@@ -28,7 +28,8 @@ export async function composeActionList(input: ActionListInput): Promise<Compose
     s.label(label, `${g.tasks.length}`);
     for (const t of g.tasks) {
       const tag = g.date ? (t.carriedCount ? `CARRIED ${t.carriedCount}D` : t.dueTime ?? null) : actionTag(t, input.date);
-      const meta = [t.kind === "follow_up" ? "follow-up" : null, t.project, t.people.length ? t.people.join(", ") : null, `${t.source.notebook} · p.${t.source.pageIndex + 1}`].filter(Boolean).join(" · ");
+      // Source reference first: it is what makes a misread traceable back to the ink.
+      const meta = [sourceRef(t.source), t.kind === "follow_up" ? "follow-up" : null, t.project, t.people.length ? t.people.join(", ") : null].filter(Boolean).join(" · ");
       s.checkboxRow({ id: t.id, type: "task", text: t.text, tag: g.label === "Overdue" && t.due ? `DUE ${formatTag(t.due)}` : tag, meta, carried: t.carriedCount > 0, emphasis: t.priority === "high" }, "A");
     }
     s.y += 12;

@@ -55,7 +55,13 @@ export default async function TodayPage() {
               return (
                 <li key={t.id}>
                   <span className="box" aria-hidden />
-                  <span>{t.text}{t.carriedCount ? <span className="meta"> · carried {t.carriedCount}d</span> : null}</span>
+                  <span>
+                    {t.text}
+                    <div className="meta">
+                      {t.source.notebook.toUpperCase()} · p.{t.source.pageIndex + 1}
+                      {t.carriedCount ? ` · carried ${t.carriedCount}d` : ""}
+                    </div>
+                  </span>
                   {tag ? <span className={`due${tag.soon ? " soon" : ""}`}>{tag.label}</span> : t.priority === "high" ? <span className="due soon">PRIORITY</span> : null}
                 </li>
               );

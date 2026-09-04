@@ -7,7 +7,7 @@ import type { DayCell, MonthModel, PlannerModel, PrintedItem, StoredTask, WeekMo
 import { CARRIED, CHECKBOX_PX, INK, RULE, SECONDARY, SHADE, SHADE_BORDER, TERTIARY } from "./brand.js";
 import { BODY_BOTTOM, CONTENT_RIGHT, CONTENT_W, CONTENT_X, addPage, newDocument, type Canvas } from "./canvas.js";
 import { actionTag, writeDailySheet } from "./dailySheet.js";
-import { Section, dayName, formatDayMonth, formatShortDate, formatTag, generatedStamp, isoWeek, monthName, pageCode, type ComposeContext } from "./section.js";
+import { Section, dayName, formatDayMonth, formatShortDate, formatTag, generatedStamp, isoWeek, monthName, pageCode, sourceRef, type ComposeContext } from "./section.js";
 
 export interface ComposedDocument {
   pdf: Uint8Array;
@@ -42,7 +42,8 @@ function sidebar(c: Canvas, codes: Codes, x: number, top: number, bottom: number
   for (const t of tasks) {
     const lines = c.wrap(t.text, f.ui, SIDE_SIZE, textW).slice(0, 2);
     const tag = tagOf(t);
-    const h = lines.length * 40 + (tag ? 30 : 0) + 24;
+    const src = sourceRef(t.source);
+    const h = lines.length * 40 + (tag ? 30 : 0) + 26 + 24;
     if (y + h > bottom - 3 * 45) break;
     const code = nextCode(codes, prefix, "task", t.id);
     const carried = t.carriedCount > 0;
@@ -53,6 +54,9 @@ function sidebar(c: Canvas, codes: Codes, x: number, top: number, bottom: number
       c.text(tag, textX, yy + 22, { font: f.mono, size: SIDE_TAG, color: carried ? TERTIARY : SECONDARY, tracking: 0.04 });
       yy += 30;
     }
+    // Source reference so a misread can be traced back to the page it came from.
+    c.text(c.fit(src, f.mono, SIDE_TAG, textW), textX, yy + 20, { font: f.mono, size: SIDE_TAG, color: TERTIARY, tracking: 0.04 });
+    yy += 26;
     c.text(code, x + width - 6, y + SIDE_SIZE, { font: f.mono, size: 21, color: TERTIARY, align: "right" });
     y = yy + 24;
     void today;
@@ -323,7 +327,7 @@ function writeInbox(ctx: ComposeContext, inbox: PlannerModel["inbox"]): void {
   s.label("Confirm these · tick = yes · strike = drop");
   if (inbox.items.length === 0) s.note("Nothing to confirm. Everything read cleanly.");
   for (const it of inbox.items) {
-    s.checkboxRow({ id: it.id, type: "inbox", text: it.text, tag: `${Math.round(it.confidence * 100)}%`, meta: [it.detail, `${it.source.notebook} · p.${it.source.pageIndex + 1}`].filter(Boolean).join(" · "), carried: false, emphasis: false }, "I");
+    s.checkboxRow({ id: it.id, type: "inbox", text: it.text, tag: `${Math.round(it.confidence * 100)}%`, meta: [sourceRef(it.source), it.detail].filter(Boolean).join(" · "), carried: false, emphasis: false }, "I");
   }
   if (inbox.meetingRequests.length) {
     s.y += 20;

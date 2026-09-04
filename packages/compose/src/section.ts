@@ -66,6 +66,15 @@ export function isoWeek(iso: string): number {
   return 1 + Math.round(((d.getTime() - firstThursday.getTime()) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
 }
 
+/**
+ * Where an item was read from, in the style guide's source-reference form: `PLUME · p.4`.
+ * Every extracted item shows one so a misread can be traced back to the ink that produced it.
+ */
+export function sourceRef(source: { notebook: string; pageIndex: number }): string {
+  const name = source.notebook.trim() || "unknown";
+  return `${name.toUpperCase()} · p.${source.pageIndex + 1}`;
+}
+
 export type PageKindCode = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "INBOX" | "ACTIONS" | "MEETINGS";
 
 export function pageCode(kind: PageKindCode, date: string, page: number): string {

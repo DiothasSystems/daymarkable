@@ -9,7 +9,7 @@
 import type { ActionItem, CalendarItem, DailySheetModel, PrintedItem } from "@daymarkable/core";
 import { CARRIED, CHECKBOX_PX, INK, RULE, SECONDARY, TERTIARY } from "./brand.js";
 import { BODY_BOTTOM, CONTENT_RIGHT, CONTENT_W, CONTENT_X, addPage, newDocument, type Canvas } from "./canvas.js";
-import { formatShortDate, formatTag, formatTitleDate, generatedStamp, pageCode, type ComposeContext } from "./section.js";
+import { formatShortDate, formatTag, formatTitleDate, generatedStamp, pageCode, sourceRef, type ComposeContext } from "./section.js";
 
 export { formatLongDate, formatShortDate } from "./section.js";
 
@@ -51,20 +51,22 @@ export function actionTag(a: ActionItem, today: string): string | null {
 }
 
 /** One checkbox row inside a column; returns the height used, or 0 if it did not fit. */
-function columnRow(c: Canvas, codes: Codes, x: number, y: number, width: number, bottom: number, item: { id: string; type: PrintedItem["itemType"]; text: string; tag: string | null; carried: boolean }, prefix: string): number {
+function columnRow(c: Canvas, codes: Codes, x: number, y: number, width: number, bottom: number, item: { id: string; type: PrintedItem["itemType"]; text: string; tag: string | null; source: string | null; carried: boolean }, prefix: string): number {
   const f = c.fonts;
   const textX = x + CHECKBOX_PX + 24;
   const codeW = 80;
   const tagW = item.tag ? c.textWidth(item.tag, f.mono, 24) + 24 : 0;
   const textW = width - (textX - x) - codeW - tagW;
   const lines = c.wrap(item.text, f.ui, ROW_SIZE, textW);
-  const h = lines.length * 46 + ROW_GAP;
+  const h = lines.length * 46 + (item.source ? 28 : 0) + ROW_GAP;
   if (y + h > bottom) return 0;
   const code = nextCode(codes, prefix, item.type, item.id);
   c.checkbox(x, y + 4, CHECKBOX_PX, item.carried ? SECONDARY : INK);
   lines.forEach((l, i) => c.text(l, textX, y + ROW_SIZE + i * 46, { font: f.ui, size: ROW_SIZE, color: item.carried ? CARRIED : INK }));
   c.text(code, x + width, y + ROW_SIZE, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
   if (item.tag) c.text(item.tag, x + width - codeW, y + ROW_SIZE, { font: f.mono, size: 24, color: item.carried ? TERTIARY : SECONDARY, align: "right", tracking: 0.04 });
+  // Source reference: which page of which notebook this was read from.
+  if (item.source) c.text(c.fit(item.source, f.mono, 21, width - (textX - x)), textX, y + lines.length * 46 + 18, { font: f.mono, size: 21, color: TERTIARY, tracking: 0.04 });
   return h;
 }
 
@@ -121,8 +123,8 @@ export function writeDailySheet(ctx: ComposeContext, m: DailySheetModel): void {
   const open = m.actions.filter((a) => a.carriedCount === 0);
   const carried = m.actions.filter((a) => a.carriedCount > 0);
   const confirm = [
-    ...m.meetingRequests.map((r) => ({ id: r.id, type: "meeting_request" as const, text: `Invite: ${r.topic}${r.proposedDate ? ` · ${formatShortDate(r.proposedDate)}${r.proposedTime ? ` ${r.proposedTime}` : ""}` : ""}`, tag: "TICK TO SEND", prefix: "M" })),
-    ...m.inbox.map((i) => ({ id: i.id, type: "inbox" as const, text: i.text, tag: `${Math.round(i.confidence * 100)}%`, prefix: "I" })),
+    ...m.meetingRequests.map((r) => ({ id: r.id, type: "meeting_request" as const, text: `Invite: ${r.topic}${r.proposedDate ? ` · ${formatShortDate(r.proposedDate)}${r.proposedTime ? ` ${r.proposedTime}` : ""}` : ""}`, tag: "TICK TO SEND", source: sourceRef(r.source), prefix: "M" })),
+    ...m.inbox.map((i) => ({ id: i.id, type: "inbox" as const, text: i.text, tag: `${Math.round(i.confidence * 100)}%`, source: sourceRef(i.source), prefix: "I" })),
   ];
   const notesMin = 4 * 84 + 60; // keep room for at least four ruled lines
   const sectionBottom = bottom - notesMin;
@@ -134,7 +136,7 @@ export function writeDailySheet(ctx: ComposeContext, m: DailySheetModel): void {
     y += 46 + ROW_GAP;
   }
   for (const a of open) {
-    const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: a.id, type: "task", text: a.text, tag: actionTag(a, m.date), carried: false }, "A");
+    const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: a.id, type: "task", text: a.text, tag: actionTag(a, m.date), source: sourceRef(a.source), carried: false }, "A");
     if (!h) break;
     y += h;
     shown++;
@@ -148,7 +150,7 @@ export function writeDailySheet(ctx: ComposeContext, m: DailySheetModel): void {
     y += 20;
     y += c.label("Carried over", LEFT_X, y);
     for (const a of carried) {
-      const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: a.id, type: "task", text: `${a.text} (${a.carriedCount} day${a.carriedCount === 1 ? "" : "s"})`, tag: null, carried: true }, "C");
+      const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: a.id, type: "task", text: `${a.text} (${a.carriedCount} day${a.carriedCount === 1 ? "" : "s"})`, tag: null, source: sourceRef(a.source), carried: true }, "C");
       if (!h) break;
       y += h;
     }
@@ -158,7 +160,7 @@ export function writeDailySheet(ctx: ComposeContext, m: DailySheetModel): void {
     y += 20;
     y += c.label("Confirm · tick = yes · strike = drop", LEFT_X, y);
     for (const it of confirm) {
-      const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: it.id, type: it.type, text: it.text, tag: it.tag, carried: false }, it.prefix);
+      const h = columnRow(c, codes, LEFT_X, y, COL_W, sectionBottom, { id: it.id, type: it.type, text: it.text, tag: it.tag, source: it.source, carried: false }, it.prefix);
       if (!h) break;
       y += h;
     }
