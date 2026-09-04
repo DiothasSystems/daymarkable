@@ -74,7 +74,7 @@ export function PairingWizard({ tablet, onPaired }: { tablet: Account["tablet"];
 
 // ------------------------------------------------------------ watch folders
 export function WatchFolders({ initial, includePdfs, paired }: { initial: string[]; includePdfs: boolean; paired: boolean }) {
-  const [folders, setFolders] = useState<Array<{ path: string; notebooks: number }> | null>(null);
+  const [folders, setFolders] = useState<Array<{ path: string; label: string; notebooks: number }> | null>(null);
   const [selected, setSelected] = useState<string[]>(initial);
   const [pdfs, setPdfs] = useState(includePdfs);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -94,11 +94,10 @@ export function WatchFolders({ initial, includePdfs, paired }: { initial: string
       {paired && !folders && !loadError ? <small className="mono">loading folders…</small> : null}
       {folders ? (
         <div>
-          {folders.length === 0 ? <small className="muted">No folders on the tablet; everything is in the root and will be read.</small> : null}
           {folders.map((f) => (
             <label key={f.path} className="check">
               <input type="checkbox" checked={selected.includes(f.path)} onChange={() => toggle(f.path)} />
-              <span>{f.path} <span className="meta">{f.notebooks} notebook{f.notebooks === 1 ? "" : "s"}</span></span>
+              <span>{f.label} <span className="meta">{f.notebooks} notebook{f.notebooks === 1 ? "" : "s"}</span></span>
             </label>
           ))}
         </div>

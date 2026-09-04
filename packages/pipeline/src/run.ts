@@ -85,6 +85,16 @@ function isOutputDoc(doc: TabletDocument): boolean {
   return doc.path.startsWith(`${OUTPUT_FOLDER}/`) && !doc.path.startsWith(`${ARCHIVE_FOLDER}/`);
 }
 
+/** The watch-folder entry meaning "documents sitting loose in the tablet's root". */
+export const ROOT_FOLDER = "/";
+
+/** Does `path` live in `folder`? "/" means the root itself, not everything under it. */
+export function inWatchedFolder(path: string, folder: string): boolean {
+  if (folder === ROOT_FOLDER) return path.lastIndexOf("/") === 0;
+  const f = folder.replace(/\/$/, "");
+  return path === f || path.startsWith(`${f}/`);
+}
+
 export function selectDocuments(docs: TabletDocument[], settings: { watchFolders: string[]; includePdfs: boolean }): TabletDocument[] {
   return docs.filter((d) => {
     if (d.path.startsWith(`${ARCHIVE_FOLDER}/`)) return false;
@@ -92,7 +102,7 @@ export function selectDocuments(docs: TabletDocument[], settings: { watchFolders
     if (d.fileType === "epub") return false;
     if (d.fileType === "pdf" && !settings.includePdfs) return false;
     if (settings.watchFolders.length === 0) return true;
-    return settings.watchFolders.some((f) => d.path === f || d.path.startsWith(`${f.replace(/\/$/, "")}/`));
+    return settings.watchFolders.some((f) => inWatchedFolder(d.path, f));
   });
 }
 

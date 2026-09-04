@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LocalCacheStore } from "./cache.js";
 import { FixtureDecoder, FixtureRenderer, FixtureTabletProvider } from "./fixtures.js";
 import * as repo from "./repo.js";
-import { changeWindowStart, pageChanged, runPipeline, selectDocuments, type PipelineDeps } from "./run.js";
+import { changeWindowStart, inWatchedFolder, pageChanged, runPipeline, selectDocuments, type PipelineDeps } from "./run.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(here, "..", "..", "..", "fixtures", "notebooks");
@@ -114,6 +114,17 @@ describe("selection and windows", () => {
     const docs = [doc("/Work/Meetings"), doc("/Personal/Journal"), doc("/dayMarkable/Planner", "pdf"), doc("/dayMarkable/Archive/Planner 2026-09-01", "pdf"), doc("/Books/Novel", "epub"), doc("/Work/Spec", "pdf")];
     expect(selectDocuments(docs, { watchFolders: ["/Work"], includePdfs: false }).map((d) => d.path)).toEqual(["/Work/Meetings", "/dayMarkable/Planner"]);
     expect(selectDocuments(docs, { watchFolders: [], includePdfs: true }).map((d) => d.path)).toEqual(["/Work/Meetings", "/Personal/Journal", "/dayMarkable/Planner", "/Work/Spec"]);
+  });
+  it("treats the root as a selectable folder without swallowing everything under it", () => {
+    const docs = [doc("/Loose Notes"), doc("/Another"), doc("/Work/Meetings"), doc("/Work/Deep/Nested")];
+    // Root selected: only notebooks sitting directly in the root.
+    expect(selectDocuments(docs, { watchFolders: ["/"], includePdfs: false }).map((d) => d.path)).toEqual(["/Loose Notes", "/Another"]);
+    // A named folder still includes its subfolders, and excludes the root.
+    expect(selectDocuments(docs, { watchFolders: ["/Work"], includePdfs: false }).map((d) => d.path)).toEqual(["/Work/Meetings", "/Work/Deep/Nested"]);
+    // Both together.
+    expect(selectDocuments(docs, { watchFolders: ["/", "/Work"], includePdfs: false })).toHaveLength(4);
+    expect(inWatchedFolder("/Loose Notes", "/")).toBe(true);
+    expect(inWatchedFolder("/Work/Meetings", "/")).toBe(false);
   });
   it("decides page changes by hash, and by page timestamp on first sight", () => {
     const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });

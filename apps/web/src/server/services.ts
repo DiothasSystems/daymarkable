@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
 import { CONVENTION_CATALOG, validateConventions } from "@daymarkable/decode";
-import { QuotaExhaustedError, RunInProgressError, getOnDemandQuota, repo, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
+import { QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, repo, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
 import { z } from "zod";
@@ -83,7 +83,12 @@ export async function listTabletFolders(userId: string) {
     const parent = tree.folders.find((f) => f.id === d.parentId)?.path ?? "/";
     counts.set(parent, (counts.get(parent) ?? 0) + 1);
   }
-  return tree.folders.filter((f) => !f.path.startsWith("/dayMarkable")).map((f) => ({ path: f.path, notebooks: counts.get(f.path) ?? 0 }));
+  // The tablet's root is a real place to keep notebooks, so it is offered like any folder.
+  const root = { path: ROOT_FOLDER, label: "Root (notebooks not in a folder)", notebooks: counts.get(ROOT_FOLDER) ?? 0 };
+  const folders = tree.folders
+    .filter((f) => !f.path.startsWith("/dayMarkable"))
+    .map((f) => ({ path: f.path, label: f.path, notebooks: counts.get(f.path) ?? 0 }));
+  return [root, ...folders];
 }
 
 export function listTimezones(): string[] {
