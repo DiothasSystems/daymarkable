@@ -450,3 +450,19 @@ export async function recordCorrection(db: Db, input: { userId: string; itemType
 export async function recentCorrections(db: Db, userId: string, limit = 50) {
   return db.query.corrections.findMany({ where: eq(schema.corrections.userId, userId), orderBy: desc(schema.corrections.createdAt), limit });
 }
+
+/** Address a run's generated document of a given kind (used when republishing in place). */
+export function documentMatch(userId: string, runId: string, kind: "planner" | "action_list" | "meeting_notes") {
+  return and(eq(schema.documents.userId, userId), eq(schema.documents.runId, runId), eq(schema.documents.kind, kind));
+}
+
+/**
+ * Replace the printed-item map for a run. Republishing reprints every checkbox row, so the old
+ * codes for that run are gone and must not linger, or a tick would resolve to the wrong item.
+ */
+export async function replacePrintedItems(db: Db, userId: string, runId: string, printed: readonly PrintedItem[]): Promise<void> {
+  await db.delete(schema.printedItems).where(and(eq(schema.printedItems.userId, userId), eq(schema.printedItems.runId, runId)));
+  if (printed.length) {
+    await db.insert(schema.printedItems).values(printed.map((p) => ({ userId, runId, pageCode: p.pageCode, itemCode: p.itemCode, itemType: p.itemType, itemId: p.itemId })));
+  }
+}

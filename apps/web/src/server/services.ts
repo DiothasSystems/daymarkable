@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
 import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
-import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, repo, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
+import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
@@ -218,6 +218,17 @@ export async function syncNow(userId: string, via: "web" | "mobile"): Promise<Sy
 export async function quotaStatus(userId: string): Promise<QuotaStatus> {
   const rt = await getRuntime();
   return getOnDemandQuota(rt.db, userId);
+}
+
+/**
+ * Rebuild the three notebooks from the stored working set and send them to the tablet, without
+ * syncing or decoding. Corrections made in the web UI reach the tablet this way; it calls no
+ * model, so it costs nothing and is deliberately not rate-limited.
+ */
+export async function republish(userId: string) {
+  const rt = await getRuntime();
+  const tablet = await tabletFor(rt, userId);
+  return republishNotebooks({ db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet, log: rt.log }, userId);
 }
 
 // ------------------------------------------------------------------ feedback

@@ -1,3 +1,4 @@
+import { Republish } from "@/components/Republish";
 import { Shell } from "@/components/Shell";
 import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
@@ -19,7 +20,8 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
           <h1>Documents</h1>
         </div>
       </div>
-      <p className="muted">Served from the 1-day cache and the registry, never regenerated. Yesterday's files are gone by design; tonight's run replaces them.</p>
+      <p className="muted">Served from the 1-day cache and the registry, never regenerated. Yesterday's files are gone by design; tonight's run replaces them. Click any decoded text to fix a misread — the correction is learned, then push it to the tablet below.</p>
+      <div style={{ marginBottom: 18 }}><Republish /></div>
       <DocumentsView documents={docs.documents} registry={reg} initialTab={tab ?? "files"} />
     </Shell>
   );

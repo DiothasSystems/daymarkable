@@ -36,6 +36,13 @@ export const appRouter = router({
   documents: router({
     list: protectedProcedure.query(({ ctx }) => svc.listDocuments(ctx.user.id)),
     registry: protectedProcedure.query(({ ctx }) => svc.getRegistry(ctx.user.id)),
+    republish: protectedProcedure.mutation(async ({ ctx }) => {
+      try {
+        return await svc.republish(ctx.user.id);
+      } catch (err) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+      }
+    }),
   }),
   runs: router({
     list: protectedProcedure.input(z.object({ limit: z.number().int().min(1).max(200).default(30) }).optional()).query(({ ctx, input }) => svc.listRuns(ctx.user.id, input?.limit ?? 30)),
