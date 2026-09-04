@@ -1,7 +1,8 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
-import { CONVENTION_CATALOG, validateConventions } from "@daymarkable/decode";
-import { QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, repo, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
+import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, validateConventions } from "@daymarkable/decode";
+import { CALIBRATION_NOTEBOOK, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, repo, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
+import { composeCalibrationSheet } from "@daymarkable/compose";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
 import { z } from "zod";
@@ -236,4 +237,107 @@ export async function feedbackSummary(userId: string) {
   const rows = await rt.db.query.feedback.findMany({ where: eq(schema.feedback.userId, userId), orderBy: desc(schema.feedback.createdAt), limit: 20 });
   const avg = rows.length ? rows.reduce((a, r) => a + r.rating, 0) / rows.length : null;
   return { average: avg, count: rows.length, recent: rows };
+}
+
+// ------------------------------------------------------------------ handwriting calibration
+export const profileSchema = z.object({
+  role: z.string().max(120),
+  industry: z.string().max(120),
+  context: z.string().max(600),
+});
+export type WriterProfileInput = z.infer<typeof profileSchema>;
+
+export async function getCalibration(userId: string) {
+  const rt = await getRuntime();
+  const [user, active, captured] = await Promise.all([repo.getUser(rt.db, userId), repo.activeCalibration(rt.db, userId), repo.capturedCalibration(rt.db, userId)]);
+  return {
+    profile: user.settings.profile,
+    lexicon: user.settings.lexicon,
+    active: active ? { id: active.id, status: active.status, expectedText: active.expectedText, notebookName: active.notebookName, createdAt: active.createdAt } : null,
+    captured: captured
+      ? { id: captured.id, accuracy: captured.accuracy, capturedAt: captured.capturedAt, expectedText: captured.expectedText, transcribedText: captured.transcribedText }
+      : null,
+  };
+}
+
+/**
+ * Generate a passage in this writer's own vocabulary, compose it as a sheet, and upload it to
+ * the tablet for them to copy out. The written page is captured on the next run.
+ */
+export async function createCalibrationSheet(userId: string, profile: WriterProfileInput) {
+  const rt = await getRuntime();
+  if (!rt.config.anthropicApiKey) throw new Error("ANTHROPIC_API_KEY is not configured on this host");
+  const user = await repo.getUser(rt.db, userId);
+  const settings: UserSettings = { ...user.settings, profile };
+  await rt.db.update(schema.users).set({ settings, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+
+  const passage = await generateCalibrationPassage(profile, anthropicClient(rt.config.anthropicApiKey), rt.config.decodeModel);
+  const today = DateTime.now().setZone(user.timezone);
+  const pdf = await composeCalibrationSheet({ text: passage.text, date: today.toISODate()!, generatedAt: today.toISO()! });
+
+  const tablet = await tabletFor(rt, userId);
+  const folder = await tablet.ensureFolder("/dayMarkable");
+  const uploaded = await tablet.uploadPdf(CALIBRATION_NOTEBOOK, pdf, folder, { replace: true });
+  const row = await repo.createCalibration(rt.db, { userId, expectedText: passage.text, notebookName: CALIBRATION_NOTEBOOK, tabletDocId: uploaded.id });
+  // Seed the lexicon with the terms the passage deliberately used.
+  const added = await repo.addLexiconTerms(rt.db, userId, passage.terms);
+  return { id: row.id, expectedText: passage.text, notebookName: CALIBRATION_NOTEBOOK, lexiconAdded: added.length, costUsd: passage.costUsd };
+}
+
+export async function skipCalibration(userId: string) {
+  const rt = await getRuntime();
+  await repo.skipCalibration(rt.db, userId);
+  return { ok: true };
+}
+
+export async function updateLexicon(userId: string, terms: string[]) {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  const cleaned = [...new Set(terms.map((t) => t.trim()).filter((t) => t.length > 1))].slice(0, 400);
+  const settings: UserSettings = { ...user.settings, lexicon: cleaned };
+  await rt.db.update(schema.users).set({ settings, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+  return cleaned;
+}
+
+// ------------------------------------------------------------------ corrections
+/**
+ * The user fixing a misread item. The corrected text replaces the item, and the words that
+ * changed are promoted into the lexicon so the same misread does not recur.
+ */
+export async function correctItem(userId: string, itemType: "task" | "event" | "meeting" | "inbox", itemId: string, correctedText: string) {
+  const rt = await getRuntime();
+  const text = correctedText.trim();
+  if (!text) throw new Error("corrected text cannot be empty");
+  let original = "";
+  if (itemType === "task") {
+    const row = await rt.db.query.tasks.findFirst({ where: and(eq(schema.tasks.userId, userId), eq(schema.tasks.id, itemId)) });
+    if (!row) throw new Error("item not found");
+    original = row.text;
+    await rt.db.update(schema.tasks).set({ text, updatedAt: new Date() }).where(eq(schema.tasks.id, itemId));
+  } else if (itemType === "event") {
+    const row = await rt.db.query.events.findFirst({ where: and(eq(schema.events.userId, userId), eq(schema.events.id, itemId)) });
+    if (!row) throw new Error("item not found");
+    original = row.title;
+    await rt.db.update(schema.events).set({ title: text, updatedAt: new Date() }).where(eq(schema.events.id, itemId));
+  } else if (itemType === "inbox") {
+    const row = await rt.db.query.inboxItems.findFirst({ where: and(eq(schema.inboxItems.userId, userId), eq(schema.inboxItems.id, itemId)) });
+    if (!row) throw new Error("item not found");
+    original = row.text;
+    await rt.db.update(schema.inboxItems).set({ text, updatedAt: new Date() }).where(eq(schema.inboxItems.id, itemId));
+  } else {
+    const row = await rt.db.query.meetings.findFirst({ where: and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, itemId)) });
+    if (!row) throw new Error("item not found");
+    original = row.topic;
+    await rt.db.update(schema.meetings).set({ topic: text }).where(eq(schema.meetings.id, itemId));
+  }
+  if (original === text) return { ok: true, learned: [] as string[] };
+  const learned = learnedTerms(original, text);
+  await repo.recordCorrection(rt.db, { userId, itemType, itemId, originalText: original, correctedText: text, learnedTerms: learned });
+  const added = await repo.addLexiconTerms(rt.db, userId, learned);
+  return { ok: true, learned: added };
+}
+
+export async function correctionHistory(userId: string) {
+  const rt = await getRuntime();
+  return repo.recentCorrections(rt.db, userId, 40);
 }

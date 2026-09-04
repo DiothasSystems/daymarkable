@@ -108,11 +108,17 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
   const model = user.settings.decodeModel ?? pickRotatedModel(rt.config.decodeModel, process.env.DECODE_MODEL_ROTATION, DateTime.now().setZone(user.timezone));
   const renderer: Renderer = new HttpRenderer(rt.config.renderServiceUrl);
   await (renderer as HttpRenderer).check();
+  // Per-user accuracy context, all of it prompt-cached: their vocabulary and, once they have
+  // written the sample, an image of their own handwriting beside its known text.
+  const calibration = await repo.calibrationSample(rt.db, rt.sealer, userId);
   const decoder: Decoder = new AnthropicDecoder({
     model,
     escalationModel: user.settings.escalationModel ?? rt.config.escalationModel,
     confidenceThreshold: user.settings.confidenceThreshold,
     conventions: validateConventions(user.settings.conventions),
+    lexicon: user.settings.lexicon,
+    calibration,
   });
+  if (calibration) log(`decode context: calibration sample + ${user.settings.lexicon.length} lexicon term(s)`);
   return { db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet: await tabletFor(rt, userId), renderer, decoder, mail: rt.mail, decodeModel: model, log };
 }

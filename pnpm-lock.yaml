@@ -51,6 +51,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@daymarkable/compose':
+        specifier: workspace:*
+        version: link:../../packages/compose
       '@daymarkable/core':
         specifier: workspace:*
         version: link:../../packages/core

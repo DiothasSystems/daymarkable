@@ -8,7 +8,7 @@
 import { mergeRun, buildOutputSet, type MergePage, type PrintedItem } from "@daymarkable/core";
 import { composeActionList, composeMeetingNotes, composePlanner } from "@daymarkable/compose";
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
-import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
+import { totalUsage, transcriptionAccuracy, type DecodePageInput, type Decoder } from "@daymarkable/decode";
 import { buildMeetingMail, type MailProvider } from "@daymarkable/mail";
 import { TabletProviderError, type DownloadedDocument, type TabletDocument, type TabletFolder, type TabletProvider } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
@@ -54,6 +54,8 @@ export interface RunOutcome {
 }
 
 const OUTPUT_FOLDER = "/dayMarkable";
+/** The notebook the calibration sheet is uploaded as; its written page trains the decoder. */
+export const CALIBRATION_NOTEBOOK = "Handwriting Sample";
 const ARCHIVE_FOLDER = "/dayMarkable/Archive";
 const ARCHIVE_DAYS = 7;
 /** How far the very first run for an account looks back (see changeWindowStart). */
@@ -202,6 +204,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // ---- 2. render ------------------------------------------------------------------
     const decodeInputs: DecodePageInput[] = [];
     const pageMeta = new Map<string, { doc: DownloadedDocument; pageId: string; pageIndex: number; hash: string | null }>();
+    const renderedByKey = new Map<string, Uint8Array[]>();
     /** Pages we could not render or decode: their hashes must NOT be snapshotted, so the next run retries them. */
     const unprocessed = new Set<string>();
     for (const { doc, changedPageIds } of downloaded) {
@@ -216,6 +219,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         stats.pagesRendered++;
         const key = `${doc.document.id}/${p.pageId}`;
         pageMeta.set(key, { doc, pageId: p.pageId, pageIndex: p.pageIndex, hash: doc.pages.find((x) => x.pageId === p.pageId)?.hash ?? null });
+        renderedByKey.set(key, p.segments);
         decodeInputs.push({
           key,
           images: p.segments,
@@ -233,6 +237,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
 
     // ---- 3. decode ------------------------------------------------------------------
     const mode = params.kind === "nightly" ? "batch" : "standard";
+    const pendingCalibration = await repo.activeCalibration(db, user.id);
     const mergePages: MergePage[] = [];
     const decodedKinds = new Map<string, { kind: string; confidence: number }>();
     if (decodeInputs.length) {
@@ -250,6 +255,18 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         }
         stats.pagesDecoded++;
         decodedKinds.set(r.key, { kind: r.extraction.page_kind, confidence: r.extraction.overall_confidence });
+        // The calibration sheet is a training sample, never content: capture it and move on.
+        if (pendingCalibration && meta.doc.document.name === CALIBRATION_NOTEBOOK) {
+          const accuracy = transcriptionAccuracy(pendingCalibration.expectedText, r.extraction.transcription);
+          const image = renderedByKey.get(r.key)?.[0];
+          if (image && accuracy >= 0.25) {
+            await repo.captureCalibration(db, deps.sealer, pendingCalibration.id, { image, transcribedText: r.extraction.transcription, accuracy, runId: run.id });
+            log(`calibration captured: ${Math.round(accuracy * 100)}% of the sample text read back`);
+          } else {
+            log(`calibration page ignored: only ${Math.round(accuracy * 100)}% matched the expected text (is it written yet?)`);
+          }
+          continue;
+        }
         stats.tasksFound += r.extraction.tasks.length;
         stats.eventsFound += r.extraction.events.length;
         stats.meetingRequestsFound += r.extraction.meeting_requests.length;

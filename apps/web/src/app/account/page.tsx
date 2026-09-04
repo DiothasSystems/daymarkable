@@ -1,16 +1,17 @@
 import { Shell } from "@/components/Shell";
+import { CalibrationPanel, LexiconEditor } from "@/components/Calibration";
 import { RateRun } from "@/components/RateRun";
 import { ConventionsPicker, DecodeTuning, EmailPrefs, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
 import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
-import { feedbackSummary, getAccount, listRuns } from "@/server/services";
+import { feedbackSummary, getAccount, getCalibration, listRuns } from "@/server/services";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Account" };
 
 export default async function AccountPage() {
   const user = await requireUser();
-  const [account, feedback, runs] = await Promise.all([getAccount(user.id), feedbackSummary(user.id), listRuns(user.id, 1)]);
+  const [account, feedback, runs, calibration] = await Promise.all([getAccount(user.id), feedbackSummary(user.id), listRuns(user.id, 1), getCalibration(user.id)]);
   const lastRun = runs.find((r) => r.status === "succeeded") ?? null;
   return (
     <Shell>
@@ -28,6 +29,14 @@ export default async function AccountPage() {
           <p className="muted">How well did dayMarkable read your handwriting? {feedback.count ? <>Average <strong>{feedback.average!.toFixed(1)}</strong> over {feedback.count} rating{feedback.count === 1 ? "" : "s"}.</> : "No ratings yet."}</p>
           {lastRun ? <p className="meta">Rating the latest run ({lastRun.label.toLowerCase()}, {fmtDateTime(lastRun.finishedAt, user.timezone)})</p> : <p className="meta">Rating overall (no run yet)</p>}
           <RateRun runId={lastRun?.id ?? null} initialRating={lastRun?.rating?.rating ?? null} initialComment={lastRun?.rating?.comment ?? null} />
+        </section>
+        <section className="card">
+          <h2>Handwriting sample</h2>
+          <CalibrationPanel initial={calibration} compact />
+        </section>
+        <section className="card">
+          <h2>Your vocabulary</h2>
+          <LexiconEditor initial={calibration.lexicon} />
         </section>
         <section className="card">
           <h2>Tablet</h2>

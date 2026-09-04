@@ -11,6 +11,10 @@ export interface DecodeConfig {
   escalationModel: string | null;
   confidenceThreshold: number;
   conventions: UserInkConventions;
+  /** Names and acronyms this writer uses; injected into the cached system prompt. */
+  lexicon?: readonly string[];
+  /** Calibration few-shot: a page this writer copied out, with the text they were copying. */
+  calibration?: { text: string; image: Uint8Array } | null;
   maxTokens?: number;
   /** Parallelism for standard-API calls (on-demand runs). */
   concurrency?: number;
@@ -94,7 +98,11 @@ export class AnthropicDecoder implements Decoder {
     client?: Anthropic,
   ) {
     this.client = client ?? new Anthropic();
-    this.system = buildSystemPrompt({ conventions: config.conventions });
+    this.system = buildSystemPrompt({
+      conventions: config.conventions,
+      ...(config.lexicon ? { lexicon: config.lexicon } : {}),
+      calibrationText: config.calibration?.text ?? null,
+    });
     this.maxTokens = config.maxTokens ?? 8000;
   }
 
@@ -107,6 +115,17 @@ export class AnthropicDecoder implements Decoder {
         {
           role: "user",
           content: [
+            // The calibration sample leads every request and is cached, so the model sees this
+            // writer's letterforms next to their known text before reading the real page.
+            ...(this.config.calibration
+              ? [
+                  {
+                    type: "image" as const,
+                    source: { type: "base64" as const, media_type: "image/png" as const, data: Buffer.from(this.config.calibration.image).toString("base64") },
+                    cache_control: { type: "ephemeral" as const },
+                  },
+                ]
+              : []),
             ...page.images.map(
               (png): Anthropic.Messages.ImageBlockParam => ({
                 type: "image",

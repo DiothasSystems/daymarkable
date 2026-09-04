@@ -41,8 +41,8 @@ export function loadConfig(): RunnerConfig {
   return {
     deviceToken: env.RMAPI_DEVICE_TOKEN || null,
     anthropicApiKey: env.ANTHROPIC_API_KEY || null,
-    decodeModel: env.DECODE_MODEL || "claude-haiku-4-5",
-    escalationModel: env.DECODE_ESCALATION_MODEL === "" ? null : (env.DECODE_ESCALATION_MODEL ?? "claude-sonnet-5"),
+    decodeModel: env.DECODE_MODEL || "claude-sonnet-5",
+    escalationModel: env.DECODE_ESCALATION_MODEL === "" ? null : (env.DECODE_ESCALATION_MODEL ?? "claude-opus-5"),
     confidenceThreshold: Number(env.DECODE_CONFIDENCE_THRESHOLD ?? "0.7"),
     renderServiceUrl: env.RENDER_SERVICE_URL || "http://127.0.0.1:8787",
     timezone: env.USER_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone,

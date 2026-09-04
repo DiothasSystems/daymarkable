@@ -42,10 +42,35 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
 
 export interface SystemPromptOptions {
   conventions: UserInkConventions;
+  /** Names, companies and acronyms this writer uses; the largest single accuracy lever. */
+  lexicon?: readonly string[];
+  /** The passage the writer copied out during calibration (its image is sent separately). */
+  calibrationText?: string | null;
 }
 
-/** Stable per user (conventions are the only variable part), so it prompt-caches across pages. */
+/** Describes the writer's own vocabulary so proper nouns are matched, not guessed. */
+export function describeLexicon(lexicon: readonly string[]): string {
+  if (lexicon.length === 0) return "";
+  return `THIS WRITER'S VOCABULARY. These names, companies, products and acronyms appear in their notes.
+When ink is ambiguous, strongly prefer one of these spellings over a similar-looking common word:
+${[...lexicon].sort((a, b) => a.localeCompare(b)).join(" · ")}`;
+}
+
+/** Frames the calibration image that accompanies the system prompt. */
+export function describeCalibration(text: string): string {
+  return `HANDWRITING SAMPLE. The FIRST image in every request is a page this same writer copied out
+by hand, and here is exactly what it says:
+"""
+${text}
+"""
+Use it to learn how this person forms letters, digits and marks — compare their shapes against
+this known text before reading the pages that follow. The sample itself is never content: never
+emit tasks, events, notes or checkbox updates from it. Every later image is the real page.`;
+}
+
+/** Stable per user, so it prompt-caches across pages. */
 export function buildSystemPrompt(opts: SystemPromptOptions): string {
+  const extras = [describeLexicon(opts.lexicon ?? []), opts.calibrationText ? describeCalibration(opts.calibrationText) : ""].filter(Boolean).join("\n\n");
   return `You are dayMarkable's handwriting decoder. You receive ONE page from a reMarkable tablet as one
 or more images (a tall scrolled page is split into vertical segments, given top to bottom, with a
 small overlap between consecutive segments; do not transcribe overlapping lines twice) and return
@@ -77,7 +102,9 @@ Rules:
 
 ${describeConventions(opts.conventions)}
 
-${PLANNER_LAYOUT_DESCRIPTION}
+${PLANNER_LAYOUT_DESCRIPTION}${extras ? `
+
+${extras}` : ""}
 
 Output JSON schema (schema_version is always 1):
 ${SCHEMA_DESCRIPTION}`;

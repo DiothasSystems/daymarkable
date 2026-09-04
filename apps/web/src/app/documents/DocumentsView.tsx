@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { EditableItem } from "@/components/EditableItem";
 import type { getRegistry, listDocuments } from "@/server/services";
 import { fmtDate } from "@/lib/format";
 
@@ -49,7 +50,7 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
             {registry.events.map((e) => (
               <li key={e.id}>
                 <span className="mono" style={{ minWidth: 110 }}>{e.date ? fmtDate(e.date) : "undated"}{e.startTime ? ` ${e.startTime}` : ""}</span>
-                <span>{e.title}{e.location ? <span className="muted"> · {e.location}</span> : null}{e.people.length ? <div className="meta">{e.people.join(", ")}</div> : null}</span>
+                <span><EditableItem itemType="event" itemId={e.id} text={e.title} />{e.location ? <span className="muted"> · {e.location}</span> : null}{e.people.length ? <div className="meta">{e.people.join(", ")}</div> : null}</span>
               </li>
             ))}
           </ul>
@@ -71,12 +72,12 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
 
       {tab === "actions" ? (
         <div className="card">
-          <p className="kicker">{registry.actions.length} open · tick on paper to close</p>
+          <p className="kicker">{registry.actions.length} open · tick on paper to close · click any text to fix a misread</p>
           <ul className="list">
             {registry.actions.map((t) => (
               <li key={t.id}>
                 <span className="box" aria-hidden />
-                <span>{t.text}<div className="meta">{[t.due ? fmtDate(t.due) : "no date", t.priority === "high" ? "HIGH" : null, t.kind === "follow_up" ? "follow-up" : null, t.people.join(", ") || null, t.carriedCount ? `carried ${t.carriedCount}×` : null, `from ${t.source.notebook} p${t.source.pageIndex + 1}`].filter(Boolean).join(" · ")}</div></span>
+                <span><EditableItem itemType="task" itemId={t.id} text={t.text} /><div className="meta">{[t.due ? fmtDate(t.due) : "no date", t.priority === "high" ? "HIGH" : null, t.kind === "follow_up" ? "follow-up" : null, t.people.join(", ") || null, t.carriedCount ? `carried ${t.carriedCount}×` : null, `from ${t.source.notebook} p${t.source.pageIndex + 1}`].filter(Boolean).join(" · ")}</div></span>
               </li>
             ))}
           </ul>
@@ -85,7 +86,7 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
               <p className="kicker" style={{ marginTop: 16 }}>Inbox — confirm on the planner</p>
               <ul className="list">
                 {registry.inbox.map((i) => (
-                  <li key={i.id}><span className="box" aria-hidden /><span>{i.text}<div className="meta">{i.kind} · {Math.round(i.confidence * 100)}% sure{i.detail ? ` · ${i.detail}` : ""}</div></span></li>
+                  <li key={i.id}><span className="box" aria-hidden /><span><EditableItem itemType="inbox" itemId={i.id} text={i.text} /><div className="meta">{i.kind} · {Math.round(i.confidence * 100)}% sure{i.detail ? ` · ${i.detail}` : ""}</div></span></li>
                 ))}
               </ul>
             </>
@@ -109,7 +110,7 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
           {registry.meetings.map((m) => (
             <article className="card" key={m.id}>
               <div className="row between" style={{ alignItems: "baseline" }}>
-                <h2 style={{ marginBottom: 4 }}>{m.topic}</h2>
+                <h2 style={{ marginBottom: 4 }}><EditableItem itemType="meeting" itemId={m.id} text={m.topic} /></h2>
                 <span className="meta">{m.time ? `${m.time} · ` : ""}p.{m.source.pageIndex + 1}</span>
               </div>
               <p className="meta" style={{ marginBottom: 12 }}>{m.date ? fmtDate(m.date) : "undated"} · with {m.attendees.length ? m.attendees.join(", ") : "—"}</p>

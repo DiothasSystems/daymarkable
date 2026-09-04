@@ -49,6 +49,30 @@ export const appRouter = router({
       return r;
     }),
   }),
+  calibration: router({
+    get: protectedProcedure.query(({ ctx }) => svc.getCalibration(ctx.user.id)),
+    create: protectedProcedure.input(svc.profileSchema).mutation(async ({ ctx, input }) => {
+      try {
+        return await svc.createCalibrationSheet(ctx.user.id, input);
+      } catch (err) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+      }
+    }),
+    skip: protectedProcedure.mutation(({ ctx }) => svc.skipCalibration(ctx.user.id)),
+    setLexicon: protectedProcedure.input(z.object({ terms: z.array(z.string().max(80)).max(400) })).mutation(({ ctx, input }) => svc.updateLexicon(ctx.user.id, input.terms)),
+  }),
+  corrections: router({
+    fix: protectedProcedure
+      .input(z.object({ itemType: z.enum(["task", "event", "meeting", "inbox"]), itemId: z.string().min(1), text: z.string().min(1).max(2000) }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await svc.correctItem(ctx.user.id, input.itemType, input.itemId, input.text);
+        } catch (err) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        }
+      }),
+    history: protectedProcedure.query(({ ctx }) => svc.correctionHistory(ctx.user.id)),
+  }),
   feedback: router({
     rate: protectedProcedure.input(z.object({ runId: z.string().uuid().nullable(), rating: z.number().int().min(1).max(5), comment: z.string().max(2000).nullable() })).mutation(({ ctx, input }) => svc.rateRun(ctx.user.id, input.runId, input.rating, input.comment)),
     summary: protectedProcedure.query(({ ctx }) => svc.feedbackSummary(ctx.user.id)),

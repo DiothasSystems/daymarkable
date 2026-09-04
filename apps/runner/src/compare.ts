@@ -1,7 +1,7 @@
 /**
  * Model comparison for the dogfood phase (BUILD_PLAN Phase 0 item 7).
  *
- *   pnpm compare --days 7 --models claude-haiku-4-5,claude-sonnet-5,claude-opus-5
+ *   pnpm compare --days 7 --models claude-sonnet-5,claude-opus-5
  *
  * Reads the pages you wrote in the last N days, transcribes each one with every model, and
  * writes a side-by-side HTML report: the page image on the left, one transcription column per
@@ -18,7 +18,7 @@ import { HttpRenderer, STATE_DIR, ensureDefaultUser, openRuntime, selectDocument
 import type { TabletDocument } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
 
-const DEFAULT_MODELS = ["claude-haiku-4-5", "claude-sonnet-5", "claude-opus-5"];
+const DEFAULT_MODELS = ["claude-sonnet-5", "claude-opus-5"];
 
 function opt(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`);

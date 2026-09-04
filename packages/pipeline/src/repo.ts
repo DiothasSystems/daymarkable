@@ -34,12 +34,35 @@ export function defaultSettings(): UserSettings {
     autoSendInvites: false,
     decodeModel: null,
     escalationModel: null,
+    profile: null,
+    lexicon: [],
   };
+}
+
+/**
+ * Settings are a JSONB blob, so rows written before a field existed lack it. Every read goes
+ * through here: new keys get their defaults without a data migration.
+ */
+export function normalizeSettings(raw: Partial<UserSettings> | null | undefined): UserSettings {
+  const d = defaultSettings();
+  return {
+    ...d,
+    ...(raw ?? {}),
+    conventions: raw?.conventions ?? d.conventions,
+    email: { ...d.email, ...(raw?.email ?? {}) },
+    watchFolders: raw?.watchFolders ?? d.watchFolders,
+    lexicon: raw?.lexicon ?? d.lexicon,
+    profile: raw?.profile ?? d.profile,
+  };
+}
+
+function withSettings(u: UserRow): UserRow {
+  return { ...u, settings: normalizeSettings(u.settings) };
 }
 
 export async function ensureUser(db: Db, email: string, timezone: string): Promise<UserRow> {
   const existing = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
-  if (existing) return existing;
+  if (existing) return withSettings(existing);
   const [row] = await db.insert(schema.users).values({ email, timezone, settings: defaultSettings() }).returning();
   return row!;
 }
@@ -47,7 +70,7 @@ export async function ensureUser(db: Db, email: string, timezone: string): Promi
 export async function getUser(db: Db, userId: string): Promise<UserRow> {
   const u = await db.query.users.findFirst({ where: eq(schema.users.id, userId) });
   if (!u) throw new Error(`user ${userId} not found`);
-  return u;
+  return withSettings(u);
 }
 
 // ---------------------------------------------------------------- credentials
@@ -359,3 +382,71 @@ export async function logEmail(db: Db, input: { userId: string; runId: string; i
 }
 
 export type { Meeting };
+
+// ---------------------------------------------------------------- calibration + lexicon
+export type CalibrationRow = typeof schema.calibrations.$inferSelect;
+
+export async function activeCalibration(db: Db, userId: string): Promise<CalibrationRow | undefined> {
+  return db.query.calibrations.findFirst({
+    where: and(eq(schema.calibrations.userId, userId), sql`${schema.calibrations.status} <> 'skipped'`),
+    orderBy: desc(schema.calibrations.createdAt),
+  });
+}
+
+export async function capturedCalibration(db: Db, userId: string): Promise<CalibrationRow | undefined> {
+  return db.query.calibrations.findFirst({
+    where: and(eq(schema.calibrations.userId, userId), eq(schema.calibrations.status, "captured")),
+    orderBy: desc(schema.calibrations.capturedAt),
+  });
+}
+
+export async function createCalibration(db: Db, input: { userId: string; expectedText: string; notebookName: string; tabletDocId: string | null }): Promise<CalibrationRow> {
+  // Only one live sample at a time: older pending ones are abandoned.
+  await db.update(schema.calibrations).set({ status: "skipped" }).where(and(eq(schema.calibrations.userId, input.userId), eq(schema.calibrations.status, "pending")));
+  const [row] = await db.insert(schema.calibrations).values(input).returning();
+  return row!;
+}
+
+export async function skipCalibration(db: Db, userId: string): Promise<void> {
+  await db.update(schema.calibrations).set({ status: "skipped" }).where(and(eq(schema.calibrations.userId, userId), eq(schema.calibrations.status, "pending")));
+}
+
+export async function captureCalibration(db: Db, sealer: Sealer, id: string, input: { image: Uint8Array; transcribedText: string; accuracy: number; runId: string | null }): Promise<void> {
+  await db
+    .update(schema.calibrations)
+    .set({
+      status: "captured",
+      sampleImageEnc: sealer.sealBytes(input.image).toString("base64"),
+      transcribedText: input.transcribedText,
+      accuracy: input.accuracy,
+      capturedRunId: input.runId,
+      capturedAt: new Date(),
+    })
+    .where(eq(schema.calibrations.id, id));
+}
+
+/** The few-shot pair injected into the cached system prompt, or null when not calibrated. */
+export async function calibrationSample(db: Db, sealer: Sealer, userId: string): Promise<{ text: string; image: Uint8Array } | null> {
+  const row = await capturedCalibration(db, userId);
+  if (!row?.sampleImageEnc) return null;
+  return { text: row.expectedText, image: new Uint8Array(sealer.openBytes(Buffer.from(row.sampleImageEnc, "base64"))) };
+}
+
+export async function addLexiconTerms(db: Db, userId: string, terms: readonly string[]): Promise<string[]> {
+  if (terms.length === 0) return [];
+  const user = await getUser(db, userId);
+  const have = new Set(user.settings.lexicon.map((t) => t.toLowerCase()));
+  const added = terms.map((t) => t.trim()).filter((t) => t.length > 1 && !have.has(t.toLowerCase()));
+  if (added.length === 0) return [];
+  const next: UserSettings = { ...user.settings, lexicon: [...user.settings.lexicon, ...added].slice(0, 400) };
+  await db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+  return added;
+}
+
+export async function recordCorrection(db: Db, input: { userId: string; itemType: string; itemId: string; originalText: string; correctedText: string; learnedTerms: string[] }): Promise<void> {
+  await db.insert(schema.corrections).values(input);
+}
+
+export async function recentCorrections(db: Db, userId: string, limit = 50) {
+  return db.query.corrections.findMany({ where: eq(schema.corrections.userId, userId), orderBy: desc(schema.corrections.createdAt), limit });
+}

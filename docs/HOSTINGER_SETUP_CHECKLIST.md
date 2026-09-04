@@ -252,6 +252,11 @@ do nothing.
 - [ ] **E4. Timezone.** Confirm your timezone (runs happen at 03:00 in it). *Save*, *Next*.
 - [ ] **E5. Ink conventions.** Leave the defaults (asterisk = action, underline = follow-up,
       "TODO" = action) unless you already mark your notes differently. *Save*, *Next*.
+- [ ] **E5b. Handwriting sample.** Enter your role and industry; dayMarkable writes a short
+      passage using words, names and symbols from your own field and sends it to the tablet as
+      **Handwriting Sample**. Copy the printed lines onto the ruled lines below them, in your
+      normal hand. The next sync captures it, and from then on every page is read against that
+      sample. You may skip it, but expect more items to land in the Inbox for confirmation.
 - [ ] **E6. Email preferences.** Keep "one email per decoded meeting" on. *Save*, then
       *Finish setup*.
 - [ ] **E7. First sync.** On the *Today* page press **Sync now**. Your very first run reads

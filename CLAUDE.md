@@ -123,13 +123,31 @@ unchanged.
 
 ## Model usage
 
-Claude Haiku 4.5 via the **Batch API** (50% discount; 3AM has no latency pressure), prompt
-caching for the system prompt, escalate to Sonnet only on low-confidence pages. Images
-rendered at 1568px long edge. Keep the extraction schema in one place
-(`packages/decode/schema.ts`) — zod-validated, versioned. **Model is a config value, not a
-constant** — the personal-use phase rotates models nightly to measure token/cost/quality
-before pricing is committed, so every run records input/output tokens and dollar cost per
-model per stage in `run_costs`.
+**Claude Sonnet 5 is the baseline decoder**, escalating to **Opus 5** only on low-confidence
+pages. (Measured on the founder's own handwriting in September 2026: Sonnet read most
+accurately, Opus was close behind, Haiku 4.5 was clearly worst and is no longer used.)
+Nightly runs go through the **Batch API** (50% discount; 3AM has no latency pressure);
+on-demand syncs use the standard API. Prompt caching carries the system prompt, the user's
+ink conventions, their lexicon, and their handwriting calibration sample. Images are rendered
+at 1568px long edge. Keep the extraction schema in one place (`packages/decode/schema.ts`) —
+zod-validated, versioned. **Model is a config value, not a constant** — every run records
+input/output tokens and dollar cost per model per stage in `run_costs`, and
+`pnpm compare --days 7` renders a side-by-side transcription report to re-check the choice as
+models change.
+
+## Per-user accuracy
+
+Claude's vision models cannot be fine-tuned, so accuracy per writer comes from context, all of
+it carried in the cached system prompt:
+
+- **Calibration sample.** During onboarding the user writes a short generated passage, tailored
+  to their job and industry, that deliberately exercises their own vocabulary, symbols, and
+  digits. The captured page image plus its known text becomes a few-shot example: this is what
+  this person's letterforms look like. Users may skip it and are told accuracy will suffer.
+- **Lexicon.** Names, companies, acronyms, and project words the user writes often. Proper nouns
+  are where misreads concentrate; the lexicon is the single largest lever.
+- **Corrections.** When the user fixes a decoded item in the web UI, the (wrong → right) pair is
+  stored; recurring corrections are promoted into the lexicon automatically.
 
 ## Brand
 

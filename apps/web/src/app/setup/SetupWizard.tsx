@@ -1,14 +1,16 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { CalibrationPanel } from "@/components/Calibration";
 import { ConventionsPicker, EmailPrefs, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
 import { errorMessage, trpc } from "@/lib/trpc";
 import type { getAccount } from "@/server/services";
 
 type Account = Awaited<ReturnType<typeof getAccount>>;
-const STEPS = ["Pair tablet", "Watch folders", "Timezone", "Ink conventions", "Email"];
+type Calibration = Awaited<ReturnType<typeof import("@/server/services").getCalibration>>;
+const STEPS = ["Pair tablet", "Watch folders", "Timezone", "Ink conventions", "Handwriting", "Email"];
 
-export function SetupWizard({ account }: { account: Account }) {
+export function SetupWizard({ account, calibration }: { account: Account; calibration: Calibration }) {
   const router = useRouter();
   const [step, setStep] = useState(account.tablet.paired ? 1 : 0);
   const [paired, setPaired] = useState(account.tablet.paired);
@@ -36,7 +38,8 @@ export function SetupWizard({ account }: { account: Account }) {
       {step === 1 ? <WatchFolders initial={account.settings.watchFolders} includePdfs={account.settings.includePdfs} paired={paired} /> : null}
       {step === 2 ? <TimezonePicker initial={account.timezone} /> : null}
       {step === 3 ? <ConventionsPicker initial={account.settings.conventions} catalog={account.conventionCatalog} /> : null}
-      {step === 4 ? <EmailPrefs initial={account.settings.email} email={account.email} /> : null}
+      {step === 4 ? <CalibrationPanel initial={calibration} /> : null}
+      {step === 5 ? <EmailPrefs initial={account.settings.email} email={account.email} /> : null}
       {error ? <div className="notice bad">{error}</div> : null}
       <div className="row between" style={{ marginTop: 20 }}>
         <button className="secondary" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>

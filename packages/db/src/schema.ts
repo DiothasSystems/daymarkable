@@ -54,6 +54,13 @@ export interface UserSettings {
   /** Decode model config for this user (null = global default from env). */
   decodeModel: string | null;
   escalationModel: string | null;
+  /** Who the writer is, used to generate a calibration passage in their own vocabulary. */
+  profile: { role: string; industry: string; context: string } | null;
+  /**
+   * Names, companies, acronyms and project words this writer uses. Injected into every decode:
+   * proper nouns are where misreads concentrate, so this is the largest accuracy lever.
+   */
+  lexicon: string[];
 }
 
 export const users = pgTable("users", {
@@ -343,6 +350,56 @@ export const feedback = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("feedback_user_created").on(t.userId, t.createdAt)],
+);
+
+export const calibrationStatus = pgEnum("calibration_status", ["pending", "captured", "skipped"]);
+
+/**
+ * The handwriting calibration sample: a short passage generated for this writer's job, which
+ * they copy out by hand. Once captured, the page image plus its known text is injected into
+ * the cached system prompt as a few-shot example of this person's letterforms.
+ */
+export const calibrations = pgTable(
+  "calibrations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    status: calibrationStatus("status").notNull().default("pending"),
+    /** The passage we asked them to write (the ground truth). */
+    expectedText: text("expected_text").notNull(),
+    /** Notebook name uploaded to the tablet, e.g. "Handwriting Sample". */
+    notebookName: text("notebook_name").notNull(),
+    tabletDocId: text("tablet_doc_id"),
+    /** Encrypted PNG of the written page, used as the few-shot image (crypto.ts). */
+    sampleImageEnc: text("sample_image_enc"),
+    /** What the decoder read back, for the accuracy report shown to the user. */
+    transcribedText: text("transcribed_text"),
+    accuracy: real("accuracy"),
+    capturedRunId: uuid("captured_run_id"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    capturedAt: timestamp("captured_at", { withTimezone: true }),
+  },
+  (t) => [index("calibrations_user").on(t.userId, t.createdAt)],
+);
+
+/**
+ * A correction the user made in the web UI: what the decoder read, and what it should have
+ * read. Recurring corrections are promoted into the lexicon.
+ */
+export const corrections = pgTable(
+  "corrections",
+  {
+    id: serial("id").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    itemType: text("item_type").notNull(),
+    itemId: text("item_id").notNull(),
+    originalText: text("original_text").notNull(),
+    correctedText: text("corrected_text").notNull(),
+    /** Tokens that changed, extracted deterministically; these feed the lexicon. */
+    learnedTerms: jsonb("learned_terms").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("corrections_user_created").on(t.userId, t.createdAt)],
 );
 
 /** Magic-link login tokens (Milestone 3). */

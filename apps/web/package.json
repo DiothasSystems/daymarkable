@@ -11,6 +11,7 @@
     "admin:hash": "node scripts/admin-hash.mjs"
   },
   "dependencies": {
+    "@daymarkable/compose": "workspace:*",
     "@daymarkable/core": "workspace:*",
     "@daymarkable/db": "workspace:*",
     "@daymarkable/decode": "workspace:*",
