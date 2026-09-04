@@ -73,6 +73,30 @@ export function PairingWizard({ tablet, onPaired }: { tablet: Account["tablet"];
 }
 
 // ------------------------------------------------------------ watch folders
+/** Where the generated notebooks land on the tablet. */
+export function OutputLocation({ initial }: { initial: boolean }) {
+  const [toRoot, setToRoot] = useState(initial);
+  const { state, error, save } = useSaver(async (v: boolean) => trpc.account.updateSettings.mutate({ outputToRoot: v }));
+  return (
+    <div className="stack">
+      <p className="muted" style={{ fontSize: 14 }}>Where Planner, Action List and Meeting Notes are written each night.</p>
+      <label className="check">
+        <input type="radio" name="outloc" checked={!toRoot} onChange={() => setToRoot(false)} />
+        <span><strong>In a dayMarkable folder</strong><div className="hint">Tidy: everything dayMarkable writes lives in one place.</div></span>
+      </label>
+      <label className="check">
+        <input type="radio" name="outloc" checked={toRoot} onChange={() => setToRoot(true)} />
+        <span><strong>On the tablet's home screen</strong><div className="hint">The planner is the first thing you see when you pick up the tablet. Dated archives still go to dayMarkable/Archive so home stays clean.</div></span>
+      </label>
+      <div className="row">
+        <button onClick={() => void save(toRoot)} disabled={state === "saving"}>Save location</button>
+        <Status state={state} error={error} />
+        {toRoot !== initial ? <small className="meta">moves on the next run, or press Send updated notebooks on Documents</small> : null}
+      </div>
+    </div>
+  );
+}
+
 export function WatchFolders({ initial, includePdfs, paired }: { initial: string[]; includePdfs: boolean; paired: boolean }) {
   const [folders, setFolders] = useState<Array<{ path: string; label: string; notebooks: number }> | null>(null);
   const [selected, setSelected] = useState<string[]>(initial);

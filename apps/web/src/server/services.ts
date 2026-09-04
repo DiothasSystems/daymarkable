@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
 import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
-import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
+import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
@@ -11,6 +11,7 @@ import { getRuntime } from "./runtime";
 // ------------------------------------------------------------------ account
 export const settingsPatchSchema = z.object({
   watchFolders: z.array(z.string().min(1)).max(50).optional(),
+  outputToRoot: z.boolean().optional(),
   includePdfs: z.boolean().optional(),
   conventions: z.object({ active: z.array(z.object({ id: z.string(), meaning: z.string(), keyword: z.string().optional() })) }).optional(),
   email: z.object({ meetingNotes: z.boolean(), runSummary: z.boolean(), inviteConfirmations: z.boolean() }).optional(),
@@ -44,6 +45,7 @@ export async function updateSettings(userId: string, patch: SettingsPatch) {
   const next: UserSettings = { ...user.settings };
   if (patch.watchFolders) next.watchFolders = patch.watchFolders.map((f) => (f.startsWith("/") ? f : `/${f}`));
   if (patch.includePdfs !== undefined) next.includePdfs = patch.includePdfs;
+  if (patch.outputToRoot !== undefined) next.outputToRoot = patch.outputToRoot;
   if (patch.conventions) next.conventions = validateConventions(patch.conventions) as UserSettings["conventions"];
   if (patch.email) next.email = patch.email;
   if (patch.confidenceThreshold !== undefined) next.confidenceThreshold = patch.confidenceThreshold;
@@ -292,7 +294,7 @@ export async function createCalibrationSheet(userId: string, profile: WriterProf
   const sheet = await composeCalibrationSheet({ text: passage.text, date: today.toISODate()!, generatedAt: today.toISO()! });
 
   const tablet = await tabletFor(rt, userId);
-  const folder = await tablet.ensureFolder("/dayMarkable");
+  const folder = await tablet.ensureFolder(outputFolderFor(user.settings));
   const uploaded = await tablet.uploadPdf(CALIBRATION_NOTEBOOK, sheet.pdf, folder, { replace: true });
   const row = await repo.createCalibration(rt.db, { userId, expectedText: passage.text, notebookName: CALIBRATION_NOTEBOOK, tabletDocId: uploaded.id, writingTop: sheet.writingTop });
   // Seed the lexicon with the terms the passage deliberately used.
@@ -314,7 +316,7 @@ export async function calibrateNow(userId: string) {
 
   const tablet = await tabletFor(rt, userId);
   const tree = await tablet.listTree();
-  const doc = tree.documents.find((d) => d.name === pending.notebookName && d.path.startsWith("/dayMarkable"));
+  const doc = tree.documents.find((d) => d.name === pending.notebookName && isOurDocument(d));
   if (!doc) throw new Error(`"${pending.notebookName}" is not on the tablet yet — sync the tablet and try again`);
 
   const refs = await tablet.listPages(doc);

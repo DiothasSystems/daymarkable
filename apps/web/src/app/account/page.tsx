@@ -1,7 +1,7 @@
 import { Shell } from "@/components/Shell";
 import { CalibrationPanel, LexiconEditor } from "@/components/Calibration";
 import { RateRun } from "@/components/RateRun";
-import { ConventionsPicker, DecodeTuning, EmailPrefs, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
+import { ConventionsPicker, DecodeTuning, EmailPrefs, OutputLocation, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
 import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
 import { feedbackSummary, getAccount, getCalibration, listRuns } from "@/server/services";
@@ -45,6 +45,10 @@ export default async function AccountPage() {
         <section className="card">
           <h2>Watch folders</h2>
           <WatchFolders initial={account.settings.watchFolders} includePdfs={account.settings.includePdfs} paired={account.tablet.paired} />
+        </section>
+        <section className="card">
+          <h2>Where notebooks land</h2>
+          <OutputLocation initial={account.settings.outputToRoot} />
         </section>
         <section className="card">
           <h2>Timezone</h2>

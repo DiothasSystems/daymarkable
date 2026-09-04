@@ -54,11 +54,44 @@ export interface RunOutcome {
 }
 
 const OUTPUT_FOLDER = "/dayMarkable";
+export const ROOT_OUTPUT_FOLDER = "/";
 /** The notebook the calibration sheet is uploaded as; its written page trains the decoder. */
 export const CALIBRATION_NOTEBOOK = "Handwriting Sample";
 /** Below this share of the passage read back, the sheet is assumed not written yet. */
 export const CALIBRATION_MIN_ACCURACY = 0.25;
 const ARCHIVE_FOLDER = "/dayMarkable/Archive";
+/** Everything dayMarkable writes to the tablet, by name. */
+export const OUTPUT_NAMES = ["Planner", "Action List", "Meeting Notes"] as const;
+
+/** Where this user's notebooks are published: a folder, or the tablet root. */
+export function outputFolderFor(settings: { outputToRoot?: boolean }): string {
+  return settings.outputToRoot ? ROOT_OUTPUT_FOLDER : OUTPUT_FOLDER;
+}
+
+/** Is this document one of ours, wherever the user has chosen to keep them? */
+export function isOurDocument(doc: TabletDocument): boolean {
+  if (doc.path.startsWith(`${ARCHIVE_FOLDER}/`)) return false;
+  const inRoot = doc.path.lastIndexOf("/") === 0;
+  const named = (OUTPUT_NAMES as readonly string[]).includes(doc.name) || doc.name === CALIBRATION_NOTEBOOK;
+  return (inRoot && named) || (doc.path.startsWith(`${OUTPUT_FOLDER}/`) && !doc.path.startsWith(`${ARCHIVE_FOLDER}/`));
+}
+
+/**
+ * Remove our notebooks left behind in the other location after the setting changed, so the
+ * tablet never shows two Planners. Only ever touches documents we wrote, by name.
+ */
+export async function cleanStaleOutputs(tablet: TabletProvider, docs: readonly TabletDocument[], targetFolderId: string, log: (m: string) => void): Promise<number> {
+  const stale = docs.filter((d) => isOurDocument(d) && d.parentId !== targetFolderId);
+  for (const d of stale) {
+    try {
+      await tablet.deleteDocument(d);
+    } catch (err) {
+      log(`could not remove the old copy of "${d.name}": ${(err as Error).message}`);
+    }
+  }
+  if (stale.length) log(`removed ${stale.length} notebook(s) left in the previous location`);
+  return stale.length;
+}
 const ARCHIVE_DAYS = 7;
 /** How far the very first run for an account looks back (see changeWindowStart). */
 export const FIRST_RUN_LOOKBACK_DAYS = 7;
@@ -85,9 +118,7 @@ function emptyStats(): RunStats {
   };
 }
 
-function isOutputDoc(doc: TabletDocument): boolean {
-  return doc.path.startsWith(`${OUTPUT_FOLDER}/`) && !doc.path.startsWith(`${ARCHIVE_FOLDER}/`);
-}
+
 
 /** The watch-folder entry meaning "documents sitting loose in the tablet's root". */
 export const ROOT_FOLDER = "/";
@@ -99,10 +130,10 @@ export function inWatchedFolder(path: string, folder: string): boolean {
   return path === f || path.startsWith(`${f}/`);
 }
 
-export function selectDocuments(docs: TabletDocument[], settings: { watchFolders: string[]; includePdfs: boolean }): TabletDocument[] {
+export function selectDocuments(docs: TabletDocument[], settings: { watchFolders: string[]; includePdfs: boolean; outputToRoot?: boolean }): TabletDocument[] {
   return docs.filter((d) => {
     if (d.path.startsWith(`${ARCHIVE_FOLDER}/`)) return false;
-    if (isOutputDoc(d)) return true; // our own planner pages: the closed loop
+    if (isOurDocument(d)) return true; // our own planner pages: the closed loop
     if (d.fileType === "epub") return false;
     if (d.fileType === "pdf" && !settings.includePdfs) return false;
     if (settings.watchFolders.length === 0) return true;
@@ -308,14 +339,16 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // ---- 6. upload + archive rotation ------------------------------------------------
     const tabletIds = new Map<string, string>();
     if (params.upload !== false) {
-      const folder = await deps.tablet.ensureFolder(OUTPUT_FOLDER);
+      const target = outputFolderFor(settings);
+      const folder = await deps.tablet.ensureFolder(target);
       const archive = await deps.tablet.ensureFolder(ARCHIVE_FOLDER);
       await rotateArchive(deps, tree.documents, folder, archive, localDate, log);
+      await cleanStaleOutputs(deps.tablet, tree.documents, folder.id, log);
       for (const o of outputs) {
         const res = await deps.tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true });
         tabletIds.set(o.kind, res.id);
       }
-      log(`upload: ${outputs.length} notebooks replaced in ${OUTPUT_FOLDER}`);
+      log(`upload: ${outputs.length} notebooks replaced in ${target === ROOT_OUTPUT_FOLDER ? "the tablet root" : target}`);
     }
     for (const o of outputs) {
       await repo.registerDocument(db, { userId: user.id, runId: run.id, kind: o.kind, name: o.name, cachePath: `outputs/${o.name}.pdf`, bytes: o.composed.pdf.length, pageCount: o.composed.pageCount, tabletDocId: tabletIds.get(o.kind) ?? null });

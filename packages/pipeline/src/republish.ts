@@ -14,8 +14,8 @@ import type { TabletProvider } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
 import type { CacheStore } from "./cache.js";
 import * as repo from "./repo.js";
+import { cleanStaleOutputs, outputFolderFor, ROOT_OUTPUT_FOLDER } from "./run.js";
 
-export const OUTPUT_FOLDER = "/dayMarkable";
 
 export interface RepublishDeps {
   db: Db;
@@ -55,7 +55,9 @@ export async function republishNotebooks(deps: RepublishDeps, userId: string): P
   // and the 1-day rotation still owns their lifetime.
   const latest = await repo.lastSuccessfulRun(db, userId);
   const printed: PrintedItem[] = [];
-  const folder = await deps.tablet.ensureFolder(OUTPUT_FOLDER);
+  const target = outputFolderFor(user.settings);
+  const folder = await deps.tablet.ensureFolder(target);
+  await cleanStaleOutputs(deps.tablet, (await deps.tablet.listTree()).documents, folder.id, log);
   const uploaded: string[] = [];
   const pageCounts: Record<string, number> = {};
 
@@ -75,6 +77,6 @@ export async function republishNotebooks(deps: RepublishDeps, userId: string): P
 
   // The item codes on the reprinted pages replace the previous ones, so ticks still resolve.
   if (latest) await repo.replacePrintedItems(db, userId, latest.id, printed);
-  log(`republished ${uploaded.length} notebooks to ${OUTPUT_FOLDER} (${printed.length} checkbox rows)`);
+  log(`republished ${uploaded.length} notebooks to ${target === ROOT_OUTPUT_FOLDER ? "the tablet root" : target} (${printed.length} checkbox rows)`);
   return { uploaded, pageCounts, openActions: views.actionList.openCount, meetings: views.meetingNotes.meetings.length };
 }

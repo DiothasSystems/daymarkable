@@ -27,6 +27,7 @@ export function defaultSettings(): UserSettings {
   return {
     version: 1,
     watchFolders: [],
+    outputToRoot: false,
     includePdfs: false,
     conventions: STARTER_CONVENTIONS as UserSettings["conventions"],
     email: { meetingNotes: true, runSummary: false, inviteConfirmations: true },
@@ -51,6 +52,7 @@ export function normalizeSettings(raw: Partial<UserSettings> | null | undefined)
     conventions: raw?.conventions ?? d.conventions,
     email: { ...d.email, ...(raw?.email ?? {}) },
     watchFolders: raw?.watchFolders ?? d.watchFolders,
+    outputToRoot: raw?.outputToRoot ?? d.outputToRoot,
     lexicon: raw?.lexicon ?? d.lexicon,
     profile: raw?.profile ?? d.profile,
   };

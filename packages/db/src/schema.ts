@@ -45,6 +45,12 @@ export interface UserSettings {
   version: 1;
   /** Tablet folder paths to read; empty = all notebooks (ebooks/PDFs excluded by default). */
   watchFolders: string[];
+  /**
+   * Where the generated notebooks land: false = a /dayMarkable folder (default), true = the
+   * tablet root, so they are the first thing on screen in the morning. Dated planner archives
+   * stay in /dayMarkable/Archive either way, to keep the root uncluttered.
+   */
+  outputToRoot: boolean;
   includePdfs: boolean;
   /** UserInkConventions from @daymarkable/decode. */
   conventions: { active: Array<{ id: string; meaning: string; keyword?: string }> };

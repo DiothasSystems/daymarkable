@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LocalCacheStore } from "./cache.js";
 import { FixtureDecoder, FixtureRenderer, FixtureTabletProvider } from "./fixtures.js";
 import * as repo from "./repo.js";
-import { changeWindowStart, inWatchedFolder, pageChanged, runPipeline, selectDocuments, type PipelineDeps } from "./run.js";
+import { changeWindowStart, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, type PipelineDeps } from "./run.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(here, "..", "..", "..", "fixtures", "notebooks");
@@ -136,6 +136,19 @@ describe("selection and windows", () => {
     const docs = [doc("/Work/Meetings"), doc("/Personal/Journal"), doc("/dayMarkable/Planner", "pdf"), doc("/dayMarkable/Archive/Planner 2026-09-01", "pdf"), doc("/Books/Novel", "epub"), doc("/Work/Spec", "pdf")];
     expect(selectDocuments(docs, { watchFolders: ["/Work"], includePdfs: false }).map((d) => d.path)).toEqual(["/Work/Meetings", "/dayMarkable/Planner"]);
     expect(selectDocuments(docs, { watchFolders: [], includePdfs: true }).map((d) => d.path)).toEqual(["/Work/Meetings", "/Personal/Journal", "/dayMarkable/Planner", "/Work/Spec"]);
+  });
+  it("recognises our own notebooks in either location, and never the archive", () => {
+    expect(isOurDocument(doc("/dayMarkable/Planner", "pdf"))).toBe(true);
+    expect(isOurDocument(doc("/Planner", "pdf"))).toBe(true);
+    expect(isOurDocument(doc("/Action List", "pdf"))).toBe(true);
+    expect(isOurDocument(doc("/Handwriting Sample", "pdf"))).toBe(true);
+    expect(isOurDocument(doc("/dayMarkable/Archive/Planner 2026-09-01", "pdf"))).toBe(false);
+    // A user's own notebook that happens to sit in the root is not ours.
+    expect(isOurDocument(doc("/Plume"))).toBe(false);
+    // Nor is one merely named like ours but filed elsewhere.
+    expect(isOurDocument(doc("/Work/Planner"))).toBe(false);
+    expect(outputFolderFor({ outputToRoot: false })).toBe("/dayMarkable");
+    expect(outputFolderFor({ outputToRoot: true })).toBe("/");
   });
   it("treats the root as a selectable folder without swallowing everything under it", () => {
     const docs = [doc("/Loose Notes"), doc("/Another"), doc("/Work/Meetings"), doc("/Work/Deep/Nested")];
