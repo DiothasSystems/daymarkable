@@ -34,6 +34,13 @@ describe("on-demand quota", () => {
     expect(q.nextAvailableAt?.toISOString()).toBe("2026-09-03T09:00:00.000Z");
   });
 
+  it("operator runs from the CLI do not consume the customer's quota", async () => {
+    const now = new Date("2026-09-02T12:00:00Z");
+    const before = (await getOnDemandQuota(handle.db, userId, now)).remaining;
+    await onDemand(new Date("2026-09-02T11:30:00Z"), "cli");
+    expect((await getOnDemandQuota(handle.db, userId, now)).remaining).toBe(before);
+  });
+
   it("frees a slot once the oldest run ages out, and nightly runs never count", async () => {
     const later = new Date("2026-09-03T09:00:01Z");
     expect((await getOnDemandQuota(handle.db, userId, later)).remaining).toBe(1);

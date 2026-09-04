@@ -22,9 +22,15 @@ export interface QuotaStatus {
   windowHours: number;
 }
 
+/**
+ * Rule 11 counts on-demand syncs "across web and mobile together" — the surfaces a customer
+ * can press. Operator runs from the server CLI are not a client surface and do not consume it.
+ */
+export const QUOTA_SURFACES = ["web", "mobile"];
+
 export async function getOnDemandQuota(db: Db, userId: string, now = new Date()): Promise<QuotaStatus> {
   const since = new Date(now.getTime() - ON_DEMAND_WINDOW_HOURS * 3600_000);
-  const runs = (await repo.onDemandRunsSince(db, userId, since)).filter((r) => r.status !== "skipped");
+  const runs = (await repo.onDemandRunsSince(db, userId, since)).filter((r) => r.status !== "skipped" && QUOTA_SURFACES.includes(r.requestedVia ?? ""));
   const used = Math.min(runs.length, ON_DEMAND_LIMIT);
   const remaining = Math.max(0, ON_DEMAND_LIMIT - runs.length);
   const oldest = runs.slice().sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())[Math.max(0, runs.length - ON_DEMAND_LIMIT)];
