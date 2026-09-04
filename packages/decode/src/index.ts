@@ -3,3 +3,4 @@ export * from "./conventions.js";
 export * from "./prompt.js";
 export * from "./pricing.js";
 export * from "./client.js";
+export * from "./transcribe.js";

@@ -8,7 +8,8 @@
     "dev:run": "tsx src/main.ts",
     "serve": "tsx src/main.ts --live --serve",
     "dump": "tsx src/dump.ts",
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "compare": "tsx src/compare.ts"
   },
   "dependencies": {
     "@daymarkable/compose": "workspace:*",
