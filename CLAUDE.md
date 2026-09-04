@@ -144,6 +144,12 @@ it carried in the cached system prompt:
   to their job and industry, that deliberately exercises their own vocabulary, symbols, and
   digits. The captured page image plus its known text becomes a few-shot example: this is what
   this person's letterforms look like. Users may skip it and are told accuracy will suffer.
+  The printed passage is cropped off the page before scoring and before storing the image —
+  otherwise the decoder can read the answer instead of the handwriting and the score is
+  meaningless. **Measured 2026-09-04** on 15 real pages with `pnpm compare --with-calibration`:
+  the sample changed 157 words on Sonnet 5 and 75 on Opus 5, and every change inspected was a
+  correction, not a fabrication. It is cache-controlled, so it costs ~0.1x after the first page
+  of a run (a fraction of a cent). Re-run that comparison when models change.
 - **Lexicon.** Names, companies, acronyms, and project words the user writes often. Proper nouns
   are where misreads concentrate; the lexicon is the single largest lever.
 - **Corrections.** When the user fixes a decoded item in the web UI, the (wrong → right) pair is
