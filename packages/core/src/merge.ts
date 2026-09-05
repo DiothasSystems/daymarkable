@@ -18,7 +18,7 @@ import type {
   StoredTask,
   WorkingSet,
 } from "./state.js";
-import { similar, stableId } from "./text.js";
+import { repairNoteLines, similar, stableId } from "./text.js";
 import type { ItemSource, Priority } from "./types.js";
 
 export interface MergePage {
@@ -384,7 +384,8 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
       const date = n.meeting_date ?? today;
       const existing = grouped.get(date);
       if (existing) {
-        const section = existing.topic.toLowerCase() === n.meeting_topic.toLowerCase() ? n.text : `${n.meeting_topic}\n${n.text}`;
+        const body = repairNoteLines(n.text);
+        const section = existing.topic.toLowerCase() === n.meeting_topic.toLowerCase() ? body : `${n.meeting_topic}\n${body}`;
         existing.text = `${existing.text}\n\n${section}`.trim();
         existing.decisions.push(...n.decisions);
         existing.attendees = [...new Set([...existing.attendees, ...n.attendees])];
@@ -398,7 +399,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
         date,
         time: n.meeting_time,
         attendees: [...n.attendees],
-        text: n.text,
+        text: repairNoteLines(n.text),
         decisions: [...n.decisions],
         actions: pageTaskTexts,
         confidence: n.confidence,

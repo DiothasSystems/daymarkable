@@ -4,7 +4,7 @@
  * prints an item code the decoder reads back (PLANNER_LAYOUT_DESCRIPTION in packages/decode
  * must match what is drawn here).
  */
-import type { PrintedItem, PrintedItemType } from "@daymarkable/core";
+import { repairNoteLines, type PrintedItem, type PrintedItemType } from "@daymarkable/core";
 import type { PDFDocument } from "pdf-lib";
 import { CARRIED, CHECKBOX_PX, INK, RULE, SECONDARY, TERTIARY } from "./brand.js";
 import { BODY_BOTTOM, CONTENT_RIGHT, CONTENT_W, CONTENT_X, addPage, type Canvas } from "./canvas.js";
@@ -196,7 +196,9 @@ export class Section {
    * marker and gets a hanging indent so wrapped text aligns under the words, not the marker.
    */
   notesBlock(text: string, sizePx = 33, lineH = 46): void {
-    for (const raw of text.split(/\r?\n/)) {
+    // Also applied here, not just in the merge, so notes decoded before the fix print correctly
+    // on the next republish instead of waiting for a re-decode.
+    for (const raw of repairNoteLines(text).split(/\r?\n/)) {
       const line = raw.trim();
       if (!line) {
         this.y += 18; // blank line: a gap between blocks, not an empty row
