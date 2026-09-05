@@ -4,7 +4,7 @@
  * No content in logs; meeting bodies and device tokens sealed with the data key.
  */
 import type { DecodeStageUsage } from "@daymarkable/decode";
-import { applyDecision, type Decision, type DecisionResult, type Meeting, type PrintedItem, type WorkingSet } from "@daymarkable/core";
+import { applyDecision, repairNoteLines, type Decision, type DecisionResult, type Meeting, type PrintedItem, type WorkingSet } from "@daymarkable/core";
 import {
   and,
   desc,
@@ -292,7 +292,9 @@ export async function loadWorkingSet(db: Db, sealer: Sealer, userId: string): Pr
         date: m.date,
         time: m.time,
         attendees: m.attendees,
-        text: body.text,
+        // Repaired on the way out, not just in the composer, so the web viewer and the email
+        // read the same structure the tablet prints — including notes decoded before the fix.
+        text: repairNoteLines(body.text),
         decisions: body.decisions,
         actions: body.actions,
         confidence: m.confidence,
