@@ -25,15 +25,21 @@ export async function composeActionList(input: ActionListInput): Promise<Compose
   if (m.openCount === 0) s.note("Nothing open. Write something down.");
   for (const g of m.groups) {
     const label = g.date ? (g.date === input.date ? "Today" : formatShortDate(g.date)) : g.label;
-    s.label(label, `${g.tasks.length}`);
+    s.label(label, `${g.tasks.length}`, "WHEN / PRI");
     for (const t of g.tasks) {
-      const tag = g.date ? (t.carriedCount ? `CARRIED ${t.carriedCount}D` : t.dueTime ?? null) : actionTag(t, input.date);
+      // The field is for writing in, so print only what the group heading does not already say.
+      const tag = g.date
+        ? (t.carriedCount ? `CARRIED ${t.carriedCount}D` : t.dueTime ?? null)
+        : g.label === "Priority"
+          ? (t.carriedCount ? `CARRIED ${t.carriedCount}D` : null)
+          : actionTag(t, input.date);
       // Source reference first: it is what makes a misread traceable back to the ink.
       const meta = [sourceRef(t.source), t.kind === "follow_up" ? "follow-up" : null, t.project, t.people.length ? t.people.join(", ") : null].filter(Boolean).join(" · ");
-      s.checkboxRow({ id: t.id, type: "task", text: t.text, tag: g.label === "Overdue" && t.due ? `DUE ${formatTag(t.due)}` : tag, meta, carried: t.carriedCount > 0, emphasis: t.priority === "high" }, "A");
+      s.checkboxRow({ id: t.id, type: "task", text: t.text, tag: g.label === "Overdue" && t.due ? `DUE ${formatTag(t.due)}` : tag, meta, carried: t.carriedCount > 0, emphasis: t.priority === "high", field: true }, "A");
     }
     s.y += 12;
   }
+  s.note("Write a date or a priority (! for high) on any row's WHEN / PRI line.");
   s.label("Add by hand");
   s.blankRows(5);
   if (m.completedRecently.length) {

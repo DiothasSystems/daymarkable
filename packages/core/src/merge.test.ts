@@ -65,9 +65,9 @@ describe("mergeRun", () => {
         ...emptyExtraction("planner"),
         planner_page_code: "dM/DAY/2026-09-02/1",
         checkbox_updates: [
-          { item_code: "A01", label: "Buy milk", checked: true, struck: false, margin_note: null, confidence: 0.95 },
-          { item_code: "A02", label: "Renew passport", checked: false, struck: true, margin_note: "ask Sam about visa", confidence: 0.9 },
-          { item_code: "Z99", label: "ghost", checked: true, struck: false, margin_note: null, confidence: 0.9 },
+          { item_code: "A01", label: "Buy milk", checked: true, struck: false, margin_note: null, written_due: null, written_priority: null, confidence: 0.95 },
+          { item_code: "A02", label: "Renew passport", checked: false, struck: true, margin_note: "ask Sam about visa", written_due: null, written_priority: null, confidence: 0.9 },
+          { item_code: "Z99", label: "ghost", checked: true, struck: false, margin_note: null, written_due: null, written_priority: null, confidence: 0.9 },
         ],
       },
     };
@@ -92,7 +92,7 @@ describe("mergeRun", () => {
       extraction: {
         ...emptyExtraction("planner"),
         planner_page_code: "dM/INBOX/2026-09-02/1",
-        checkbox_updates: [{ item_code: "I01", label: "Book flights", checked: true, struck: false, margin_note: null, confidence: 0.9 }],
+        checkbox_updates: [{ item_code: "I01", label: "Book flights", checked: true, struck: false, margin_note: null, written_due: null, written_priority: null, confidence: 0.9 }],
       },
     };
     const r2 = mergeRun(state, [planner], { ...opts, today: "2026-09-03" });
@@ -195,5 +195,116 @@ describe("undated events", () => {
   it("keeps dated events on the calendar", () => {
     const r = mergeRun(emptyWorkingSet(), [notesPage({ events: [{ ...heading, date: "2026-09-04" }] })], opts);
     expect(activeEvents(r.state).map((e) => e.title)).toEqual(["Meetings in Sacramento"]);
+  });
+});
+
+describe("hand-assigned dates and priorities", () => {
+  const update = (over: Record<string, unknown>) => ({
+    item_code: "A01", label: "Renew passport", checked: false, struck: false,
+    margin_note: null, written_due: null, written_priority: null, confidence: 0.95, ...over,
+  });
+
+  /** One open task, already printed on an Action List page as A01. */
+  const printed = () => {
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ tasks: [task("Renew passport")] })], opts);
+    const t = openActionList(r.state)[0]!;
+    return {
+      state: { ...r.state, printed: [{ pageCode: "dM/ACTIONS/2026-09-02/1", itemCode: "A01", itemType: "task" as const, itemId: t.id }] },
+      id: t.id,
+    };
+  };
+
+  const plannerPage = (updates: ReturnType<typeof update>[]) => ({
+    notebook: "Action List",
+    pageIndex: 0,
+    extraction: { ...emptyExtraction("planner"), planner_page_code: "dM/ACTIONS/2026-09-02/1", checkbox_updates: updates },
+  });
+
+  it("takes no due date from an entry that did not state one", () => {
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ tasks: [task("Renew passport")] })], opts);
+    expect(openActionList(r.state)[0]!.due).toBeNull();
+  });
+
+  it("applies a date written in the WHEN / PRI field without closing the item", () => {
+    const { state, id } = printed();
+    const r = mergeRun(state, [plannerPage([update({ written_due: "2026-09-14" })])], { ...opts, today: "2026-09-03" });
+    const t = r.state.tasks.find((x) => x.id === id)!;
+    expect(t.due).toBe("2026-09-14");
+    expect(t.status).not.toBe("done");
+    expect(r.changes.datesAssigned).toBe(1);
+    expect(openActionList(r.state)).toHaveLength(1);
+  });
+
+  it("applies a written priority, and both together", () => {
+    const { state, id } = printed();
+    const r = mergeRun(state, [plannerPage([update({ written_due: "2026-09-14", written_priority: "high" })])], { ...opts, today: "2026-09-03" });
+    const t = r.state.tasks.find((x) => x.id === id)!;
+    expect(t.priority).toBe("high");
+    expect(t.due).toBe("2026-09-14");
+    expect(r.changes.prioritiesAssigned).toBe(1);
+  });
+
+  it("still closes the item when the row is both dated and ticked", () => {
+    const { state, id } = printed();
+    const r = mergeRun(state, [plannerPage([update({ written_due: "2026-09-14", checked: true })])], { ...opts, today: "2026-09-03" });
+    const t = r.state.tasks.find((x) => x.id === id)!;
+    expect(t.due).toBe("2026-09-14");
+    expect(t.status).toBe("done");
+  });
+
+  it("ignores an annotation it could not read confidently", () => {
+    const { state, id } = printed();
+    const r = mergeRun(state, [plannerPage([update({ written_due: "2026-09-14", confidence: 0.4 })])], { ...opts, today: "2026-09-03" });
+    expect(r.state.tasks.find((x) => x.id === id)!.due).toBeNull();
+    expect(r.changes.checkboxUnresolved).toBe(1);
+  });
+
+  it("re-reading the same page twice assigns the date once", () => {
+    const { state, id } = printed();
+    const page = plannerPage([update({ written_due: "2026-09-14" })]);
+    const r1 = mergeRun(state, [page], { ...opts, today: "2026-09-03" });
+    const r2 = mergeRun(r1.state, [page], { ...opts, today: "2026-09-03" });
+    expect(r2.state.tasks.find((x) => x.id === id)!.due).toBe("2026-09-14");
+    expect(r2.changes.datesAssigned).toBe(0);
+  });
+});
+
+describe("buildActionList ordering", () => {
+  const withTasks = (specs: { text: string; due?: string | null; priority?: "high" | "normal" | "low" }[]) => {
+    const state = emptyWorkingSet();
+    specs.forEach((sp, i) => state.tasks.push({
+      id: `t${i}`, text: sp.text, due: sp.due ?? null, dueTime: null, priority: sp.priority ?? "normal",
+      kind: "action", project: null, people: [], confidence: 0.9, source: { notebook: "Work", pageIndex: 0 },
+      carriedCount: 0, createdOn: "2026-09-01", status: "open", sourceConvention: null, lastAgedOn: "2026-09-01", completedOn: null,
+    }));
+    return state;
+  };
+  const view = { today: "2026-09-05", timezone: "UTC", generatedAt: "2026-09-05T03:00:00Z", runLabel: "test" };
+
+  it("lifts an undated high-priority action above the dated ones", () => {
+    const m = buildActionList(withTasks([
+      { text: "Later", due: "2026-09-20" },
+      { text: "Marked urgent", priority: "high" },
+      { text: "Someday" },
+    ]), view);
+    expect(m.groups.map((g) => g.label)).toEqual(["Priority", "2026-09-20", "No date"]);
+    expect(m.groups[0]!.tasks.map((t) => t.text)).toEqual(["Marked urgent"]);
+  });
+
+  it("puts overdue first and orders undated items by priority", () => {
+    const m = buildActionList(withTasks([
+      { text: "Low one", priority: "low" },
+      { text: "Normal one" },
+      { text: "Was due", due: "2026-09-01" },
+      { text: "Urgent", priority: "high" },
+    ]), view);
+    expect(m.groups.map((g) => g.label)).toEqual(["Overdue", "Priority", "No date"]);
+    expect(m.groups[2]!.tasks.map((t) => t.text)).toEqual(["Normal one", "Low one"]);
+  });
+
+  it("has no group at all when nothing carries a date or priority", () => {
+    const m = buildActionList(withTasks([{ text: "Just a thing" }]), view);
+    expect(m.groups.map((g) => g.label)).toEqual(["No date"]);
+    expect(m.openCount).toBe(1);
   });
 });

@@ -218,11 +218,19 @@ export function buildDaily(state: WorkingSet, opts: ViewOptions): DailySheetMode
   };
 }
 
+/**
+ * Grouped by date, then by priority. Most actions have no due date — dayMarkable never invents
+ * one — so the undated groups carry the bulk of the list and are ordered by the priority the
+ * user wrote, then by age. An undated action the user marked high priority sits near the top
+ * rather than below every dated item: writing "!" beside it is how they say so.
+ */
 export function buildActionList(state: WorkingSet, opts: ViewOptions): ActionListModel {
   const tasks = openActionList(state);
   const groups: ActionListGroup[] = [];
   const overdue = tasks.filter((t) => t.due !== null && t.due < opts.today);
   if (overdue.length) groups.push({ label: "Overdue", date: null, tasks: overdue.sort(compareActions) });
+  const priority = tasks.filter((t) => t.due === null && t.priority === "high");
+  if (priority.length) groups.push({ label: "Priority", date: null, tasks: priority.sort(compareActions) });
   const dated = new Map<string, StoredTask[]>();
   for (const t of tasks) {
     if (t.due === null || t.due < opts.today) continue;
@@ -231,7 +239,7 @@ export function buildActionList(state: WorkingSet, opts: ViewOptions): ActionLis
   for (const [date, list] of [...dated.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     groups.push({ label: date === opts.today ? "Today" : date, date, tasks: list.sort(compareActions) });
   }
-  const undated = tasks.filter((t) => t.due === null);
+  const undated = tasks.filter((t) => t.due === null && t.priority !== "high");
   if (undated.length) groups.push({ label: "No date", date: null, tasks: undated.sort(compareActions) });
   const completedRecently = state.tasks
     .filter((t) => t.status === "done" && t.completedOn !== null && t.completedOn >= addDays(opts.today, -1))

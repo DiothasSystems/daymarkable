@@ -15,7 +15,16 @@ export const MAIN_W = CONTENT_W;
 export const BODY_SIZE = 36;
 export const LINE_H = 48;
 export const ROW_GAP = 27;
+/**
+ * Width of the write-on WHEN / PRI field at the right of an Action List row. dayMarkable never
+ * invents a due date, so this is where the user assigns one by hand — or a priority mark. Wide
+ * enough for "SEP 14 !" in handwriting.
+ */
+export const FIELD_W = 246;
 export { BODY_BOTTOM };
+
+/** Width of the item-code column at the right edge of every checkbox row. */
+const CODE_W = 90;
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -104,6 +113,8 @@ export interface RowItem {
   meta: string | null;
   carried: boolean;
   emphasis: boolean;
+  /** Draw the ruled WHEN / PRI field the user writes a date or priority into. */
+  field?: boolean;
 }
 
 export class Section {
@@ -141,11 +152,16 @@ export class Section {
     return `${prefix}${String(n).padStart(2, "0")}`;
   }
 
-  /** Mono uppercase section label with optional right-aligned mono note. */
-  label(text: string, right?: string): void {
+  /**
+   * Mono uppercase section label with an optional right-aligned mono note, and an optional
+   * heading over the write-on field column (drawn on every group so it repeats on each page).
+   */
+  label(text: string, right?: string, fieldHeading?: string): void {
     this.ensure(70);
+    const f = this.canvas.fonts;
     this.canvas.label(text, MAIN_X, this.y);
-    if (right) this.canvas.text(right, CONTENT_RIGHT, this.y + 30, { font: this.canvas.fonts.mono, size: 24, color: TERTIARY, align: "right" });
+    if (right) this.canvas.text(right, CONTENT_RIGHT, this.y + 30, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
+    if (fieldHeading) this.canvas.text(fieldHeading, CONTENT_RIGHT - CODE_W - FIELD_W, this.y + 30, { font: f.mono, size: 22, color: TERTIARY, tracking: 0.12 });
     this.y += 54;
   }
 
@@ -194,8 +210,8 @@ export class Section {
   checkboxRow(item: RowItem, prefix: string): string {
     const f = this.canvas.fonts;
     const textX = MAIN_X + CHECKBOX_PX + 24;
-    const codeW = 90;
-    const tagW = item.tag ? this.canvas.textWidth(item.tag, f.mono, 24) + 30 : 0;
+    const codeW = CODE_W;
+    const tagW = item.field ? FIELD_W : item.tag ? this.canvas.textWidth(item.tag, f.mono, 24) + 30 : 0;
     const textW = MAIN_W - (textX - MAIN_X) - codeW - tagW - 24;
     // A canvas must exist before text can be measured, so claim one, wrap, then reserve the
     // real height. The item code is taken last: codes restart on each page.
@@ -208,7 +224,14 @@ export class Section {
     const color = item.carried ? CARRIED : INK;
     lines.forEach((l, i) => this.canvas.text(l, textX, this.y + BODY_SIZE + i * LINE_H, { font, size: BODY_SIZE, color }));
     this.canvas.text(code, CONTENT_RIGHT, this.y + BODY_SIZE, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
-    if (item.tag) this.canvas.text(item.tag, CONTENT_RIGHT - codeW, this.y + BODY_SIZE, { font: f.mono, size: 24, color: item.carried ? TERTIARY : SECONDARY, align: "right", tracking: 0.04 });
+    if (item.field) {
+      // A ruled line to write on, with whatever dayMarkable already knows printed grey on it.
+      const fx = CONTENT_RIGHT - codeW - FIELD_W;
+      this.canvas.hline(fx, CONTENT_RIGHT - codeW - 24, this.y + BODY_SIZE + 10, 3, RULE);
+      if (item.tag) this.canvas.text(item.tag, fx, this.y + BODY_SIZE, { font: f.mono, size: 24, color: TERTIARY, tracking: 0.04 });
+    } else if (item.tag) {
+      this.canvas.text(item.tag, CONTENT_RIGHT - codeW, this.y + BODY_SIZE, { font: f.mono, size: 24, color: item.carried ? TERTIARY : SECONDARY, align: "right", tracking: 0.04 });
+    }
     let yy = this.y + lines.length * LINE_H;
     if (item.meta) {
       this.canvas.text(this.canvas.fit(item.meta, f.mono, 24, textW), textX, yy + 20, { font: f.mono, size: 24, color: SECONDARY });

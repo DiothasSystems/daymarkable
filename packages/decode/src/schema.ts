@@ -65,6 +65,13 @@ export const CheckboxUpdateSchema = z.object({
   /** Struck through = explicit drop. */
   struck: z.boolean(),
   margin_note: z.string().nullable(),
+  /**
+   * A date the user wrote by hand in the row's WHEN / PRIORITY field. dayMarkable never invents
+   * a due date, so this is the only way a printed action acquires one.
+   */
+  written_due: IsoDate.nullable().default(null),
+  /** A priority the user wrote in the same field ("!", "P1", "HIGH", "low"). */
+  written_priority: z.enum(["high", "normal", "low"]).nullable().default(null),
   confidence: Confidence,
 });
 export type ExtractedCheckboxUpdate = z.infer<typeof CheckboxUpdateSchema>;
@@ -110,7 +117,9 @@ export const SCHEMA_DESCRIPTION = `{
   "planner_page_code": string | null,          // footer code on dayMarkable pages, else null
   "transcription": string,                     // faithful transcription, line breaks preserved
   "tasks": [{
-    "text": string, "due": "YYYY-MM-DD" | null, "due_time": "HH:MM" | null,
+    "text": string,
+    "due": "YYYY-MM-DD" | null,                // ONLY if the entry itself states a deadline
+    "due_time": "HH:MM" | null,
     "priority": "high" | "normal" | "low", "kind": "action" | "follow_up",
     "project": string | null, "people": string[],
     "source_convention": string | null,        // convention id that flagged it, or null
@@ -123,7 +132,10 @@ export const SCHEMA_DESCRIPTION = `{
   "notes": [{ "meeting_topic": string | null, "meeting_date": "YYYY-MM-DD" | null, "meeting_time": "HH:MM" | null,
               "attendees": string[], "text": string, "decisions": string[], "confidence": 0..1 }],
   "checkbox_updates": [{ "item_code": string | null, "label": string, "checked": boolean, "struck": boolean,
-              "margin_note": string | null, "confidence": 0..1 }],
+              "margin_note": string | null,
+              "written_due": "YYYY-MM-DD" | null,      // date HANDWRITTEN in the row's WHEN field
+              "written_priority": "high" | "normal" | "low" | null,  // priority handwritten there
+              "confidence": 0..1 }],
   "overall_confidence": 0..1,
   "needs_escalation": boolean
 }`;

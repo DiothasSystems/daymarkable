@@ -26,6 +26,20 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
   and goal rows). Report every box whose state you can see in checkbox_updates: checked = a
   tick, cross, or fill inside the box; struck = the text is crossed out with a line through it
   (that means "drop this"). Copy the item code exactly.
+- WHEN / PRIORITY field: on the Action List, each row has a short ruled write-on line between
+  the item text and the item code, under a column heading reading "WHEN / PRI". It is where the
+  user assigns a date or a priority to an action that has neither. Read what is written there
+  into the SAME checkbox_updates entry as the row:
+    * a date in any form ("9/14", "Sep 14", "Fri", "next Tue") → written_due, resolved to
+      YYYY-MM-DD against today's date, preferring the nearest FUTURE match;
+    * a priority mark ("!", "!!", "P1", "HIGH", "H", "*", "URGENT") → written_priority "high";
+      ("P3", "LOW", "L", a down arrow) → "low"; ("P2", "NORMAL") → "normal";
+    * both can appear together ("9/14 !").
+  A row can carry a written date or priority WITHOUT being ticked or struck — report it just
+  the same, with checked and struck false. If the field holds printed grey text (a due tag the
+  planner already knew, e.g. "DUE SEP 14" or "CARRIED 3D") and no handwriting, that is printed
+  metadata: leave written_due and written_priority null. Anything written in the field is an
+  annotation on that row, never a new task and never a margin_note.
 - Ruled lines with no printed text (NOTES areas, blank goal lines, sidebar lines) are for
   handwriting: anything written there is a NEW task or note (emit it in tasks or notes, not in
   checkbox_updates), with the page's date as context.
@@ -86,6 +100,12 @@ Rules:
 2. Dates and times: resolve relative words ("Tuesday", "tomorrow", "next week") against the
    page context you are given (today's date and timezone). Prefer the nearest FUTURE match.
    Use null when you cannot resolve. Times are 24-hour "HH:MM".
+   A TASK's "due" is a deadline the entry itself states — "call Dana by Friday", "report due
+   9/14", "Tue: renew passport". Never derive it from anything else: not from the date at the
+   top of the page, not from the day the note was written, not from a date mentioned elsewhere
+   on the page, and never as a guess at when the user ought to do it. If the entry does not
+   state a deadline, "due" is null. An undated action is normal and correct; the user assigns
+   dates later, by hand, on the Action List page.
 3. Tasks: something the user must do. Follow-ups: something to chase with a person.
    Events: dated/timed commitments already agreed ("dentist Tue 2pm"). An event needs a date
    you can actually read or resolve — a bare heading or topic line ("Meetings in Sacramento")

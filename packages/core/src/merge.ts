@@ -48,6 +48,10 @@ export interface MergeChanges {
   meetingRequestsCreated: number;
   meetingRequestsConfirmed: number;
   meetingRequestsDropped: number;
+  /** Due dates the user wrote onto printed action rows. */
+  datesAssigned: number;
+  /** Priorities the user wrote onto printed action rows. */
+  prioritiesAssigned: number;
   inboxCreated: number;
   inboxAccepted: number;
   inboxDropped: number;
@@ -89,6 +93,8 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
     meetingRequestsCreated: 0,
     meetingRequestsConfirmed: 0,
     meetingRequestsDropped: 0,
+    datesAssigned: 0,
+    prioritiesAssigned: 0,
     inboxCreated: 0,
     inboxAccepted: 0,
     inboxDropped: 0,
@@ -243,14 +249,33 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
         });
       }
       if (!resolved) {
-        if (u.checked || u.struck) changes.checkboxUnresolved++;
+        if (u.checked || u.struck || u.written_due || u.written_priority) changes.checkboxUnresolved++;
         continue;
       }
-      if (!u.checked && !u.struck) continue;
+      const annotated = Boolean(u.written_due || u.written_priority);
+      if (!u.checked && !u.struck && !annotated) continue;
       if (u.confidence < opts.threshold) {
         changes.checkboxUnresolved++;
         continue;
       }
+
+      // A date or priority written in the row's WHEN / PRI field. dayMarkable never invents a due
+      // date, so this is how a printed action gets one. It stands on its own: a row can be dated
+      // or prioritized without being ticked, and the item stays open.
+      if (annotated && resolved.itemType === "task") {
+        const t = state.tasks.find((x) => x.id === resolved!.itemId);
+        if (t && t.status !== "done" && t.status !== "dropped") {
+          if (u.written_due && t.due !== u.written_due) {
+            t.due = u.written_due;
+            changes.datesAssigned++;
+          }
+          if (u.written_priority && t.priority !== u.written_priority) {
+            t.priority = u.written_priority;
+            changes.prioritiesAssigned++;
+          }
+        }
+      }
+      if (!u.checked && !u.struck) continue;
       changes.checkboxApplied++;
       if (resolved.itemType === "task") {
         const t = state.tasks.find((x) => x.id === resolved!.itemId);
@@ -418,6 +443,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
   log.push(
     `checkboxes applied=${changes.checkboxApplied} unresolved=${changes.checkboxUnresolved}`,
     `tasks created=${changes.tasksCreated} merged=${changes.tasksMerged} done=${changes.tasksCompleted} dropped=${changes.tasksDropped} carried=${changes.tasksCarried}`,
+    `hand-assigned dates=${changes.datesAssigned} priorities=${changes.prioritiesAssigned}`,
     `events created=${changes.eventsCreated}; meeting requests created=${changes.meetingRequestsCreated} confirmed=${changes.meetingRequestsConfirmed}`,
     `inbox created=${changes.inboxCreated} accepted=${changes.inboxAccepted} dropped=${changes.inboxDropped} expired=${changes.inboxExpired}; meetings created=${changes.meetingsCreated}`,
   );
