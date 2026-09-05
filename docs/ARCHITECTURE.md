@@ -122,8 +122,10 @@ for crashed runs.
 One Batch API request per user per night containing all changed pages (batch = 50% off, and a
 3AM service has zero latency pressure — results within an hour are fine).
 
-- **Model:** Claude Haiku 4.5 for transcription+extraction (escalate a page to Sonnet only
-  when Haiku self-reports low confidence — "smart escalation" keeps quality without 2× cost).
+- **Model:** Claude Sonnet 5 for transcription+extraction, escalating a page to Opus 5 only
+  when the page self-reports low confidence. Measured on the founder's own handwriting in
+  September 2026: Sonnet read most accurately, Opus was close behind, and Haiku 4.5 was clearly
+  worst — it is no longer used. The model is a config value (`DECODE_MODEL`), never a constant.
 - **Prompt:** cached system prompt (extraction rules, JSON schema, planner-page semantics) +
   per-page image + light context (notebook name, page date, user's known projects/people) +
   the user's **registered ink conventions** — which markup (asterisk, underline, highlighter

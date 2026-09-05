@@ -24,12 +24,17 @@ note-taker 15+.
 
 | Model strategy | Batch price (in/out per Mtok) | Median user | Heavy user |
 |---|---|---|---|
-| **Haiku 4.5 everywhere** | $0.50 / $2.50 | **~$0.70/mo** | ~$1.45/mo |
-| Haiku + Sonnet escalation on low-confidence pages (~10%) | blended | **~$0.80/mo** | ~$1.70/mo |
-| Sonnet 5 everywhere | $1.00 / $5.00 | ~$1.40/mo | ~$2.90/mo |
+| **Sonnet 5 everywhere (chosen)** | $1.00 / $5.00 | **~$1.40/mo** | ~$2.90/mo |
+| Sonnet 5 + Opus 5 escalation on low-confidence pages (~10%) | blended | **~$1.55/mo** | ~$3.20/mo |
+| Opus 5 everywhere | $2.50 / $12.50 | ~$3.50/mo | ~$7.25/mo |
+
+Haiku 4.5 would have been roughly half the Sonnet figures, but it read the founder's
+handwriting clearly worst of the three (measured September 2026) and is not used. Accuracy is
+the product; the saving was not worth it. The per-user calibration sample is cache-controlled,
+so it costs ~0.1× after the first page of a run — a fraction of a cent a night.
 
 Meeting-notes generation and invite drafting add modest output tokens (~1,500–2,500 out per
-meeting decoded; ≈ $0.15–0.30/user/mo at one meeting a day on Haiku batch). Email delivery is
+meeting decoded; ≈ $0.30–0.60/user/mo at one meeting a day on Sonnet batch). Email delivery is
 noise: SES-class pricing is ~$0.10 per 1,000 sends, and ~60 meeting-note emails a month costs
 under a cent per user. Google Calendar / Microsoft Graph API calls are free at this scale.
 
@@ -42,8 +47,8 @@ Storage is 3–4 orders of magnitude cheaper than compute here, so the service a
 one day of outputs in the cloud and updates by diffing, never by re-reading — with retention
 capped at 24 hours for the privacy promise.
 
-**Planning number: ~$1.00–1.25/active user/month in tokens** (Haiku + escalation, meeting
-notes included, with headroom). Add infrastructure (compute, Postgres, object storage, email,
+**Planning number: ~$1.75–2.25/active user/month in tokens** (Sonnet 5 + Opus escalation,
+meeting notes included, with headroom). Add infrastructure (compute, Postgres, object storage, email,
 egress): ~$0.15–0.30/user/mo at scale, plus ~$150–300/mo fixed while small. Guard the tail:
 cap processing at ~40 pages/night on the base plan (covers >99% of users; heavier gets a Pro
 tier).
@@ -66,13 +71,13 @@ for cloud features, but dayMarkable now ships an AI chief-of-staff — nightly d
 invites, emailed meeting notes, calendar merge — which justifies a full tier above it. The
 annual plan at $100 (2 months free) is the anchor to push at checkout.
 
-Per-subscriber month at $10: tokens ~$1.10, infra ~$0.25, Stripe ~$0.59 (2.9% + $0.30) →
-**gross margin ~81%**; the annual plan nets ~$8.33/mo effective for ~77% margin plus cash up
-front and lower churn. Even the Sonnet-everywhere quality ceiling (~$2.90/mo heavy user)
+Per-subscriber month at $10: tokens ~$1.90, infra ~$0.25, Stripe ~$0.59 (2.9% + $0.30) →
+**gross margin ~73%**; the annual plan nets ~$8.33/mo effective for ~77% margin plus cash up
+front and lower churn. Even a heavy user at the Sonnet ceiling (~$2.90/mo)
 holds margin above 60%.
 
 **Pricing is provisional until measured.** Before committing, the personal-use phase will
-meter real token and cost usage across models (Haiku 4.5, Sonnet 5, and an Opus/Fable spot
+meter real token and cost usage across models (Sonnet 5, Opus 5, and a Fable spot
 check for quality ceiling) on Jim's own notes — see BUILD_PLAN Phase 1 and the measurement
 log sheet in `daymarkable-cost-model.xlsx`. The full what-if math (price × model ×
 pages/day × margin, and break-even subscriber counts) lives in that workbook.
@@ -105,8 +110,8 @@ offline, un-clickable e-ink page.
 **What it could earn.** Programmatic ad networks can't serve this inventory at all (no
 browser, no click, no tracking), so the model is direct-sold sponsorship, like a newsletter.
 Newsletter-style CPMs for an affluent professional niche run $20–40. At a $25 CPM:
-30 × $0.025 = **$0.75/user/month** — which does sit in the same range as the Haiku-only token
-cost (~$0.70–1.00).
+30 × $0.025 = **$0.75/user/month** — which no longer covers even the token cost (~$1.75–2.25)
+on the models the product actually reads with.
 
 **Why it still fails as a business model, in order of severity:**
 
@@ -132,5 +137,5 @@ make page-hash diffing a launch blocker, not an optimization); average pages/nig
 from day one); **on-demand sync usage** (up to 3 syncs per 24h, each replacing the nightly
 run, bounds worst-case token cost at ~3× the nightly figure — and on-demand runs use the
 standard API, not Batch, so they cost 2× per token on top; a user maxing the quota daily
-runs ~$4–6/mo on Haiku, still fine at $10 but watch the distribution); model price moves
+runs ~$8–11/mo on Sonnet, which at $10 is the tail to watch); model price moves
 (they've historically moved down — favorable); annual-plan mix (improves cash and churn).

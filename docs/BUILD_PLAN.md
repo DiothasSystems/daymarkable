@@ -9,7 +9,7 @@ real web app rather than config files.
 
 1. Pair with the reMarkable account (one-time code from my.remarkable.com/device/browser/connect
    → device token), list the tree, download a notebook, render pages (Python `rmscene`,
-   annotated-PDF fallback), extract with Claude (Haiku 4.5), compose the Daily Sheet, upload
+   annotated-PDF fallback), extract with Claude (Sonnet 5), compose the Daily Sheet, upload
    to `/dayMarkable`. Exit criteria: a handwritten "call Steve Tuesday 2pm" comes back on the
    tablet, correctly placed.
 2. Postgres schema (tasks, events, meetings, meeting_requests, pages, runs, run_costs, doc
@@ -23,8 +23,9 @@ real web app rather than config files.
 6. **1-day rolling cache**: keep tonight's downloads, images, and outputs; delete the
    previous night's cache as the run's final step (24h max retention, logged).
 7. **Token & cost metering (pricing gate)**: every run logs input/output tokens and dollar
-   cost per model per stage into `run_costs`; rotate models nightly (Haiku 4.5, Sonnet 5,
-   Opus/Fable spot check) and feed the measurement log in `daymarkable-cost-model.xlsx`.
+   cost per model per stage into `run_costs`; compare models on real pages with
+   `pnpm compare --days 7` and feed the measurement log in `daymarkable-cost-model.xlsx`.
+   (Settled September 2026: Sonnet 5 baseline, Opus 5 escalation; Haiku 4.5 dropped.)
    Subscription pricing is not final until this data is in.
 
 **The web app (single-user but real):**

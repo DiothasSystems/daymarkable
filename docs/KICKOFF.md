@@ -65,7 +65,9 @@ during pairing. Stripe and calendar vars wait for Phase 2.
 
 ## After Phase 0 works
 
-Run it nightly for 2+ weeks, rotating `MODEL` between claude-haiku-4-5 and claude-sonnet-5
-(same notebooks), copying each run's token counts into the measurement log sheet of
-`daymarkable-cost-model.xlsx`. Exercise Sync now against the quota. When the numbers hold
+Run it nightly for 2+ weeks, copying each run's token counts into the measurement log sheet
+of `daymarkable-cost-model.xlsx`. Compare models on the same pages with
+`pnpm compare --days 7 --with-calibration`. That comparison has since been run: **Sonnet 5 is
+the baseline decoder and Opus 5 the escalation**, with the calibration sample always attached;
+the brief above still says Haiku 4.5 because that is what it said at the time. Exercise Sync now against the quota. When the numbers hold
 up, tell Claude Code to start Phase 1 (the mobile app) from docs/BUILD_PLAN.md.
