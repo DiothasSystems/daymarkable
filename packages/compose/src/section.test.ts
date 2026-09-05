@@ -121,3 +121,34 @@ describe("notesBlock", () => {
     expect(new Set(r.ys).size).toBe(r.strings.length);
   });
 });
+
+describe("note bullet markers", () => {
+  it("keeps a numbered marker whole", async () => {
+    // From a real page: "1.) Harmony - RF Optimization" was split into marker "1." and text
+    // ") Harmony - RF Optimization", stranding the bracket.
+    const r = await drawNotes("1.) Harmony - RF Optimization");
+    expect(r.strings).toContain("1.)");
+    expect(r.strings).toContain("Harmony - RF Optimization");
+    expect(r.strings.some((t) => t.startsWith(")"))).toBe(false);
+  });
+
+  it("recognises lettered markers so they align with numbered ones", async () => {
+    const r = await drawNotes("b.) 80 -> 40 for 5G\nc) TxPower Reduction");
+    expect(r.strings).toContain("b.)");
+    expect(r.strings).toContain("c)");
+    expect(r.strings).toContain("80 -> 40 for 5G");
+    expect(r.strings).toContain("TxPower Reduction");
+  });
+
+  it("accepts the plain forms too", async () => {
+    const r = await drawNotes("1. First\n2) Second\n- Third");
+    expect(r.strings).toContain("1.");
+    expect(r.strings).toContain("2)");
+    expect(r.strings).toContain("–");
+  });
+
+  it("does not treat a sentence starting with a capital and a dot as a marker", async () => {
+    const r = await drawNotes("A. Smith joined the call");
+    expect(r.strings).toEqual(["A. Smith joined the call"]);
+  });
+});

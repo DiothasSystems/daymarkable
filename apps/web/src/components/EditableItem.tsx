@@ -45,7 +45,18 @@ export function EditableItem({ itemType, itemId, text, className }: { itemType: 
         <button
           type="button"
           className="tertiary"
-          style={{ padding: 0, minHeight: 0, textDecoration: "none", color: "inherit", fontWeight: "inherit", textAlign: "left", display: "inline" }}
+          style={{
+            // font: inherit matters — a button inherits neither size nor family, so a meeting
+            // topic inside an h2 rendered at the default button size instead of the heading's
+            // serif. The control should be invisible; only the text should show.
+            padding: 0,
+            minHeight: 0,
+            textDecoration: "none",
+            color: "inherit",
+            font: "inherit",
+            textAlign: "left",
+            display: "inline",
+          }}
           title="Click to fix what dayMarkable read"
           onClick={() => setEditing(true)}
         >

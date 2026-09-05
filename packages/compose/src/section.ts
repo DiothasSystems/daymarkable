@@ -26,6 +26,14 @@ export { BODY_BOTTOM };
 /** Width of the item-code column at the right edge of every checkbox row. */
 const CODE_W = 90;
 
+/**
+ * Markers people actually write at the head of a note line: a dash or bullet, "1.", "1)",
+ * "1.)", "a)", "b.)". A bare letter followed by a dot is deliberately NOT a marker — "A."
+ * starts plenty of sentences — so a letter only counts when it closes with a bracket.
+ * Kept in step with NoteBody in apps/web, which renders the same notes on screen.
+ */
+export const NOTE_BULLET = /^([-–—•*·]|\d+\.?\)|\d+\.|[A-Za-z]\.?\))\s*(.*)$/;
+
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -207,7 +215,7 @@ export class Section {
       // Indent follows how far the writer indented (2 spaces ≈ one step), capped at two steps.
       const lead = /^[ \t]*/.exec(raw)![0].replace(/\t/g, "  ").length;
       const depth = Math.min(Math.floor(lead / 2), 2);
-      const bullet = /^([-–—•*·]|\d+[.)])\s*(.*)$/.exec(line);
+      const bullet = NOTE_BULLET.exec(line);
       if (bullet && bullet[2]) this.bulletRow(bullet[1]!, bullet[2], depth * 44, sizePx, lineH);
       else this.paragraph(line, sizePx, lineH, depth * 44);
     }
@@ -218,7 +226,7 @@ export class Section {
     // Claim the first line before drawing the marker, so a page break cannot separate them.
     this.ensure(lineH);
     const f = this.canvas.fonts;
-    this.canvas.text(marker === "-" ? "–" : marker, MAIN_X + indent + 6, this.y + sizePx, { font: f.ui, size: sizePx, color: SECONDARY });
+    this.canvas.text(/^[-–—•*·]$/.test(marker) ? "–" : marker, MAIN_X + indent + 6, this.y + sizePx, { font: f.ui, size: sizePx, color: SECONDARY });
     this.paragraph(text, sizePx, lineH, indent + 44);
   }
 

@@ -6,7 +6,14 @@
  * Kept deliberately in step with Section.notesBlock in packages/compose — the viewer and the
  * printed page are two renderings of the same ink, and they should not disagree about shape.
  */
-const BULLET = /^([-–—•*·]|\d+[.)])\s*(.*)$/;
+/**
+ * Markers people actually write: a dash or bullet, "1." , "1)", "1.)", "a)", "b.)".
+ * A bare letter followed by a dot is deliberately NOT a marker — "A." starts plenty of
+ * sentences — so a letter only counts when it closes with a bracket.
+ */
+const BULLET = /^([-–—•*·]|\d+\.?\)|\d+\.|[A-Za-z]\.?\))\s*(.*)$/;
+
+const isDash = (marker: string) => /^[-–—•*·]$/.test(marker);
 
 export function NoteBody({ text }: { text: string }) {
   const lines = text.split(/\r?\n/);
@@ -23,7 +30,7 @@ export function NoteBody({ text }: { text: string }) {
           return (
             <div key={i} className="note-line note-bullet" style={{ marginLeft: depth * 18 }}>
               <span className="note-marker" aria-hidden>
-                {/^\d/.test(bullet[1]!) ? bullet[1] : "–"}
+                {isDash(bullet[1]!) ? "–" : bullet[1]}
               </span>
               <span>{bullet[2]}</span>
             </div>
