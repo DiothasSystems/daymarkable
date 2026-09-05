@@ -189,3 +189,10 @@ button.danger:hover { background: #8a2818; border-color: #8a2818; }
 .drop-btn { background: none; border: 0; padding: 2px 6px; margin: 0; min-height: 0; cursor: pointer; color: var(--meta); font-size: 13px; line-height: 1; border-radius: 3px; flex: none; }
 .drop-btn:hover { color: var(--bad); background: var(--parchment); }
 .drop-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Meeting-note body: mirrors the tablet page (Section.notesBlock in packages/compose). */
+.note-body { font-size: 14px; line-height: 1.55; color: var(--muted); margin-bottom: 12px; }
+.note-line { padding: 1px 0; }
+.note-bullet { display: flex; gap: 8px; align-items: baseline; }
+.note-marker { color: var(--meta); flex: none; min-width: 12px; }
+.note-gap { height: 10px; }

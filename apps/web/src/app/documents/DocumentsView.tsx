@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { EditableItem } from "@/components/EditableItem";
 import { DropButton, TickBox } from "@/components/ItemActions";
+import { NoteBody } from "@/components/NoteBody";
 import type { getRegistry, listDocuments } from "@/server/services";
 import { fmtDate } from "@/lib/format";
 
@@ -122,7 +123,7 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
                 <span className="meta">{m.time ? `${m.time} · ` : ""}p.{m.source.pageIndex + 1}</span>
               </div>
               <p className="meta" style={{ marginBottom: 12 }}>{m.date ? fmtDate(m.date) : "undated"} · with {m.attendees.length ? m.attendees.join(", ") : "—"}</p>
-              <p className="muted" style={{ whiteSpace: "pre-wrap", fontSize: 14 }}>{m.text}</p>
+              <NoteBody text={m.text} />
               {m.decisions[0] ? (<><div className="quote">“{m.decisions[0]}”</div><div className="source-ref">{m.source.notebook.toUpperCase()} · p.{m.source.pageIndex + 1}</div></>) : null}
               {m.decisions.length ? (<><p className="kicker" style={{ marginTop: 14 }}>Decisions</p><ul className="list">{m.decisions.map((d, i) => <li key={i}><span className="arrow">→</span><span>{d}</span></li>)}</ul></>) : null}
               {m.actions.length ? (<><p className="kicker" style={{ marginTop: 14 }}>Actions</p><ul className="list">{m.actions.map((a, i) => <li key={i}><span className="arrow">→</span><span>{a}</span></li>)}</ul></>) : null}
