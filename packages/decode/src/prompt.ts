@@ -119,7 +119,15 @@ Rules:
    Keep the writer's line structure in "text": one written line per line, so a dash or bullet
    list stays a list. Keep the leading marker the writer used (-, •, *, 1.) on its own item,
    keep indentation for sub-items, and keep blank lines between blocks. Never join separate
-   written lines into a paragraph.
+   written lines into a paragraph, and never rewrite a list as prose.
+   A page written like this:
+       AI Learning Projects
+       -Power
+       -Smart Building
+   must come back as "text": "AI Learning Projects\\n-Power\\n-Smart Building"
+   and NOT as "text": "AI Learning Projects: Power, Smart Building".
+   The "text" field is a transcription with newlines, not a summary. If your draft has one
+   long line where the page had several, you have joined lines that must stay separate.
 4. Confidence is about legibility AND interpretation. Below 0.7 means a human should confirm.
    Set needs_escalation true only if the page is so hard to read that a stronger model
    should retry it.
