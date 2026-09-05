@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
 import type { DecisionAction, DecisionItemType } from "@daymarkable/core";
-import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
+import { BASELINE_DECODE_MODEL, CONVENTION_CATALOG, anthropicClient, isRetiredDecodeModel, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
@@ -50,6 +50,11 @@ export async function updateSettings(userId: string, patch: SettingsPatch) {
   if (patch.conventions) next.conventions = validateConventions(patch.conventions) as UserSettings["conventions"];
   if (patch.email) next.email = patch.email;
   if (patch.confidenceThreshold !== undefined) next.confidenceThreshold = patch.confidenceThreshold;
+  // A retired model must not be selectable by hand either — say so instead of accepting it
+  // and quietly substituting, so the setting always means what it says.
+  for (const m of [patch.decodeModel, patch.escalationModel]) {
+    if (m && isRetiredDecodeModel(m)) throw new Error(`${m} is retired — it read handwriting materially worse than ${BASELINE_DECODE_MODEL}`);
+  }
   if (patch.decodeModel !== undefined) next.decodeModel = patch.decodeModel;
   if (patch.escalationModel !== undefined) next.escalationModel = patch.escalationModel;
   await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));

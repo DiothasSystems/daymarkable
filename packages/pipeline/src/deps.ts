@@ -6,7 +6,7 @@
  */
 import path from "node:path";
 import { RemarkableCloudProvider, type TabletProvider } from "@daymarkable/tablet";
-import { AnthropicDecoder, validateConventions, type Decoder } from "@daymarkable/decode";
+import { AnthropicDecoder, ESCALATION_DECODE_MODEL, resolveDecodeModel, validateConventions, type Decoder } from "@daymarkable/decode";
 import { Sealer, generateKey, openDb, type Db, type DbHandle } from "@daymarkable/db";
 import { mailProviderFromEnv, type MailProvider } from "@daymarkable/mail";
 import { DateTime } from "luxon";
@@ -105,7 +105,15 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
     };
   }
   if (!rt.config.anthropicApiKey) throw new Error("ANTHROPIC_API_KEY missing in .env");
-  const model = user.settings.decodeModel ?? pickRotatedModel(rt.config.decodeModel, process.env.DECODE_MODEL_ROTATION, DateTime.now().setZone(user.timezone));
+  // Whatever the config says, a retired model never reads a page (packages/decode/models.ts).
+  const requested = user.settings.decodeModel ?? pickRotatedModel(rt.config.decodeModel, process.env.DECODE_MODEL_ROTATION, DateTime.now().setZone(user.timezone));
+  const resolved = resolveDecodeModel(requested);
+  if (resolved.replaced) log(`decode model: ${resolved.replaced}`);
+  const model = resolved.model;
+  // null here means escalation is switched off on purpose — keep it off, only guard a real name.
+  const wantEscalation = user.settings.escalationModel ?? rt.config.escalationModel;
+  const escalation = wantEscalation === null ? { model: null, replaced: null } : resolveDecodeModel(wantEscalation, ESCALATION_DECODE_MODEL);
+  if (escalation.replaced) log(`escalation model: ${escalation.replaced}`);
   const renderer: Renderer = new HttpRenderer(rt.config.renderServiceUrl);
   await (renderer as HttpRenderer).check();
   // Per-user accuracy context, all of it prompt-cached: their vocabulary and, once they have
@@ -113,7 +121,7 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
   const calibration = await repo.calibrationSample(rt.db, rt.sealer, userId);
   const decoder: Decoder = new AnthropicDecoder({
     model,
-    escalationModel: user.settings.escalationModel ?? rt.config.escalationModel,
+    escalationModel: escalation.model,
     confidenceThreshold: user.settings.confidenceThreshold,
     conventions: validateConventions(user.settings.conventions),
     lexicon: user.settings.lexicon,
