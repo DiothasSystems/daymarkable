@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { TickBox } from "@/components/ItemActions";
 import { Shell } from "@/components/Shell";
 import { SyncNow } from "@/components/SyncNow";
 import { fmtDate, fmtDateTime, fmtUsd } from "@/lib/format";
@@ -54,7 +55,7 @@ export default async function TodayPage() {
               const tag = dueTag(t.due, reg.today);
               return (
                 <li key={t.id}>
-                  <span className="box" aria-hidden />
+                  <TickBox itemType="task" itemId={t.id} label={`Mark done: ${t.text}`} />
                   <span>
                     {t.text}
                     <div className="meta">

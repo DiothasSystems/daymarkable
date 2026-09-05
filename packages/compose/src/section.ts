@@ -197,15 +197,16 @@ export class Section {
     const codeW = 90;
     const tagW = item.tag ? this.canvas.textWidth(item.tag, f.mono, 24) + 30 : 0;
     const textW = MAIN_W - (textX - MAIN_X) - codeW - tagW - 24;
-    const measure = this.pageNo === 0 ? [item.text] : this.canvas.wrap(item.text, f.ui, BODY_SIZE, textW);
-    const height = measure.length * LINE_H + (item.meta ? 30 : 0) + ROW_GAP;
-    this.ensure(height);
+    // A canvas must exist before text can be measured, so claim one, wrap, then reserve the
+    // real height. The item code is taken last: codes restart on each page.
+    this.ensure(LINE_H + ROW_GAP);
     const lines = this.canvas.wrap(item.text, f.ui, BODY_SIZE, textW);
+    this.ensure(lines.length * LINE_H + (item.meta ? 30 : 0) + ROW_GAP);
     const code = this.nextCode(prefix);
     this.canvas.checkbox(MAIN_X, this.y + 6, CHECKBOX_PX, item.carried ? SECONDARY : INK);
-    lines.forEach((l, i) => this.canvas.text(l, textX, this.y + BODY_SIZE, { font: item.emphasis ? f.uiMedium : f.ui, size: BODY_SIZE, color: item.carried ? CARRIED : INK }));
-    // (draw lines after the first with the same font; the loop above draws only baseline i=0 offset)
-    for (let i = 1; i < lines.length; i++) this.canvas.text(lines[i]!, textX, this.y + BODY_SIZE + i * LINE_H, { font: item.emphasis ? f.uiMedium : f.ui, size: BODY_SIZE, color: item.carried ? CARRIED : INK });
+    const font = item.emphasis ? f.uiMedium : f.ui;
+    const color = item.carried ? CARRIED : INK;
+    lines.forEach((l, i) => this.canvas.text(l, textX, this.y + BODY_SIZE + i * LINE_H, { font, size: BODY_SIZE, color }));
     this.canvas.text(code, CONTENT_RIGHT, this.y + BODY_SIZE, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
     if (item.tag) this.canvas.text(item.tag, CONTENT_RIGHT - codeW, this.y + BODY_SIZE, { font: f.mono, size: 24, color: item.carried ? TERTIARY : SECONDARY, align: "right", tracking: 0.04 });
     let yy = this.y + lines.length * LINE_H;

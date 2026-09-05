@@ -87,7 +87,9 @@ Rules:
    page context you are given (today's date and timezone). Prefer the nearest FUTURE match.
    Use null when you cannot resolve. Times are 24-hour "HH:MM".
 3. Tasks: something the user must do. Follow-ups: something to chase with a person.
-   Events: dated/timed commitments already agreed ("dentist Tue 2pm").
+   Events: dated/timed commitments already agreed ("dentist Tue 2pm"). An event needs a date
+   you can actually read or resolve — a bare heading or topic line ("Meetings in Sacramento")
+   is transcription, not a commitment, so leave it out of events entirely.
    Meeting requests: intent to SET UP a meeting ("set up 30 min with Priya next Tue").
    Notes: meeting-note content. meeting_topic names the MEETING itself (who it was with or
    what it was about, usually the page's title line, e.g. "Dave from Plume"), never a section

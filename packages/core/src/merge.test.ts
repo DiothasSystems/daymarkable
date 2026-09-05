@@ -1,6 +1,6 @@
 import { emptyExtraction, type ExtractedTask, type PageExtraction } from "@daymarkable/decode";
 import { describe, expect, it } from "vitest";
-import { mergeRun, openActionList, pendingInbox } from "./merge.js";
+import { activeEvents, mergeRun, openActionList, pendingInbox } from "./merge.js";
 import { emptyWorkingSet, type WorkingSet } from "./state.js";
 import { buildActionList, buildMonth, buildOutputSet, buildWeek, startOfWeek } from "./views.js";
 
@@ -169,5 +169,31 @@ describe("views", () => {
     expect(out.planner.year.months).toHaveLength(12);
     expect(out.planner.quarter.quarter).toBe(3);
     expect(buildActionList(r.state, vo).groups.map((g) => g.label)).toEqual(["2026-09-04"]);
+  });
+});
+
+describe("undated events", () => {
+  const heading = { title: "Meetings in Sacramento", date: null, start_time: null, end_time: null, location: null, people: [], confidence: 0.95 };
+
+  it("routes an event with no date to the Inbox instead of the calendar", () => {
+    // A heading line reads like an event but has no date. Left as one it would show on the day
+    // page every day forever, since nothing ages out an undated item.
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ events: [heading] })], opts);
+    expect(activeEvents(r.state)).toHaveLength(0);
+    const inbox = pendingInbox(r.state);
+    expect(inbox.map((i) => i.text)).toEqual(["Meetings in Sacramento"]);
+    expect(inbox[0]!.kind).toBe("event");
+  });
+
+  it("retires undated events stored before that rule existed", () => {
+    const state = emptyWorkingSet();
+    state.events.push({ id: "old", title: "Meetings in Sacramento", date: null, startTime: null, endTime: null, location: null, people: [], source: "ink", confidence: 0.95, status: "active" });
+    const r = mergeRun(state, [], opts);
+    expect(activeEvents(r.state)).toHaveLength(0);
+  });
+
+  it("keeps dated events on the calendar", () => {
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ events: [{ ...heading, date: "2026-09-04" }] })], opts);
+    expect(activeEvents(r.state).map((e) => e.title)).toEqual(["Meetings in Sacramento"]);
   });
 });

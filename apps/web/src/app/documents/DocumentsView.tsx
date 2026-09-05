@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { EditableItem } from "@/components/EditableItem";
+import { DropButton, TickBox } from "@/components/ItemActions";
 import type { getRegistry, listDocuments } from "@/server/services";
 import { fmtDate } from "@/lib/format";
 
@@ -51,6 +52,7 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
               <li key={e.id}>
                 <span className="mono" style={{ minWidth: 110 }}>{e.date ? fmtDate(e.date) : "undated"}{e.startTime ? ` ${e.startTime}` : ""}</span>
                 <span><EditableItem itemType="event" itemId={e.id} text={e.title} />{e.location ? <span className="muted"> · {e.location}</span> : null}{e.people.length ? <div className="meta">{e.people.join(", ")}</div> : null}</span>
+                <span style={{ marginLeft: "auto" }}><DropButton itemType="event" itemId={e.id} text={e.title} label="Not a real commitment — remove" /></span>
               </li>
             ))}
           </ul>
@@ -60,8 +62,9 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
               <ul className="list">
                 {registry.meetingRequests.map((m) => (
                   <li key={m.id}>
-                    <span className="badge">{m.state}</span>
+                    {m.state === "drafted" ? <TickBox itemType="meeting_request" itemId={m.id} label={`Confirm the invite: ${m.topic}`} /> : <span className="badge">{m.state}</span>}
                     <span>{m.topic}<div className="meta">{[m.proposedDate ? fmtDate(m.proposedDate) : null, m.proposedTime, m.attendees.join(", ")].filter(Boolean).join(" · ")}</div></span>
+                    {m.state === "drafted" ? <span style={{ marginLeft: "auto" }}><DropButton itemType="meeting_request" itemId={m.id} text={m.topic} label="Don't set this up — remove" /></span> : null}
                   </li>
                 ))}
               </ul>
@@ -72,21 +75,26 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
 
       {tab === "actions" ? (
         <div className="card">
-          <p className="kicker">{registry.actions.length} open · tick on paper to close · click any text to fix a misread</p>
+          <p className="kicker">{registry.actions.length} open · tick the box to close · ✕ to drop · click any text to fix a misread</p>
           <ul className="list">
             {registry.actions.map((t) => (
               <li key={t.id}>
-                <span className="box" aria-hidden />
+                <TickBox itemType="task" itemId={t.id} label={`Mark done: ${t.text}`} />
                 <span><EditableItem itemType="task" itemId={t.id} text={t.text} /><div className="meta">{[t.due ? fmtDate(t.due) : "no date", t.priority === "high" ? "HIGH" : null, t.kind === "follow_up" ? "follow-up" : null, t.people.join(", ") || null, t.carriedCount ? `carried ${t.carriedCount}×` : null, `from ${t.source.notebook} p${t.source.pageIndex + 1}`].filter(Boolean).join(" · ")}</div></span>
+                <span style={{ marginLeft: "auto" }}><DropButton itemType="task" itemId={t.id} text={t.text} /></span>
               </li>
             ))}
           </ul>
           {registry.inbox.length ? (
             <>
-              <p className="kicker" style={{ marginTop: 16 }}>Inbox — confirm on the planner</p>
+              <p className="kicker" style={{ marginTop: 16 }}>Inbox — confirm these</p>
               <ul className="list">
                 {registry.inbox.map((i) => (
-                  <li key={i.id}><span className="box" aria-hidden /><span><EditableItem itemType="inbox" itemId={i.id} text={i.text} /><div className="meta">{i.kind} · {Math.round(i.confidence * 100)}% sure{i.detail ? ` · ${i.detail}` : ""}</div></span></li>
+                  <li key={i.id}>
+                    <TickBox itemType="inbox" itemId={i.id} label={`Confirm: ${i.text}`} />
+                    <span><EditableItem itemType="inbox" itemId={i.id} text={i.text} /><div className="meta">{i.kind} · {Math.round(i.confidence * 100)}% sure{i.detail ? ` · ${i.detail}` : ""}</div></span>
+                    <span style={{ marginLeft: "auto" }}><DropButton itemType="inbox" itemId={i.id} text={i.text} /></span>
+                  </li>
                 ))}
               </ul>
             </>

@@ -1,5 +1,6 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
+import type { DecisionAction, DecisionItemType } from "@daymarkable/core";
 import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
@@ -131,7 +132,7 @@ export async function getRegistry(userId: string) {
   const today = DateTime.now().setZone(user.timezone).toISODate()!;
   const state = await repo.loadWorkingSet(rt.db, rt.sealer, userId);
   const actions = state.tasks.filter((t) => t.status === "open" || t.status === "carried");
-  const events = state.events.filter((e) => e.status === "active" && (e.date === null || e.date >= today)).sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+  const events = state.events.filter((e) => e.status === "active" && e.date !== null && e.date >= today).sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
   const meetings = [...state.meetings].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || (b.time ?? "").localeCompare(a.time ?? ""));
   const inbox = state.inbox.filter((i) => i.status === "pending");
   const doneRecently = state.tasks.filter((t) => t.status === "done" && t.completedOn && t.completedOn >= DateTime.fromISO(today).minus({ days: 7 }).toISODate()!);
@@ -410,6 +411,20 @@ export async function correctItem(userId: string, itemType: "task" | "event" | "
   await repo.recordCorrection(rt.db, { userId, itemType, itemId, originalText: original, correctedText: text, learnedTerms: learned });
   const added = await repo.addLexiconTerms(rt.db, userId, learned);
   return { ok: true, learned: added };
+}
+
+/**
+ * Tick an item off, or drop one that is not relevant — the web equivalent of ticking or crossing
+ * out a row on a printed page. The change lands in the canonical data straight away; the tablet's
+ * copies update on the next run, or immediately via "Send updated notebooks to tablet".
+ */
+export async function decideItem(userId: string, itemType: DecisionItemType, itemId: string, action: DecisionAction) {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  const today = DateTime.now().setZone(user.timezone).toISODate()!;
+  const res = await repo.decideItem(rt.db, rt.sealer, userId, { itemType, itemId, action }, today);
+  const created = res.created.tasks.length + res.created.events.length + res.created.meetingRequests.length;
+  return { label: res.label, status: res.status, created };
 }
 
 export async function correctionHistory(userId: string) {

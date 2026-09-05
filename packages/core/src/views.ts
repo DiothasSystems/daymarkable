@@ -197,7 +197,7 @@ export function buildDaily(state: WorkingSet, opts: ViewOptions): DailySheetMode
   const events = activeEvents(state);
   const tasks = openActionList(state);
   const horizon = addDays(opts.today, 7);
-  const todayEvents = events.filter((e) => e.date === opts.today || e.date === null);
+  const todayEvents = events.filter((e) => e.date === opts.today);
   const upcoming = events.filter((e) => e.date !== null && e.date > opts.today && e.date <= horizon);
   const byTime = (a: StoredEvent, b: StoredEvent) => (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "99").localeCompare(b.startTime ?? "99");
   todayEvents.sort(byTime);

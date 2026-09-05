@@ -315,12 +315,16 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
     }
 
     for (const e of ex.events) {
-      if (e.confidence < opts.threshold) {
+      // An event with no date is not a calendar entry — it is usually a heading or a topic line
+      // ("Meetings in Sacramento") that reads like one. Left as an event it would sit on the
+      // day page every day forever, since nothing ages out an undated item. Confirm it first
+      // (rule 3): the Inbox asks for a date, or the item is dropped.
+      if (!e.date || e.confidence < opts.threshold) {
         addInbox({
           id: stableId(`inbox:event:${today}`, `${e.title} ${e.date ?? ""}`),
           kind: "event",
           text: e.title,
-          detail: [e.date, e.start_time].filter(Boolean).join(" ") || null,
+          detail: [e.date, e.start_time].filter(Boolean).join(" ") || "no date read — give it one to schedule it",
           confidence: e.confidence,
           source,
           payload: e as unknown as Record<string, unknown>,
@@ -396,6 +400,10 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
     t.lastAgedOn = today;
     changes.tasksCarried++;
   }
+
+  // Retire undated events stored before they were routed to the Inbox. They can never come due,
+  // so they would otherwise sit in the working set unreachable by any view.
+  for (const e of state.events) if (e.status === "active" && !e.date) e.status = "dropped";
 
   // Inbox expiry.
   const expiry = opts.inboxExpiryDays ?? 7;

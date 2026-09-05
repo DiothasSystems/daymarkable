@@ -43,6 +43,20 @@ export const appRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
       }
     }),
+    // Tick an item off or drop it — the same transitions a pen makes on a printed page.
+    decide: protectedProcedure
+      .input(z.object({
+        itemType: z.enum(["task", "event", "inbox", "meeting_request"]),
+        itemId: z.string().min(1),
+        action: z.enum(["complete", "drop"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await svc.decideItem(ctx.user.id, input.itemType, input.itemId, input.action);
+        } catch (err) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        }
+      }),
   }),
   runs: router({
     list: protectedProcedure.input(z.object({ limit: z.number().int().min(1).max(200).default(30) }).optional()).query(({ ctx, input }) => svc.listRuns(ctx.user.id, input?.limit ?? 30)),

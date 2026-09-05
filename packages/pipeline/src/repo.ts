@@ -4,7 +4,7 @@
  * No content in logs; meeting bodies and device tokens sealed with the data key.
  */
 import type { DecodeStageUsage } from "@daymarkable/decode";
-import type { Meeting, PrintedItem, WorkingSet } from "@daymarkable/core";
+import { applyDecision, type Decision, type DecisionResult, type Meeting, type PrintedItem, type WorkingSet } from "@daymarkable/core";
 import {
   and,
   desc,
@@ -367,6 +367,53 @@ export async function saveWorkingSet(db: Db, sealer: Sealer, userId: string, run
 }
 
 // ---------------------------------------------------------------- documents + email
+/**
+ * Tick or drop one item from the web/mobile UI. The transition itself is core's (decisions.ts);
+ * this writes the touched row and anything accepting an Inbox item created. Rows created this way
+ * carry no run id — no run produced them.
+ */
+export async function decideItem(db: Db, sealer: Sealer, userId: string, d: Decision, today: string): Promise<DecisionResult> {
+  const state = await loadWorkingSet(db, sealer, userId);
+  const res = applyDecision(state, d, today);
+  const now = new Date();
+
+  if (d.itemType === "task") {
+    const t = state.tasks.find((x) => x.id === d.itemId)!;
+    await db.update(schema.tasks).set({ status: t.status, completedOn: t.completedOn, updatedAt: now }).where(and(eq(schema.tasks.userId, userId), eq(schema.tasks.id, d.itemId)));
+  } else if (d.itemType === "event") {
+    await db.update(schema.events).set({ status: "dropped", updatedAt: now }).where(and(eq(schema.events.userId, userId), eq(schema.events.id, d.itemId)));
+  } else if (d.itemType === "meeting_request") {
+    const m = state.meetingRequests.find((x) => x.id === d.itemId)!;
+    await db.update(schema.meetingRequests).set({ state: m.state, confirmedOn: m.confirmedOn, updatedAt: now }).where(and(eq(schema.meetingRequests.userId, userId), eq(schema.meetingRequests.id, d.itemId)));
+  } else {
+    const it = state.inbox.find((x) => x.id === d.itemId)!;
+    await db.update(schema.inboxItems).set({ status: it.status, updatedAt: now }).where(and(eq(schema.inboxItems.userId, userId), eq(schema.inboxItems.id, d.itemId)));
+  }
+
+  for (const t of res.created.tasks) {
+    await db.insert(schema.tasks).values({
+      id: t.id, userId, text: t.text, due: t.due, dueTime: t.dueTime, priority: t.priority, kind: t.kind,
+      project: t.project, people: t.people, confidence: t.confidence, sourceConvention: t.sourceConvention,
+      sourceNotebook: t.source.notebook, sourcePageIndex: t.source.pageIndex, status: t.status,
+      carriedCount: t.carriedCount, lastAgedOn: t.lastAgedOn, createdOn: t.createdOn, completedOn: t.completedOn, updatedAt: now,
+    }).onConflictDoNothing();
+  }
+  for (const e of res.created.events) {
+    await db.insert(schema.events).values({
+      id: e.id, userId, title: e.title, date: e.date, startTime: e.startTime, endTime: e.endTime,
+      location: e.location, people: e.people, source: e.source, confidence: e.confidence, status: e.status, updatedAt: now,
+    }).onConflictDoNothing();
+  }
+  for (const m of res.created.meetingRequests) {
+    await db.insert(schema.meetingRequests).values({
+      id: m.id, userId, topic: m.topic, proposedDate: m.proposedDate, proposedTime: m.proposedTime,
+      durationMinutes: m.durationMinutes, attendees: m.attendees, confidence: m.confidence,
+      state: m.state, confirmedOn: m.confirmedOn, updatedAt: now,
+    }).onConflictDoNothing();
+  }
+  return res;
+}
+
 export async function registerDocument(db: Db, input: { userId: string; runId: string; kind: "planner" | "action_list" | "meeting_notes"; name: string; cachePath: string; bytes: number; pageCount: number; tabletDocId: string | null }): Promise<void> {
   await db.insert(schema.documents).values(input);
 }
