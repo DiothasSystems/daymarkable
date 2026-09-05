@@ -9,7 +9,8 @@
     "serve": "tsx src/main.ts --live --serve",
     "dump": "tsx src/dump.ts",
     "build": "tsc -b",
-    "compare": "tsx src/compare.ts"
+    "compare": "tsx src/compare.ts",
+    "notes:check": "tsx src/notes-check.ts"
   },
   "dependencies": {
     "@daymarkable/compose": "workspace:*",
