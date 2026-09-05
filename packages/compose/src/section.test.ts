@@ -60,3 +60,64 @@ describe("checkboxRow", () => {
     expect(r.endY).toBeGreaterThan(lastBaseline);
   });
 });
+
+/** Record every string the notes body draws, with its baseline and x offset. */
+async function drawNotes(text: string): Promise<{ strings: string[]; xs: number[]; ys: number[] }> {
+  const { doc, fonts } = await newDocument();
+  const ctx: ComposeContext = { doc, fonts, date: "2026-09-05", generatedAt: "2026-09-05T03:00:00Z", runLabel: "test", printed: [] };
+  const s = new Section(ctx, "MEETINGS", () => "Meeting Notes", () => "test");
+  s.newPage();
+  const calls: { text: string; x: number; y: number }[] = [];
+  const real = s.canvas.text.bind(s.canvas);
+  s.canvas.text = (t: string, x: number, y: number, opts) => {
+    calls.push({ text: t, x, y });
+    return real(t, x, y, opts);
+  };
+  s.notesBlock(text);
+  return { strings: calls.map((c) => c.text), xs: calls.map((c) => c.x), ys: calls.map((c) => c.y) };
+}
+
+describe("notesBlock", () => {
+  it("keeps each written line on its own line", async () => {
+    const r = await drawNotes("Meetings in Sacramento\nAI Learning Projects\nBudget review");
+    expect(r.strings).toEqual(["Meetings in Sacramento", "AI Learning Projects", "Budget review"]);
+    expect(new Set(r.ys).size).toBe(3);
+  });
+
+  it("does not run a dashed list together into a paragraph", async () => {
+    // The reported defect: "-Power / -Smart Building / -LLM & ML" came out as one wall of text.
+    const r = await drawNotes("AI Learning Projects\n-Power\n-Smart Building\n-LLM & ML");
+    expect(r.strings).toContain("Power");
+    expect(r.strings).toContain("Smart Building");
+    expect(r.strings).toContain("LLM & ML");
+    expect(r.strings.some((t) => t.includes("Power") && t.includes("Smart Building"))).toBe(false);
+  });
+
+  it("keeps the marker and hangs the text beside it", async () => {
+    const r = await drawNotes("-Power");
+    const marker = r.strings.indexOf("–");
+    expect(marker).toBeGreaterThanOrEqual(0);
+    const body = r.strings.indexOf("Power");
+    expect(r.xs[body]!).toBeGreaterThan(r.xs[marker]!);
+    expect(r.ys[body]!).toBe(r.ys[marker]!);
+  });
+
+  it("indents a sub-item under its parent", async () => {
+    const r = await drawNotes("- Projects\n  - Power");
+    const parent = r.strings.indexOf("Projects");
+    const child = r.strings.indexOf("Power");
+    expect(r.xs[child]!).toBeGreaterThan(r.xs[parent]!);
+  });
+
+  it("treats a blank line as a gap, not a row", async () => {
+    const r = await drawNotes("First block\n\nSecond block");
+    expect(r.strings).toEqual(["First block", "Second block"]);
+  });
+
+  it("still wraps a line too long for the page", async () => {
+    const long = "The regional operations team confirmed the revised installation window and asked for the survey to be repeated before the end of the quarter so the schedule holds";
+    const r = await drawNotes(long);
+    expect(r.strings.length).toBeGreaterThan(1);
+    expect(new Set(r.ys).size).toBe(r.strings.length);
+  });
+});

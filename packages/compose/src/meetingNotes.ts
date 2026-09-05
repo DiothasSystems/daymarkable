@@ -29,10 +29,8 @@ export async function composeMeetingNotes(input: MeetingNotesInput): Promise<Com
     s.ensure(LINE_H);
     s.canvas.text(s.canvas.fit(`WITH ${m.attendees.length ? m.attendees.join(", ").toUpperCase() : "—"} · ${m.source.notebook.toUpperCase()} · p.${m.source.pageIndex + 1} · ${Math.round(m.confidence * 100)}% SURE`, s.canvas.fonts.mono, 24, s.canvas.textWidth("W", s.canvas.fonts.mono, 24) * 60), MAIN_X, s.y + 24, { font: s.canvas.fonts.mono, size: 24, color: SECONDARY, tracking: 0.04 });
     s.y += 48;
-    for (const para of (m.text || "(no notes captured)").split(/\n{2,}/)) {
-      s.paragraph(para.trim());
-      s.y += 12;
-    }
+    s.notesBlock(m.text || "(no notes captured)");
+    s.y += 12;
     if (m.decisions.length) {
       s.label("Decisions");
       for (const d of m.decisions) s.arrowRow(d);

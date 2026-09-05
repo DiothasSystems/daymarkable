@@ -394,28 +394,43 @@ export async function correctItem(userId: string, itemType: "task" | "event" | "
     const row = await rt.db.query.tasks.findFirst({ where: and(eq(schema.tasks.userId, userId), eq(schema.tasks.id, itemId)) });
     if (!row) throw new Error("item not found");
     original = row.text;
-    await rt.db.update(schema.tasks).set({ text, updatedAt: new Date() }).where(eq(schema.tasks.id, itemId));
+    await rt.db.update(schema.tasks).set({ text, confidence: 1, updatedAt: new Date() }).where(eq(schema.tasks.id, itemId));
   } else if (itemType === "event") {
     const row = await rt.db.query.events.findFirst({ where: and(eq(schema.events.userId, userId), eq(schema.events.id, itemId)) });
     if (!row) throw new Error("item not found");
     original = row.title;
-    await rt.db.update(schema.events).set({ title: text, updatedAt: new Date() }).where(eq(schema.events.id, itemId));
+    await rt.db.update(schema.events).set({ title: text, confidence: 1, updatedAt: new Date() }).where(eq(schema.events.id, itemId));
   } else if (itemType === "inbox") {
     const row = await rt.db.query.inboxItems.findFirst({ where: and(eq(schema.inboxItems.userId, userId), eq(schema.inboxItems.id, itemId)) });
     if (!row) throw new Error("item not found");
     original = row.text;
-    await rt.db.update(schema.inboxItems).set({ text, updatedAt: new Date() }).where(eq(schema.inboxItems.id, itemId));
+    // The payload is what gets promoted, so the correction has to land there too — otherwise
+    // accepting the item would resurrect the misread text.
+    const field = row.kind === "event" ? "title" : row.kind === "meeting_request" ? "topic" : "text";
+    const payload = { ...row.payload, [field]: text, confidence: 1 };
+    await rt.db.update(schema.inboxItems).set({ text, payload, confidence: 1, updatedAt: new Date() }).where(eq(schema.inboxItems.id, itemId));
   } else {
     const row = await rt.db.query.meetings.findFirst({ where: and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, itemId)) });
     if (!row) throw new Error("item not found");
     original = row.topic;
-    await rt.db.update(schema.meetings).set({ topic: text }).where(eq(schema.meetings.id, itemId));
+    await rt.db.update(schema.meetings).set({ topic: text, confidence: 1 }).where(eq(schema.meetings.id, itemId));
   }
-  if (original === text) return { ok: true, learned: [] as string[] };
+  if (original === text) return { ok: true, learned: [] as string[], promoted: false };
   const learned = learnedTerms(original, text);
   await repo.recordCorrection(rt.db, { userId, itemType, itemId, originalText: original, correctedText: text, learnedTerms: learned });
   const added = await repo.addLexiconTerms(rt.db, userId, learned);
-  return { ok: true, learned: added };
+  // A corrected item is no longer a guess: the user has read it and said what it says. An Inbox
+  // item only sits there because dayMarkable was unsure, so fixing it is a confirmation — it
+  // moves out of "confirm these" and onto the real list (rule 3 applies to the machine's
+  // uncertainty, not the user's).
+  let promoted = false;
+  if (itemType === "inbox") {
+    const user = await repo.getUser(rt.db, userId);
+    const today = DateTime.now().setZone(user.timezone).toISODate()!;
+    await repo.decideItem(rt.db, rt.sealer, userId, { itemType: "inbox", itemId, action: "complete" }, today);
+    promoted = true;
+  }
+  return { ok: true, learned: added, promoted };
 }
 
 /**

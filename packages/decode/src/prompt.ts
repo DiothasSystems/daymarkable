@@ -116,6 +116,10 @@ Rules:
    heading inside the notes. A page is normally ONE meeting: put its whole content in one
    notes entry (keep section headings inside text) and set meeting_date from the page's date
    line when present. Loose notes that are not from a meeting use meeting_topic null.
+   Keep the writer's line structure in "text": one written line per line, so a dash or bullet
+   list stays a list. Keep the leading marker the writer used (-, •, *, 1.) on its own item,
+   keep indentation for sub-items, and keep blank lines between blocks. Never join separate
+   written lines into a paragraph.
 4. Confidence is about legibility AND interpretation. Below 0.7 means a human should confirm.
    Set needs_escalation true only if the page is so hard to read that a stronger model
    should retry it.

@@ -189,6 +189,37 @@ export class Section {
     }
   }
 
+  /**
+   * A meeting-note body, keeping the writer's line structure. Wrapping alone would reflow the
+   * whole block into a run-on paragraph, so a dashed or bulleted list written down the page came
+   * out as one wall of text. Each written line stays a line; a leading dash or bullet keeps its
+   * marker and gets a hanging indent so wrapped text aligns under the words, not the marker.
+   */
+  notesBlock(text: string, sizePx = 33, lineH = 46): void {
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) {
+        this.y += 18; // blank line: a gap between blocks, not an empty row
+        continue;
+      }
+      // Indent follows how far the writer indented (2 spaces ≈ one step), capped at two steps.
+      const lead = /^[ \t]*/.exec(raw)![0].replace(/\t/g, "  ").length;
+      const depth = Math.min(Math.floor(lead / 2), 2);
+      const bullet = /^([-–—•*·]|\d+[.)])\s*(.*)$/.exec(line);
+      if (bullet && bullet[2]) this.bulletRow(bullet[1]!, bullet[2], depth * 44, sizePx, lineH);
+      else this.paragraph(line, sizePx, lineH, depth * 44);
+    }
+  }
+
+  /** Marker in the margin, text hanging-indented beside it. */
+  bulletRow(marker: string, text: string, indent = 0, sizePx = 33, lineH = 46): void {
+    // Claim the first line before drawing the marker, so a page break cannot separate them.
+    this.ensure(lineH);
+    const f = this.canvas.fonts;
+    this.canvas.text(marker === "-" ? "–" : marker, MAIN_X + indent + 6, this.y + sizePx, { font: f.ui, size: sizePx, color: SECONDARY });
+    this.paragraph(text, sizePx, lineH, indent + 44);
+  }
+
   /** "→ text" row (mock action rows). */
   arrowRow(text: string, sizePx = 33): void {
     const f = this.canvas.fonts;
