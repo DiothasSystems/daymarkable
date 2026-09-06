@@ -161,6 +161,12 @@ export interface PageContext {
   /** Optional light context: user's known projects/people to help resolve names. */
   knownPeople?: readonly string[];
   knownProjects?: readonly string[];
+  /**
+   * Structure measured from the tablet's own stroke coordinates: how many lines of ink are on
+   * the page and how far each is indented. Not a reading of the words — a measurement of where
+   * they sit — so it settles line breaks and nesting without the model having to infer them.
+   */
+  strokeLines?: { lineCount: number; indents: string };
 }
 
 export function buildPageContextText(ctx: PageContext, segmentCount = 1): string {
@@ -170,6 +176,13 @@ export function buildPageContextText(ctx: PageContext, segmentCount = 1): string
     }.`,
     `Today is ${ctx.todayIso} (${ctx.timezone}).`,
   ];
+  if (ctx.strokeLines && ctx.strokeLines.lineCount > 0) {
+    parts.push(
+      `Stroke geometry (measured from the tablet's pen data, not read from the image): this page holds ${ctx.strokeLines.lineCount} handwritten line(s).`,
+      `Indent depth per line, top to bottom: ${ctx.strokeLines.indents}. 0 is the page's own left margin; each step is one level of indent.`,
+      "Treat this as ground truth for STRUCTURE only, never for words: keep the same number of lines in your transcription and mirror those indents (two spaces per level) in notes text. If your reading needs more or fewer lines than this, prefer the geometry — you have merged or split lines that the pen kept apart. It counts only ink, so printed planner text is not included.",
+    );
+  }
   if (ctx.knownPeople?.length) parts.push(`Known people: ${ctx.knownPeople.join(", ")}.`);
   if (ctx.knownProjects?.length) parts.push(`Known projects: ${ctx.knownProjects.join(", ")}.`);
   parts.push("Return the JSON object for this page.");

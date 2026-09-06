@@ -29,6 +29,8 @@ from rmc.exporters.svg import (
 )
 from rmscene import read_tree
 
+from layout import StrokeBox, TextLine, page_lines
+
 log = logging.getLogger("daymarkable.render")
 
 DEFAULT_LONG_EDGE = 1568  # Claude vision sweet spot (see ECONOMICS.md)
@@ -54,7 +56,7 @@ class RenderError(Exception):
         self.code = code
 
 
-def _svg_from_rm(rm_bytes: bytes, force_page: bool) -> tuple[str, float, float]:
+def _svg_from_rm(rm_bytes: bytes, force_page: bool) -> tuple[str, float, float, list[TextLine]]:
     """Build an SVG string sized to at least the full device page (never crops the page).
 
     With force_page=True the canvas is exactly the device page (used when compositing over a
@@ -90,6 +92,45 @@ def _svg_from_rm(rm_bytes: bytes, force_page: bool) -> tuple[str, float, float]:
     draw_group(tree.root, out, anchor_pos)
     out.write("</g>\n</svg>\n")
     return out.getvalue(), width_pt, height_pt
+
+
+def _stroke_boxes(tree, x_min: float, x_max: float, y_min: float, y_max: float) -> list[StrokeBox]:
+    """Every stroke's bounding box, normalized to the rendered canvas (0..1, origin top-left).
+
+    Walks the same scene tree the SVG is drawn from, so the geometry describes exactly the ink
+    the decoder is looking at. Best-effort by design: rmscene's item classes move between
+    firmware revisions, and a page must still render if this walk finds nothing.
+    """
+    span_x = max(1e-6, x_max - x_min)
+    span_y = max(1e-6, y_max - y_min)
+    boxes: list[StrokeBox] = []
+
+    def visit(item) -> None:
+        children = getattr(item, "children", None)
+        if children is not None:
+            for child in children.values():
+                visit(child)
+            return
+        points = getattr(item, "points", None)
+        if not points:
+            return
+        xs = [pt.x for pt in points]
+        ys = [pt.y for pt in points]
+        boxes.append(
+            StrokeBox(
+                left=(min(xs) - x_min) / span_x,
+                top=(min(ys) - y_min) / span_y,
+                right=(max(xs) - x_min) / span_x,
+                bottom=(max(ys) - y_min) / span_y,
+            )
+        )
+
+    try:
+        visit(tree.root)
+    except Exception as exc:  # geometry is a bonus; never fail a render for it
+        log.warning("stroke geometry unavailable: %s", exc)
+        return []
+    return boxes
 
 
 def _to_png(im: Image.Image) -> bytes:
@@ -134,18 +175,21 @@ def render_rm(
     long_edge: int = DEFAULT_LONG_EDGE,
     background: Image.Image | None = None,
     crop_top: float | None = None,
-) -> list[Rendered]:
-    """Render ink; when `background` (a rasterized PDF page) is given, composite the ink on top."""
-    svg, w, h = _svg_from_rm(rm_bytes, force_page=background is not None)
+) -> tuple[list[Rendered], list[TextLine]]:
+    """Render ink; when `background` (a rasterized PDF page) is given, composite the ink on top.
+
+    Returns the image segments plus the stroke-derived written lines for the whole page.
+    """
+    svg, w, h, lines = _svg_from_rm(rm_bytes, force_page=background is not None)
     seg_h_pt = w * DEVICE_RATIO
     scale = long_edge / max(w, min(h, seg_h_pt))
     if background is None:
         gray = _rasterize_strokes(svg, scale, transparent=False)
-        return segment_image(_crop_top(gray, crop_top), long_edge, "rmscene")
+        return segment_image(_crop_top(gray, crop_top), long_edge, "rmscene"), lines
     ink = _rasterize_strokes(svg, scale, transparent=True)
     bg = background.convert("RGBA").resize(ink.size)
     bg.alpha_composite(ink)
-    return segment_image(_crop_top(bg.convert("L"), crop_top), long_edge, "rmscene+pdf")
+    return segment_image(_crop_top(bg.convert("L"), crop_top), long_edge, "rmscene+pdf"), lines
 
 
 def blank_page(long_edge: int = DEFAULT_LONG_EDGE) -> Rendered:

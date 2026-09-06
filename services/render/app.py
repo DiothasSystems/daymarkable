@@ -15,6 +15,7 @@ import logging
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+from layout import indent_pattern
 from render import (
     DEFAULT_LONG_EDGE,
     RenderError,
@@ -57,6 +58,19 @@ class SegmentOut(BaseModel):
     renderer: str
 
 
+class PageLayout(BaseModel):
+    """Stroke-derived structure for one page: what was written, where, and how far in.
+
+    Measured from the .rm stroke coordinates rather than inferred from pixels, so the decoder
+    is told the line count and indent depths instead of guessing them.
+    """
+
+    page_id: str
+    line_count: int
+    # Per-line indent depth, top to bottom: "0,0,1,1,0".
+    indents: str
+
+
 class PageError(BaseModel):
     page_id: str
     code: str
@@ -65,6 +79,7 @@ class PageError(BaseModel):
 
 class RenderResponse(BaseModel):
     segments: list[SegmentOut]
+    layouts: list[PageLayout] = []
     errors: list[PageError]
 
 
@@ -88,6 +103,7 @@ def health() -> dict[str, str]:
 @app.post("/render", response_model=RenderResponse)
 def render(req: RenderRequest) -> RenderResponse:
     segments: list[SegmentOut] = []
+    layouts: list[PageLayout] = []
     errors: list[PageError] = []
     ok = 0
     pdf = None
@@ -101,18 +117,24 @@ def render(req: RenderRequest) -> RenderResponse:
             background = None
             if pdf is not None and p.pdf_page_index is not None:
                 background = rasterize_pdf_page(pdf, p.pdf_page_index, req.long_edge)
+            lines = []
             if p.rm_b64 is None:
                 rendered = [blank_page(req.long_edge)] if background is None else [Rendered(_png(background), background.width, background.height, "pdf")]
             else:
-                rendered = render_rm(base64.b64decode(p.rm_b64), req.long_edge, background, p.crop_top)
+                rendered, lines = render_rm(base64.b64decode(p.rm_b64), req.long_edge, background, p.crop_top)
             segments.extend(_seg(p.page_id, r) for r in rendered)
+            if lines:
+                layouts.append(PageLayout(page_id=p.page_id, line_count=len(lines), indents=indent_pattern(lines)))
             ok += 1
         except RenderError as exc:
             errors.append(PageError(page_id=p.page_id, code=exc.code, message=str(exc)))
         except Exception as exc:  # never let one page kill the batch
             errors.append(PageError(page_id=p.page_id, code="unknown", message=str(exc)))
-    log.info("render pages=%d ok=%d segments=%d errors=%d long_edge=%d", len(req.pages), ok, len(segments), len(errors), req.long_edge)
-    return RenderResponse(segments=segments, errors=errors)
+    log.info(
+        "render pages=%d ok=%d segments=%d layouts=%d errors=%d long_edge=%d",
+        len(req.pages), ok, len(segments), len(layouts), len(errors), req.long_edge,
+    )
+    return RenderResponse(segments=segments, layouts=layouts, errors=errors)
 
 
 def _png(im) -> bytes:

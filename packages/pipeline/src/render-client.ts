@@ -66,14 +66,26 @@ function fromWire(s: WireSegment, pageId: string): RenderedSegment {
   };
 }
 
+/** Stroke-derived structure for one page: how many lines were written and how far each is indented. */
+export interface PageLayout {
+  pageId: string;
+  lineCount: number;
+  /** Per-line indent depth, top to bottom: "0,0,1,1,0". */
+  indents: string;
+}
+
 export async function renderRmPages(
   baseUrl: string,
   pages: ReadonlyArray<{ pageId: string; rm: Uint8Array | null; pdfPageIndex?: number | null; cropTop?: number | null }>,
   basePdf: Uint8Array | null = null,
   longEdge = 1568,
-): Promise<{ segments: RenderedSegment[]; errors: RenderFailure[] }> {
-  if (pages.length === 0) return { segments: [], errors: [] };
-  const out = await post<{ segments: WireSegment[]; errors: Array<{ page_id: string; code: string; message: string }> }>(`${baseUrl}/render`, {
+): Promise<{ segments: RenderedSegment[]; layouts: PageLayout[]; errors: RenderFailure[] }> {
+  if (pages.length === 0) return { segments: [], layouts: [], errors: [] };
+  const out = await post<{
+    segments: WireSegment[];
+    layouts?: Array<{ page_id: string; line_count: number; indents: string }>;
+    errors: Array<{ page_id: string; code: string; message: string }>;
+  }>(`${baseUrl}/render`, {
     long_edge: longEdge,
     pdf_b64: basePdf ? Buffer.from(basePdf).toString("base64") : null,
     pages: pages.map((p) => ({
@@ -85,6 +97,8 @@ export async function renderRmPages(
   });
   return {
     segments: out.segments.map((s) => fromWire(s, s.page_id!)),
+    // Optional: an older render service, or a page whose strokes could not be walked, sends none.
+    layouts: (out.layouts ?? []).map((l) => ({ pageId: l.page_id, lineCount: l.line_count, indents: l.indents })),
     errors: out.errors.map((e) => ({ pageId: e.page_id, code: e.code, message: e.message })),
   };
 }
