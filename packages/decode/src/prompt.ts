@@ -15,11 +15,14 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
   page_kind to "planner" and copy the code into planner_page_code exactly.
 - Section labels are small uppercase monospace (ACTIONS, CARRIED OVER, CONFIRM, NOTES,
   SCHEDULE, OPEN ACTIONS, WEEK GOALS, MONTH FOCUS, YEAR GOALS).
-- Under each printed item sits a small grey monospace SOURCE REFERENCE naming where the item
-  was read from, of the form "NOTEBOOK · p.4" (sometimes followed by a due tag, a person, or a
-  project). It is printed metadata, never handwriting: never emit it as a task, note, or
-  margin note. It tells you which page produced the row above it, which is useful when the
-  user has corrected that row by hand.
+- Under a printed item there may be a small grey monospace SOURCE REFERENCE naming where it was
+  read from, of the form "NOTEBOOK · p.4", or a person or project. It is printed metadata, never
+  handwriting: never emit it as a task, note, or margin note.
+- The Action List groups its rows by the PAGE they were written on. Each group starts with the
+  reMarkable file's name as an uppercase monospace section label, with a smaller grey line under
+  it giving the page and, when the writer dated that page, its date — "p.4 · Thu 3 Sep". Both
+  are printed headings, not handwriting and not items. The rows beneath a heading all came from
+  that page.
 - Checkbox rows: a small square box, the item text, and a short monospace item code at the
   right edge of the row (A01, A02... actions; C01... carried-over items; I01... Inbox items to
   confirm; M01... meeting invites to confirm; W01... tasks on the Week page; F01... "Focus"
@@ -131,8 +134,11 @@ Rules:
 4. Confidence is about legibility AND interpretation. Below 0.7 means a human should confirm.
    Set needs_escalation true only if the page is so hard to read that a stronger model
    should retry it.
-5. page_kind "blank" for empty pages; return empty arrays and transcription "".
-6. Never invent names, dates, or numbers you cannot see. A misread name could email a stranger.
+5. page_date is the date the WRITER put on the page — a date line at its head, or a date in
+   the title. Resolve it like any other date and use null when the page carries none. It is
+   never today's date and never a due date: it says when this page was written.
+6. page_kind "blank" for empty pages; return empty arrays and transcription "".
+7. Never invent names, dates, or numbers you cannot see. A misread name could email a stranger.
 
 ${describeConventions(opts.conventions)}
 

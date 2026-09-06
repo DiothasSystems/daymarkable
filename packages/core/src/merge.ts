@@ -217,7 +217,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
 
   const plannerPages = pages.filter((p) => p.extraction.page_kind === "planner");
   for (const page of plannerPages) {
-    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex };
+    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex, pageDate: page.extraction.page_date };
     const pageCode = page.extraction.planner_page_code;
     for (const u of page.extraction.checkbox_updates) {
       const key = pageCode && u.item_code ? `${pageCode}|${u.item_code.toUpperCase()}` : null;
@@ -318,7 +318,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
   for (const page of pages) {
     const ex = page.extraction;
     if (ex.page_kind === "blank") continue;
-    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex };
+    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex, pageDate: page.extraction.page_date };
     const pageTaskTexts: string[] = [];
 
     for (const t of ex.tasks) {

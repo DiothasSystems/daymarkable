@@ -40,11 +40,13 @@ function nextCode(c: Codes, prefix: string, type: PrintedItem["itemType"], id: s
 }
 
 export function actionTag(a: ActionItem, today: string): string | null {
-  if (a.carriedCount > 0) return `CARRIED ${a.carriedCount}D`;
+  // Being late outranks being carried: the date is the fact the reader has to act on.
   if (a.due) {
+    if (a.due < today) return `LATE ${formatTag(a.due)}`;
     if (a.due === today) return "TODAY";
     return `DUE ${formatTag(a.due)}`;
   }
+  if (a.carriedCount > 0) return `CARRIED ${a.carriedCount}D`;
   if (a.priority === "high") return "PRIORITY";
   if (a.kind === "follow_up") return "FOLLOW-UP";
   return null;

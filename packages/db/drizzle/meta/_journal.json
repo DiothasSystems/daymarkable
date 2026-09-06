@@ -22,6 +22,13 @@
       "when": 1788533157255,
       "tag": "0002_numerous_lightspeed",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788629185452,
+      "tag": "0003_needy_black_crow",
+      "breakpoints": true
     }
   ]
 }

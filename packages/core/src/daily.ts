@@ -75,7 +75,7 @@ export function assembleDailySheet(pages: readonly DecodedPage[], opts: Assemble
 
   for (const page of pages) {
     const ex = page.extraction;
-    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex };
+    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex, pageDate: page.extraction.page_date };
     stats.tasksFound += ex.tasks.length;
     stats.eventsFound += ex.events.length;
     stats.meetingRequestsFound += ex.meeting_requests.length;

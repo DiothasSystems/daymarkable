@@ -173,6 +173,13 @@ export class Section {
     this.y += 54;
   }
 
+  /** Small mono line under a section label — the page reference and the page's own date. */
+  sublabel(text: string): void {
+    this.ensure(38);
+    this.canvas.text(text, MAIN_X, this.y + 22, { font: this.canvas.fonts.mono, size: 24, color: TERTIARY, tracking: 0.04 });
+    this.y += 38;
+  }
+
   /** Serif heading inside a page (meeting topic). */
   heading(text: string, right?: string): void {
     this.ensure(110);

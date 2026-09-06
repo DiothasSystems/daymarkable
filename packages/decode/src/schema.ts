@@ -82,6 +82,11 @@ export const PageExtractionSchema = z.object({
   page_kind: z.enum(["notes", "planner", "blank", "other"]),
   /** Footer code when page_kind is planner, e.g. "dM/DAY/2026-09-02/1". */
   planner_page_code: z.string().nullable(),
+  /**
+   * The date the WRITER put on this page, if any — not today's date. It heads the page's group
+   * on the Action List, so the user can see which sitting an item came from.
+   */
+  page_date: IsoDate.nullable().default(null),
   transcription: z.string(),
   tasks: z.array(TaskSchema),
   events: z.array(EventSchema),
@@ -99,6 +104,7 @@ export function emptyExtraction(kind: PageExtraction["page_kind"] = "blank"): Pa
     schema_version: EXTRACTION_SCHEMA_VERSION,
     page_kind: kind,
     planner_page_code: null,
+    page_date: null,
     transcription: "",
     tasks: [],
     events: [],
@@ -115,6 +121,7 @@ export const SCHEMA_DESCRIPTION = `{
   "schema_version": 1,
   "page_kind": "notes" | "planner" | "blank" | "other",
   "planner_page_code": string | null,          // footer code on dayMarkable pages, else null
+  "page_date": "YYYY-MM-DD" | null,            // the date the WRITER wrote on the page, else null
   "transcription": string,                     // faithful transcription, line breaks preserved
   "tasks": [{
     "text": string,

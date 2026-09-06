@@ -205,6 +205,8 @@ export const tasks = pgTable(
     sourceConvention: text("source_convention"),
     sourceNotebook: text("source_notebook"),
     sourcePageIndex: integer("source_page_index"),
+    /** The date the writer put on the source page, when they dated it. Not a due date. */
+    sourcePageDate: date("source_page_date"),
     status: taskStatus("status").notNull().default("open"),
     carriedCount: integer("carried_count").notNull().default(0),
     lastAgedOn: date("last_aged_on"),

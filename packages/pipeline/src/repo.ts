@@ -241,7 +241,7 @@ export async function loadWorkingSet(db: Db, sealer: Sealer, userId: string): Pr
       project: t.project,
       people: t.people,
       confidence: t.confidence,
-      source: { notebook: t.sourceNotebook ?? "", pageIndex: t.sourcePageIndex ?? 0 },
+      source: { notebook: t.sourceNotebook ?? "", pageIndex: t.sourcePageIndex ?? 0, pageDate: t.sourcePageDate },
       carriedCount: t.carriedCount,
       createdOn: t.createdOn,
       status: t.status,
@@ -334,6 +334,7 @@ export async function saveWorkingSet(db: Db, sealer: Sealer, userId: string, run
       sourceConvention: t.sourceConvention,
       sourceNotebook: t.source.notebook,
       sourcePageIndex: t.source.pageIndex,
+      sourcePageDate: t.source.pageDate ?? null,
       status: t.status,
       carriedCount: t.carriedCount,
       lastAgedOn: t.lastAgedOn,
@@ -396,7 +397,7 @@ export async function decideItem(db: Db, sealer: Sealer, userId: string, d: Deci
     await db.insert(schema.tasks).values({
       id: t.id, userId, text: t.text, due: t.due, dueTime: t.dueTime, priority: t.priority, kind: t.kind,
       project: t.project, people: t.people, confidence: t.confidence, sourceConvention: t.sourceConvention,
-      sourceNotebook: t.source.notebook, sourcePageIndex: t.source.pageIndex, status: t.status,
+      sourceNotebook: t.source.notebook, sourcePageIndex: t.source.pageIndex, sourcePageDate: t.source.pageDate ?? null, status: t.status,
       carriedCount: t.carriedCount, lastAgedOn: t.lastAgedOn, createdOn: t.createdOn, completedOn: t.completedOn, updatedAt: now,
     }).onConflictDoNothing();
   }

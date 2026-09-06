@@ -6,6 +6,8 @@ export type TaskKind = "action" | "follow_up";
 export interface ItemSource {
   notebook: string;
   pageIndex: number;
+  /** The date written on the page itself, when the writer dated it. Never today's date. */
+  pageDate?: string | null;
 }
 
 export interface ActionItem {

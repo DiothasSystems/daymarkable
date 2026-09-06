@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "source_page_date" date;

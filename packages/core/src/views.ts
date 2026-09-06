@@ -93,7 +93,10 @@ export interface InboxPageModel {
 }
 
 export interface ActionListGroup {
+  /** The reMarkable file the page belongs to — the group's heading. */
   label: string;
+  /** Page reference and the date written on the page, when it carries one: "p.4 · Wed 3 Sep". */
+  subtitle: string | null;
   date: string | null;
   tasks: StoredTask[];
 }
@@ -218,29 +221,59 @@ export function buildDaily(state: WorkingSet, opts: ViewOptions): DailySheetMode
   };
 }
 
+const PRIORITY_ORDER: Record<StoredTask["priority"], number> = { high: 0, normal: 1, low: 2 };
+
+const GROUP_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const GROUP_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Wed 3 Sep" — the page's own date, for the group subheading. */
+function formatGroupDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${GROUP_DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${GROUP_MONTHS[d.getUTCMonth()]}`;
+}
+
 /**
- * Grouped by date, then by priority. Most actions have no due date — dayMarkable never invents
- * one — so the undated groups carry the bulk of the list and are ordered by the priority the
- * user wrote, then by age. An undated action the user marked high priority sits near the top
- * rather than below every dated item: writing "!" beside it is how they say so.
+ * Grouped by the page the items were written on: one group per (notebook, page), headed by the
+ * reMarkable file's name with the page reference and the page's own date beneath it. An action
+ * read back beside the rest of that sitting's notes is far easier to place than the same line
+ * filed under a bare date.
+ *
+ * Groups are ordered by urgency, not alphabetically: the earliest due date in the group first,
+ * then the highest priority in it, and only then the notebook name — so the page holding the
+ * work that is actually due leads the list, and pages with nothing dated or flagged fall into a
+ * stable alphabetical tail.
  */
 export function buildActionList(state: WorkingSet, opts: ViewOptions): ActionListModel {
   const tasks = openActionList(state);
-  const groups: ActionListGroup[] = [];
-  const overdue = tasks.filter((t) => t.due !== null && t.due < opts.today);
-  if (overdue.length) groups.push({ label: "Overdue", date: null, tasks: overdue.sort(compareActions) });
-  const priority = tasks.filter((t) => t.due === null && t.priority === "high");
-  if (priority.length) groups.push({ label: "Priority", date: null, tasks: priority.sort(compareActions) });
-  const dated = new Map<string, StoredTask[]>();
+  const byPage = new Map<string, StoredTask[]>();
   for (const t of tasks) {
-    if (t.due === null || t.due < opts.today) continue;
-    dated.set(t.due, [...(dated.get(t.due) ?? []), t]);
+    const key = `${t.source.notebook} ${t.source.pageIndex}`;
+    byPage.set(key, [...(byPage.get(key) ?? []), t]);
   }
-  for (const [date, list] of [...dated.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    groups.push({ label: date === opts.today ? "Today" : date, date, tasks: list.sort(compareActions) });
-  }
-  const undated = tasks.filter((t) => t.due === null && t.priority !== "high");
-  if (undated.length) groups.push({ label: "No date", date: null, tasks: undated.sort(compareActions) });
+  const groups: ActionListGroup[] = [...byPage.values()]
+    .map((list) => {
+      const sorted = [...list].sort(compareActions);
+      const first = sorted[0]!.source;
+      const dues = sorted.map((t) => t.due).filter((d): d is string => d !== null);
+      return {
+        label: first.notebook.trim() || "Unfiled",
+        subtitle: [`p.${first.pageIndex + 1}`, first.pageDate ? formatGroupDate(first.pageDate) : null].filter(Boolean).join(" · "),
+        date: dues.length ? dues.reduce((a, b) => (a < b ? a : b)) : null,
+        tasks: sorted,
+        rank: Math.min(...sorted.map((t) => PRIORITY_ORDER[t.priority])),
+      };
+    })
+    .sort((a, b) => {
+      if (a.date !== b.date) {
+        if (a.date === null) return 1;
+        if (b.date === null) return -1;
+        return a.date < b.date ? -1 : 1;
+      }
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return a.label.localeCompare(b.label) || (a.subtitle ?? "").localeCompare(b.subtitle ?? "");
+    })
+    .map(({ rank: _rank, ...g }) => g);
   const completedRecently = state.tasks
     .filter((t) => t.status === "done" && t.completedOn !== null && t.completedOn >= addDays(opts.today, -1))
     .sort((a, b) => a.text.localeCompare(b.text));

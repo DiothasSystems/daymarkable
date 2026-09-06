@@ -168,7 +168,7 @@ describe("views", () => {
     const out = buildOutputSet(r.state, vo);
     expect(out.planner.year.months).toHaveLength(12);
     expect(out.planner.quarter.quarter).toBe(3);
-    expect(buildActionList(r.state, vo).groups.map((g) => g.label)).toEqual(["2026-09-04"]);
+    expect(buildActionList(r.state, vo).groups.map((g) => g.label)).toEqual(["Work"]);
   });
 });
 
@@ -269,42 +269,79 @@ describe("hand-assigned dates and priorities", () => {
   });
 });
 
-describe("buildActionList ordering", () => {
-  const withTasks = (specs: { text: string; due?: string | null; priority?: "high" | "normal" | "low" }[]) => {
+describe("buildActionList grouping", () => {
+  type Spec = { text: string; due?: string | null; priority?: "high" | "normal" | "low"; notebook?: string; page?: number; pageDate?: string | null };
+  const withTasks = (specs: Spec[]) => {
     const state = emptyWorkingSet();
     specs.forEach((sp, i) => state.tasks.push({
       id: `t${i}`, text: sp.text, due: sp.due ?? null, dueTime: null, priority: sp.priority ?? "normal",
-      kind: "action", project: null, people: [], confidence: 0.9, source: { notebook: "Work", pageIndex: 0 },
+      kind: "action", project: null, people: [], confidence: 0.9,
+      source: { notebook: sp.notebook ?? "Work", pageIndex: sp.page ?? 0, pageDate: sp.pageDate ?? null },
       carriedCount: 0, createdOn: "2026-09-01", status: "open", sourceConvention: null, lastAgedOn: "2026-09-01", completedOn: null,
     }));
     return state;
   };
   const view = { today: "2026-09-05", timezone: "UTC", generatedAt: "2026-09-05T03:00:00Z", runLabel: "test" };
 
-  it("lifts an undated high-priority action above the dated ones", () => {
+  it("groups by the page the items were written on, named after the notebook", () => {
     const m = buildActionList(withTasks([
-      { text: "Later", due: "2026-09-20" },
-      { text: "Marked urgent", priority: "high" },
-      { text: "Someday" },
+      { text: "One", notebook: "Plume MDU", page: 3 },
+      { text: "Two", notebook: "Plume MDU", page: 3 },
+      { text: "Elsewhere", notebook: "Synamedia", page: 0 },
     ]), view);
-    expect(m.groups.map((g) => g.label)).toEqual(["Priority", "2026-09-20", "No date"]);
-    expect(m.groups[0]!.tasks.map((t) => t.text)).toEqual(["Marked urgent"]);
+    expect(m.groups.map((g) => g.label)).toEqual(["Plume MDU", "Synamedia"]);
+    expect(m.groups[0]!.tasks.map((t) => t.text)).toEqual(["One", "Two"]);
   });
 
-  it("puts overdue first and orders undated items by priority", () => {
+  it("keeps two pages of the same notebook apart", () => {
     const m = buildActionList(withTasks([
-      { text: "Low one", priority: "low" },
-      { text: "Normal one" },
-      { text: "Was due", due: "2026-09-01" },
-      { text: "Urgent", priority: "high" },
+      { text: "On page 4", notebook: "Plume MDU", page: 3 },
+      { text: "On page 1", notebook: "Plume MDU", page: 0 },
     ]), view);
-    expect(m.groups.map((g) => g.label)).toEqual(["Overdue", "Priority", "No date"]);
-    expect(m.groups[2]!.tasks.map((t) => t.text)).toEqual(["Normal one", "Low one"]);
+    expect(m.groups).toHaveLength(2);
+    expect(m.groups.map((g) => g.subtitle)).toEqual(["p.1", "p.4"]);
   });
 
-  it("has no group at all when nothing carries a date or priority", () => {
-    const m = buildActionList(withTasks([{ text: "Just a thing" }]), view);
-    expect(m.groups.map((g) => g.label)).toEqual(["No date"]);
-    expect(m.openCount).toBe(1);
+  it("puts the page date in the subheading when the writer dated the page", () => {
+    const m = buildActionList(withTasks([{ text: "One", notebook: "Plume MDU", page: 3, pageDate: "2026-09-03" }]), view);
+    expect(m.groups[0]!.subtitle).toBe("p.4 · Thu 3 Sep");
+  });
+
+  it("omits the date when the page carries none", () => {
+    const m = buildActionList(withTasks([{ text: "One", page: 1 }]), view);
+    expect(m.groups[0]!.subtitle).toBe("p.2");
+  });
+
+  it("orders pages by their earliest due date, before any undated page", () => {
+    const m = buildActionList(withTasks([
+      { text: "No date here", notebook: "Aardvark" },
+      { text: "Due later", notebook: "Zebra", page: 1, due: "2026-09-20" },
+      { text: "Due sooner", notebook: "Mango", page: 2, due: "2026-09-08" },
+    ]), view);
+    expect(m.groups.map((g) => g.label)).toEqual(["Mango", "Zebra", "Aardvark"]);
+  });
+
+  it("orders undated pages by priority, then by notebook name", () => {
+    const m = buildActionList(withTasks([
+      { text: "Normal", notebook: "Alpha" },
+      { text: "Urgent", notebook: "Zulu", page: 1, priority: "high" },
+      { text: "Also normal", notebook: "Bravo", page: 2 },
+    ]), view);
+    expect(m.groups.map((g) => g.label)).toEqual(["Zulu", "Alpha", "Bravo"]);
+  });
+
+  it("names a page with no notebook rather than showing an empty heading", () => {
+    const m = buildActionList(withTasks([{ text: "One", notebook: "  " }]), view);
+    expect(m.groups[0]!.label).toBe("Unfiled");
+  });
+
+  it("sorts within a page by due date then priority", () => {
+    const m = buildActionList(withTasks([
+      { text: "Undated normal" },
+      { text: "Undated urgent", priority: "high" },
+      { text: "Dated", due: "2026-09-09" },
+    ]), view);
+    expect(m.groups[0]!.tasks.map((t) => t.text)).toEqual(["Dated", "Undated urgent", "Undated normal"]);
+    expect(m.openCount).toBe(3);
   });
 });
