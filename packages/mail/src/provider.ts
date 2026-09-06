@@ -1,7 +1,13 @@
 /**
- * Transactional email. Rule 10: mail goes ONLY to the account's registered address; the
- * `to` field is set by the runner from users.email and nowhere else.
+ * Transactional email. Rule 10: mail goes ONLY to the account's registered address, or to a
+ * delivery address the user typed into their own settings AND confirmed by clicking a link
+ * sent to it. Never to an address read off a page.
  */
+export interface MailAttachment {
+  filename: string;
+  content: Uint8Array;
+}
+
 export interface OutgoingMail {
   to: string;
   subject: string;
@@ -9,6 +15,7 @@ export interface OutgoingMail {
   text: string;
   /** (user, meeting, date) key so retries never double-send. */
   idempotencyKey: string;
+  attachments?: MailAttachment[];
 }
 
 export interface MailResult {
@@ -40,7 +47,16 @@ export class ResendProvider implements MailProvider {
           "content-type": "application/json",
           "idempotency-key": mail.idempotencyKey.slice(0, 256),
         },
-        body: JSON.stringify({ from: this.from, to: [mail.to], subject: mail.subject, html: mail.html, text: mail.text }),
+        body: JSON.stringify({
+          from: this.from,
+          to: [mail.to],
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+          ...(mail.attachments?.length
+            ? { attachments: mail.attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString("base64") })) }
+            : {}),
+        }),
       });
       if (!res.ok) {
         const body = await res.text();

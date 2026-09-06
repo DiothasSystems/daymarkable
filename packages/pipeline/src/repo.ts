@@ -31,6 +31,10 @@ export function defaultSettings(): UserSettings {
     includePdfs: false,
     conventions: STARTER_CONVENTIONS as UserSettings["conventions"],
     email: { meetingNotes: true, runSummary: false, inviteConfirmations: true },
+    deliveryEmail: null,
+    deliveryVerifiedAt: null,
+    deliveryToken: null,
+    deliveryTokenExpires: null,
     confidenceThreshold: 0.7,
     autoSendInvites: false,
     decodeModel: null,
@@ -54,6 +58,10 @@ export function normalizeSettings(raw: Partial<UserSettings> | null | undefined)
     watchFolders: raw?.watchFolders ?? d.watchFolders,
     outputToRoot: raw?.outputToRoot ?? d.outputToRoot,
     lexicon: raw?.lexicon ?? d.lexicon,
+    deliveryEmail: raw?.deliveryEmail ?? d.deliveryEmail,
+    deliveryVerifiedAt: raw?.deliveryVerifiedAt ?? d.deliveryVerifiedAt,
+    deliveryToken: raw?.deliveryToken ?? d.deliveryToken,
+    deliveryTokenExpires: raw?.deliveryTokenExpires ?? d.deliveryTokenExpires,
     profile: raw?.profile ?? d.profile,
   };
 }

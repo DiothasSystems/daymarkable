@@ -55,6 +55,16 @@ export interface UserSettings {
   /** UserInkConventions from @daymarkable/decode. */
   conventions: { active: Array<{ id: string; meaning: string; keyword?: string }> };
   email: { meetingNotes: boolean; runSummary: boolean; inviteConfirmations: boolean };
+  /**
+   * Where the night's PDFs are delivered. Typed by the user in their own settings, and only
+   * used once `deliveryVerifiedAt` is set by clicking the link mailed to it (rule 10) — a typo
+   * must not quietly send someone's notes to a stranger every night.
+   */
+  deliveryEmail: string | null;
+  deliveryVerifiedAt: string | null;
+  /** Single-use token for the confirmation link, with its expiry. Cleared once used. */
+  deliveryToken: string | null;
+  deliveryTokenExpires: string | null;
   confidenceThreshold: number;
   autoSendInvites: boolean;
   /** Decode model config for this user (null = global default from env). */

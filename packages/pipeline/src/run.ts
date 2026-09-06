@@ -9,7 +9,7 @@ import { mergeRun, buildOutputSet, type MergePage, type PrintedItem } from "@day
 import { composeActionList, composeMeetingNotes, composePlanner } from "@daymarkable/compose";
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
 import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
-import { buildMeetingMail, type MailProvider } from "@daymarkable/mail";
+import { buildDeliveryMail, buildMeetingMail, type MailProvider } from "@daymarkable/mail";
 import { TabletProviderError, type DownloadedDocument, type TabletDocument, type TabletFolder, type TabletProvider } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
 import type { CacheStore } from "./cache.js";
@@ -370,6 +370,31 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         else if (res.status === "failed") log(`email failed for meeting ${m.id}: ${res.error}`);
       }
       log(`email: ${stats.emailsSent} meeting note email(s) sent via ${deps.mail.name} (${merged.newMeetings.length} new meetings)`);
+    }
+
+    // ---- 7b. deliver the night's PDFs to the user's confirmed delivery address -------
+    // Only ever to an address the user typed into their own settings AND confirmed by clicking
+    // the link mailed to it (rule 10). An unconfirmed address is reported, never used.
+    if (settings.deliveryEmail) {
+      if (!settings.deliveryVerifiedAt) {
+        log("delivery: address not confirmed yet — nothing sent (check the settings page)");
+      } else {
+        const mail = buildDeliveryMail(
+          settings.deliveryEmail,
+          user.id,
+          localDate,
+          outputs.map((o) => ({ name: o.name, pdf: o.composed.pdf, pageCount: o.composed.pageCount })),
+          { openActions: views.actionList.openCount, meetings: views.meetingNotes.meetings.length },
+        );
+        if (await repo.emailAlreadySent(db, mail.idempotencyKey)) {
+          log("delivery: already sent for this date");
+        } else {
+          const res = await deps.mail.send(mail);
+          await repo.logEmail(db, { userId: user.id, runId: run.id, idempotencyKey: mail.idempotencyKey, toEmail: settings.deliveryEmail, subject: mail.subject, status: res.status, providerId: res.providerId, error: res.error });
+          if (res.status === "sent") stats.emailsSent++;
+          log(`delivery: ${outputs.length} PDF(s) ${res.status} via ${deps.mail.name}${res.error ? ` — ${res.error}` : ""}`);
+        }
+      }
     }
 
     // ---- 8. draft invites: Phase 0 keeps meeting_requests as DRAFTS (rule 7); the calendar

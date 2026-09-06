@@ -90,9 +90,12 @@ unchanged.
    action/follow-up/priority/schedule (asterisk, underline, highlight, circle, box,
    exclamation, margin star, keywords) lives in one config module and is injected into the
    extraction prompt; never hardcode a convention's meaning in `packages/core`.
-10. **Email goes to the registered address only.** `packages/mail` sends solely to the
-    account's login email; third parties are reached only via a confirmed calendar invite
-    through `packages/calendar`.
+10. **Email goes to an address the user chose, never one that was read.** Meeting notes go to
+    the account's login email. The night's PDFs may additionally go to ONE delivery address the
+    user typed into their own settings — and only after that address confirmed itself by a
+    single-use link mailed to it, so a typo cannot quietly deliver someone's notes to a stranger
+    every night. An address is never taken from a decoded page. Third parties are reached only
+    via a confirmed calendar invite through `packages/calendar`.
 11. **On-demand sync: 3 per rolling 24h, and it replaces the night's run.** The quota is
     enforced server-side in one module, counted across web and mobile together (429 with
     next-available time when exhausted). A completed on-demand sync satisfies

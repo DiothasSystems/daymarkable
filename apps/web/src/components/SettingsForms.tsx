@@ -202,11 +202,58 @@ export function EmailPrefs({ initial, email }: { initial: Account["settings"]["e
   const { state, error, save } = useSaver(async () => trpc.account.updateSettings.mutate({ email: prefs }));
   return (
     <div className="stack">
-      <p className="muted">Everything goes to <strong>{email}</strong>, the address you sign in with. dayMarkable never emails anyone else.</p>
+      <p className="muted">Meeting notes go to <strong>{email}</strong>, the address you sign in with. To send the night&apos;s PDFs somewhere else as well, set a delivery address below.</p>
       <label className="check"><input type="checkbox" checked={prefs.meetingNotes} onChange={(e) => setPrefs({ ...prefs, meetingNotes: e.target.checked })} /><span>One email per decoded meeting (subject: topic — date time)</span></label>
       <label className="check"><input type="checkbox" checked={prefs.runSummary} onChange={(e) => setPrefs({ ...prefs, runSummary: e.target.checked })} /><span>Nightly run summary</span></label>
       <label className="check"><input type="checkbox" checked={prefs.inviteConfirmations} onChange={(e) => setPrefs({ ...prefs, inviteConfirmations: e.target.checked })} /><span>Invite confirmation links (when a calendar is connected)</span></label>
       <div className="row"><button onClick={() => void save(undefined)} disabled={state === "saving"}>Save email preferences</button><Status state={state} error={error} /></div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------ delivery address
+/**
+ * Where the night's planner, action list and meeting notes are delivered as PDFs.
+ *
+ * The address must confirm itself before anything is sent: it is typed by hand, and a slip like
+ * "gmial.com" would otherwise mail this person's notes to a stranger every night (rule 10).
+ */
+export function DeliveryEmail({ initial, verified }: { initial: string | null; verified: string | null }) {
+  const [value, setValue] = useState(initial ?? "");
+  const [sent, setSent] = useState(false);
+  const [confirmed, setConfirmed] = useState(Boolean(verified));
+  const { state, error, save } = useSaver(async () => {
+    const r = await trpc.account.setDeliveryEmail.mutate({ email: value.trim() });
+    setSent(r.sent);
+    setConfirmed(r.verified);
+  });
+  const dirty = value.trim().toLowerCase() !== (initial ?? "").toLowerCase();
+
+  return (
+    <div className="stack">
+      <p className="muted">
+        A copy of the planner, action list and meeting notes, attached as PDFs, after every run. Leave it empty to send nothing.
+      </p>
+      <div className="field">
+        <label htmlFor="delivery">Delivery address</label>
+        <input id="delivery" type="email" placeholder="you@example.com" value={value} onChange={(e) => { setValue(e.target.value); setSent(false); }} />
+      </div>
+      {value.trim() && !dirty ? (
+        confirmed ? (
+          <div className="notice ok">Confirmed — the next run will deliver here.</div>
+        ) : (
+          <div className="notice">
+            Waiting for confirmation. Open the email sent to <strong>{value.trim()}</strong> and click the link; nothing is delivered until you do.
+            {sent ? " (Sent just now.)" : null}
+          </div>
+        )
+      ) : null}
+      <div className="row">
+        <button onClick={() => void save(undefined)} disabled={state === "saving"}>
+          {value.trim() ? (dirty ? "Save and send confirmation" : confirmed ? "Save" : "Resend confirmation") : "Remove delivery address"}
+        </button>
+        <Status state={state} error={error} />
+      </div>
     </div>
   );
 }

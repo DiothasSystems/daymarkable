@@ -32,6 +32,14 @@ export const appRouter = router({
     }),
     tabletFolders: protectedProcedure.query(({ ctx }) => svc.listTabletFolders(ctx.user.id)),
     timezones: publicProcedure.query(() => svc.listTimezones()),
+    // Empty string clears the address; anything else is saved unconfirmed and mailed a link.
+    setDeliveryEmail: protectedProcedure.input(z.object({ email: z.string().max(320) })).mutation(async ({ ctx, input }) => {
+      try {
+        return await svc.setDeliveryEmail(ctx.user.id, input.email);
+      } catch (err) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+      }
+    }),
   }),
   documents: router({
     list: protectedProcedure.query(({ ctx }) => svc.listDocuments(ctx.user.id)),

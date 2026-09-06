@@ -1,7 +1,7 @@
 import { Shell } from "@/components/Shell";
 import { CalibrationPanel, LexiconEditor } from "@/components/Calibration";
 import { RateRun } from "@/components/RateRun";
-import { ConventionsPicker, DecodeTuning, EmailPrefs, OutputLocation, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
+import { ConventionsPicker, DecodeTuning, DeliveryEmail, EmailPrefs, OutputLocation, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
 import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
 import { feedbackSummary, getAccount, getCalibration, listRuns } from "@/server/services";
@@ -61,6 +61,10 @@ export default async function AccountPage() {
         <section className="card">
           <h2>Email</h2>
           <EmailPrefs initial={account.settings.email} email={account.email} />
+        </section>
+        <section className="card">
+          <h2>Send documents to</h2>
+          <DeliveryEmail initial={account.settings.deliveryEmail} verified={account.settings.deliveryVerifiedAt} />
         </section>
         <section className="card">
           <h2>Decoding</h2>

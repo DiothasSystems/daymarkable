@@ -1,5 +1,6 @@
 import type { Meeting } from "@daymarkable/core";
 import { describe, expect, it } from "vitest";
+import { buildDeliveryMail, buildDeliveryVerificationMail } from "./deliveryMail.js";
 import { buildMeetingMail, meetingSubject } from "./meetingMail.js";
 import { MemoryProvider, ResendProvider } from "./provider.js";
 
@@ -43,5 +44,49 @@ describe("meeting mail", () => {
     expect(res).toEqual({ status: "sent", providerId: "re_123", error: null });
     expect(calls[0]!.url).toBe("https://api.resend.com/emails");
     expect((calls[0]!.init.headers as Record<string, string>)["idempotency-key"]).toBe("meeting:u:abc:2026-09-02");
+  });
+});
+
+describe("delivery mail", () => {
+  const pdf = (n: number) => new Uint8Array([37, 80, 68, 70, n]);
+  const docs = [
+    { name: "Planner", pdf: pdf(1), pageCount: 6 },
+    { name: "Action List", pdf: pdf(2), pageCount: 3 },
+    { name: "Meeting Notes", pdf: pdf(3), pageCount: 9 },
+  ];
+
+  it("attaches every document, named by kind and date", () => {
+    const m = buildDeliveryMail("them@example.com", "u1", "2026-09-06", docs, { openActions: 12, meetings: 2 });
+    expect(m.to).toBe("them@example.com");
+    expect(m.attachments?.map((a) => a.filename)).toEqual([
+      "Planner-2026-09-06.pdf",
+      "Action-List-2026-09-06.pdf",
+      "Meeting-Notes-2026-09-06.pdf",
+    ]);
+    expect(m.attachments?.[0]!.content).toEqual(pdf(1));
+  });
+
+  it("is keyed per user, date and address so a retry cannot double-send", () => {
+    const a = buildDeliveryMail("them@example.com", "u1", "2026-09-06", docs, { openActions: 1, meetings: 0 });
+    const b = buildDeliveryMail("them@example.com", "u1", "2026-09-06", docs, { openActions: 1, meetings: 0 });
+    const other = buildDeliveryMail("other@example.com", "u1", "2026-09-06", docs, { openActions: 1, meetings: 0 });
+    expect(a.idempotencyKey).toBe(b.idempotencyKey);
+    expect(other.idempotencyKey).not.toBe(a.idempotencyKey);
+  });
+
+  it("summarises the run in both html and plain text", () => {
+    const m = buildDeliveryMail("them@example.com", "u1", "2026-09-06", docs, { openActions: 1, meetings: 1 });
+    expect(m.text).toContain("1 open actions, 1 meetings");
+    expect(m.html).toContain("6 pages");
+    expect(m.subject).toBe("dayMarkable — 2026-09-06");
+  });
+
+  it("the confirmation mail carries the link and no attachments", () => {
+    const m = buildDeliveryVerificationMail("them@example.com", "u1", "https://app.daymarkable.com/settings/verify-delivery?token=abc");
+    expect(m.attachments).toBeUndefined();
+    expect(m.html).toContain("verify-delivery?token=abc");
+    expect(m.text).toContain("verify-delivery?token=abc");
+    // Says plainly what happens if the recipient was not expecting it.
+    expect(m.text.toLowerCase()).toContain("ignore");
   });
 });

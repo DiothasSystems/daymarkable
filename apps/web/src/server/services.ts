@@ -5,6 +5,8 @@ import { BASELINE_DECODE_MODEL, CONVENTION_CATALOG, anthropicClient, isRetiredDe
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
+import { randomUUID } from "node:crypto";
+import { buildDeliveryVerificationMail } from "@daymarkable/mail";
 import { DateTime } from "luxon";
 import { z } from "zod";
 import { getRuntime } from "./runtime";
@@ -452,6 +454,66 @@ export async function decideItem(userId: string, itemType: DecisionItemType, ite
   const res = await repo.decideItem(rt.db, rt.sealer, userId, { itemType, itemId, action }, today);
   const created = res.created.tasks.length + res.created.events.length + res.created.meetingRequests.length;
   return { label: res.label, status: res.status, created };
+}
+
+// ------------------------------------------------------------------ delivery address (rule 10)
+const DELIVERY_TOKEN_HOURS = 48;
+
+/**
+ * Save where the night's PDFs should be delivered and mail a confirmation link there. Nothing
+ * is delivered until that link is clicked: the address is typed by hand, and a typo must not
+ * quietly send someone's notes to a stranger every night.
+ */
+export async function setDeliveryEmail(userId: string, email: string | null) {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  const next: UserSettings = { ...user.settings };
+  const address = email?.trim().toLowerCase() ?? "";
+
+  if (!address) {
+    next.deliveryEmail = null;
+    next.deliveryVerifiedAt = null;
+    next.deliveryToken = null;
+    next.deliveryTokenExpires = null;
+    await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+    return { deliveryEmail: null, verified: false, sent: false };
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(address)) throw new Error("that does not look like an email address");
+
+  // Re-saving the same, already-confirmed address is a no-op rather than a fresh round trip.
+  if (address === user.settings.deliveryEmail && user.settings.deliveryVerifiedAt) {
+    return { deliveryEmail: address, verified: true, sent: false };
+  }
+
+  const token = randomUUID().replace(/-/g, "");
+  next.deliveryEmail = address;
+  next.deliveryVerifiedAt = null;
+  next.deliveryToken = token;
+  next.deliveryTokenExpires = DateTime.utc().plus({ hours: DELIVERY_TOKEN_HOURS }).toISO();
+  await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+
+  const base = (process.env.APP_URL ?? "").replace(/\/$/, "");
+  const mail = buildDeliveryVerificationMail(address, userId, `${base}/settings/verify-delivery?token=${token}`);
+  const res = await rt.mail.send(mail);
+  // The provider is a no-op without EMAIL_API_KEY, so log the link rather than stranding setup.
+  if (rt.mail.name === "memory") console.log(`[delivery] confirm link for ${address}: ${base}/settings/verify-delivery?token=${token}`);
+  if (res.status === "failed") throw new Error(`could not send the confirmation email: ${res.error}`);
+  return { deliveryEmail: address, verified: false, sent: true };
+}
+
+/** Called by the link in the confirmation email. Single use, and expires. */
+export async function verifyDeliveryEmail(token: string): Promise<boolean> {
+  const rt = await getRuntime();
+  const users = await rt.db.query.users.findMany();
+  for (const row of users) {
+    const settings = repo.normalizeSettings(row.settings);
+    if (!settings.deliveryToken || settings.deliveryToken !== token) continue;
+    if (settings.deliveryTokenExpires && settings.deliveryTokenExpires < DateTime.utc().toISO()) return false;
+    const next: UserSettings = { ...settings, deliveryVerifiedAt: DateTime.utc().toISO(), deliveryToken: null, deliveryTokenExpires: null };
+    await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, row.id));
+    return true;
+  }
+  return false;
 }
 
 export async function correctionHistory(userId: string) {
