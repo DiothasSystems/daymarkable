@@ -1,13 +1,14 @@
 /**
  * The Daily page ("Tablet Pages and Email", panel 2): two columns. Left ACTIONS, CARRIED
  * OVER, CONFIRM (Inbox + invites) and a NOTES area of ruled lines; right a SCHEDULE of hourly
- * rows with filled chips for confirmed meetings and outlined chips for tentative ones.
+ * rows in which each meeting is a shaded box spanning its start and end times — name top-left,
+ * repeat rule beneath, and the remaining space ruled for the day's note about that meeting.
  *
  * Layout contract with the decoder: PLANNER_LAYOUT_DESCRIPTION in packages/decode. Change
  * both together (CLAUDE.md rule 6).
  */
 import { recurrenceLabel, type ActionItem, type CalendarItem, type DailySheetModel, type PrintedItem } from "@daymarkable/core";
-import { CARRIED, CHECKBOX_PX, INK, RULE, SECONDARY, TERTIARY } from "./brand.js";
+import { CARRIED, CHECKBOX_PX, INK, RULE, SECONDARY, SHADE, SHADE_BORDER, TERTIARY } from "./brand.js";
 import { BODY_BOTTOM, CONTENT_RIGHT, CONTENT_W, CONTENT_X, addPage, newDocument, type Canvas } from "./canvas.js";
 import { formatShortDate, formatTag, formatTitleDate, generatedStamp, pageCode, sourceRef, type ComposeContext } from "./section.js";
 
@@ -72,6 +73,64 @@ function columnRow(c: Canvas, codes: Codes, x: number, y: number, width: number,
   return h;
 }
 
+const MEET_PAD = 15;
+const MEET_NOTE_GAP = 60; // one line of handwriting
+
+function minutesOf(hhmm: string): number {
+  return Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+}
+
+interface Block {
+  title: string;
+  recurrence: string | null;
+  startMin: number;
+  endMin: number;
+  draft: boolean;
+  lane: number;
+}
+
+/**
+ * Lay overlapping meetings into side-by-side lanes so no block is drawn over another. Greedy and
+ * global: the first free lane wins, and every block shares the resulting column count so the
+ * grid reads as columns rather than a staircase.
+ */
+function laneOut(blocks: Block[]): number {
+  const laneEnds: number[] = [];
+  for (const b of [...blocks].sort((p, q) => p.startMin - q.startMin || p.endMin - q.endMin)) {
+    let lane = laneEnds.findIndex((end) => end <= b.startMin);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(b.endMin);
+    } else {
+      laneEnds[lane] = b.endMin;
+    }
+    b.lane = lane;
+  }
+  return Math.max(1, laneEnds.length);
+}
+
+/**
+ * A meeting is drawn as a shaded box spanning its start and end times: title top-left, the
+ * repeat rule beneath it, and the rest of the box left empty and faintly ruled — that space is
+ * where the day's note about the meeting goes, and the decoder reads it back as a note on that
+ * meeting (PLANNER_LAYOUT_DESCRIPTION says so; rule 6).
+ */
+function meetingBlock(c: Canvas, b: Block, x: number, top: number, w: number, h: number): void {
+  const f = c.fonts;
+  c.rect(x, top, w, h, { fill: b.draft ? undefined : SHADE, stroke: SHADE_BORDER, thickness: 3, radius: 6 });
+  let ty = top + MEET_PAD + SIDE_SIZE;
+  c.text(c.fit(b.title, f.uiSemibold, SIDE_SIZE, w - MEET_PAD * 2), x + MEET_PAD, ty, { font: f.uiSemibold, size: SIDE_SIZE });
+  ty += 30;
+  if (b.recurrence && ty - top + 12 <= h) {
+    c.text(b.recurrence, x + MEET_PAD, ty, { font: f.mono, size: 24, color: SECONDARY, tracking: 0.06 });
+    ty += 30;
+  }
+  // Whatever is left inside the box is writing space, ruled so it reads as such.
+  for (let ry = ty + MEET_NOTE_GAP - 18; ry <= top + h - MEET_PAD; ry += MEET_NOTE_GAP) {
+    c.hline(x + MEET_PAD, x + w - MEET_PAD, ry, 2, SHADE_BORDER);
+  }
+}
+
 function schedule(c: Canvas, m: DailySheetModel, x: number, top: number, bottom: number, width: number): void {
   const f = c.fonts;
   let y = top;
@@ -81,7 +140,7 @@ function schedule(c: Canvas, m: DailySheetModel, x: number, top: number, bottom:
   if (allDay.length) {
     for (const e of allDay) {
       c.text("ALL DAY", x, y + 26, { font: f.mono, size: 24, color: SECONDARY });
-      c.text(c.fit(e.title, f.uiSemibold, SIDE_SIZE, width - 130), x + 130, y + 28, { font: f.uiSemibold, size: SIDE_SIZE });
+      c.text(c.fit(`${e.title}${e.recurrence ? ` · ${recurrenceLabel(e.recurrence)}` : ""}`, f.uiSemibold, SIDE_SIZE, width - 130), x + 130, y + 28, { font: f.uiSemibold, size: SIDE_SIZE });
       y += 48;
     }
     y += 12;
@@ -91,27 +150,51 @@ function schedule(c: Canvas, m: DailySheetModel, x: number, top: number, bottom:
   const hours = endHour - startHour + 1;
   const rowH = Math.max(66, Math.min(120, Math.floor((bottom - y) / hours)));
   const hourX = 78; // mock 26px ×3
-  const drafts = m.meetingRequests.filter((r) => r.proposedDate === m.date && r.proposedTime);
+  const gridX = x + hourX + 12;
+  const gridW = x + width - gridX;
+  const gridBottom = y + hours * rowH;
+
+  // The hour grid first, so the meeting boxes sit on top of its rules rather than under them.
   for (let h = 0; h < hours; h++) {
-    const hh = startHour + h;
     const rowTop = y + h * rowH;
     c.hline(x, x + width, rowTop, 3, RULE);
-    c.text(String(hh).padStart(2, "0"), x, rowTop + 18 + SIDE_SIZE * 0.7, { font: f.mono, size: SIDE_SIZE, color: SECONDARY });
-    let cx = x + hourX + 12;
-    const chipY = rowTop + Math.max(12, (rowH - (SIDE_SIZE + 18)) / 2);
-    const inHour = [
-      // A repeating meeting is marked so the reader can tell a series from a one-off — and knows
-      // that crossing it out ends the series, not just today's occurrence.
-      ...timed.filter((e) => Number(e.startTime!.slice(0, 2)) === hh).map((e) => ({ text: `${e.title}${e.endTime ? ` ${e.startTime}–${e.endTime}` : e.startTime!.endsWith(":00") ? "" : ` ${e.startTime}`}${e.recurrence ? ` (${recurrenceLabel(e.recurrence).toLowerCase()})` : ""}`, filled: true })),
-      ...drafts.filter((r) => Number(r.proposedTime!.slice(0, 2)) === hh).map((r) => ({ text: r.topic, filled: false })),
-    ];
-    for (const item of inHour) {
-      const remaining = x + width - cx;
-      if (remaining < 160) break;
-      cx += c.chip(item.text, cx, chipY, { filled: item.filled, size: SIDE_SIZE, maxWidth: remaining }) + 12;
-    }
+    c.text(String(startHour + h).padStart(2, "0"), x, rowTop + 18 + SIDE_SIZE * 0.7, { font: f.mono, size: SIDE_SIZE, color: SECONDARY });
   }
-  c.hline(x, x + width, y + hours * rowH, 3, RULE);
+  c.hline(x, x + width, gridBottom, 3, RULE);
+
+  const drafts = m.meetingRequests.filter((r) => r.proposedDate === m.date && r.proposedTime);
+  const blocks: Block[] = [
+    ...timed.map((e) => ({
+      title: e.title,
+      recurrence: e.recurrence ? recurrenceLabel(e.recurrence) : null,
+      startMin: minutesOf(e.startTime!),
+      // An open-ended meeting gets an hour, so it still has a box to write in.
+      endMin: e.endTime ? Math.max(minutesOf(e.endTime), minutesOf(e.startTime!) + 30) : minutesOf(e.startTime!) + 60,
+      draft: false,
+      lane: 0,
+    })),
+    ...drafts.map((r) => ({
+      title: r.topic,
+      recurrence: null,
+      startMin: minutesOf(r.proposedTime!),
+      endMin: minutesOf(r.proposedTime!) + (r.durationMinutes ?? 60),
+      draft: true,
+      lane: 0,
+    })),
+  ];
+  const laneCount = laneOut(blocks);
+  const laneW = (gridW - 12 * (laneCount - 1)) / laneCount;
+
+  for (const b of blocks) {
+    const pxPerMin = rowH / 60;
+    const blockTop = y + (b.startMin - startHour * 60) * pxPerMin;
+    // Tall enough for the title and one line to write on, whatever the meeting's length.
+    const minH = MEET_PAD * 2 + SIDE_SIZE + (b.recurrence ? 30 : 0) + MEET_NOTE_GAP;
+    const rawH = (b.endMin - b.startMin) * pxPerMin;
+    const blockH = Math.min(Math.max(rawH, minH), gridBottom - blockTop);
+    if (blockTop < y || blockH <= 0) continue;
+    meetingBlock(c, b, gridX + b.lane * (laneW + 12), blockTop, laneW, blockH);
+  }
 }
 
 export function writeDailySheet(ctx: ComposeContext, m: DailySheetModel): void {

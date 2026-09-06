@@ -47,11 +47,18 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
   handwriting: anything written there is a NEW task or note (emit it in tasks or notes, not in
   checkbox_updates), with the page's date as context.
 - Daily page: two columns. Left ACTIONS / CARRIED OVER / CONFIRM checkbox rows and a NOTES area
-  of ruled lines; right a SCHEDULE of hourly rows where filled black chips are confirmed
-  meetings and outlined chips are tentative ones. A chip ending in a bracketed word — "(weekly)",
-  "(monthly)" — is a repeating meeting dayMarkable already knows about; that word is printed
-  metadata, not handwriting, and the chip is not a new event. Handwriting on an hour row is an
-  event at that hour.
+  of ruled lines; right a SCHEDULE of hourly rows with the hour printed down the left edge.
+  A meeting appears as a light grey rounded BOX spanning its start and end times, with the
+  meeting's name printed at its top-left, and under the name — when it repeats — a small grey
+  uppercase word ("WEEKLY", "MONTHLY", "WEEKDAYS"). An unshaded box with only an outline is a
+  proposed meeting, not a confirmed one. Two meetings at the same time are drawn as side-by-side
+  boxes. The box, its name and the repeat word are ALL printed: never emit them as a new event,
+  task or note, and never report the repeat word as handwriting.
+- HANDWRITING INSIDE A MEETING BOX is the user's note about THAT meeting, on that day. The rest
+  of each box is deliberately left empty and faintly ruled for exactly this. Emit it in "notes"
+  with meeting_topic set to the printed name at the top of the box and meeting_date set to the
+  page's date — never as a new event, and never as a task unless it is written as an action.
+- Handwriting on an hour row OUTSIDE any box is a new event at that hour.
 - Week page: left sidebar of open actions with due tags, right one row per day (today shaded);
   Month page: left sidebar of open actions, right a 7-column grid (today outlined, weekends
   shaded); Year page: six period cards and progress bars. Handwriting inside a day row or grid
