@@ -196,20 +196,6 @@ export function ConventionsPicker({ initial, catalog }: { initial: Conventions; 
   );
 }
 
-// ------------------------------------------------------------ email prefs
-export function EmailPrefs({ initial, email }: { initial: Account["settings"]["email"]; email: string }) {
-  const [prefs, setPrefs] = useState(initial);
-  const { state, error, save } = useSaver(async () => trpc.account.updateSettings.mutate({ email: prefs }));
-  return (
-    <div className="stack">
-      <p className="muted">Meeting notes go to <strong>{email}</strong>, the address you sign in with. To send the night&apos;s PDFs somewhere else as well, set a delivery address below.</p>
-      <label className="check"><input type="checkbox" checked={prefs.meetingNotes} onChange={(e) => setPrefs({ ...prefs, meetingNotes: e.target.checked })} /><span>One email per decoded meeting (subject: topic — date time)</span></label>
-      <label className="check"><input type="checkbox" checked={prefs.runSummary} onChange={(e) => setPrefs({ ...prefs, runSummary: e.target.checked })} /><span>Nightly run summary</span></label>
-      <label className="check"><input type="checkbox" checked={prefs.inviteConfirmations} onChange={(e) => setPrefs({ ...prefs, inviteConfirmations: e.target.checked })} /><span>Invite confirmation links (when a calendar is connected)</span></label>
-      <div className="row"><button onClick={() => void save(undefined)} disabled={state === "saving"}>Save email preferences</button><Status state={state} error={error} /></div>
-    </div>
-  );
-}
 
 // ------------------------------------------------------------ delivery address
 /**
@@ -218,13 +204,26 @@ export function EmailPrefs({ initial, email }: { initial: Account["settings"]["e
  * The address must confirm itself before anything is sent: it is typed by hand, and a slip like
  * "gmial.com" would otherwise mail this person's notes to a stranger every night (rule 10).
  */
-export function DeliveryEmail({ initial, verified, documents }: { initial: string | null; verified: string | null; documents: Account["settings"]["deliveryDocuments"] }) {
+export function DeliveryEmail({
+  initial,
+  verified,
+  documents,
+  perMeeting,
+  loginEmail,
+}: {
+  initial: string | null;
+  verified: string | null;
+  documents: Account["settings"]["deliveryDocuments"];
+  perMeeting: boolean;
+  loginEmail: string;
+}) {
   const [value, setValue] = useState(initial ?? "");
   const [docs, setDocs] = useState(documents);
+  const [meetingEmails, setMeetingEmails] = useState(perMeeting);
   const [sent, setSent] = useState(false);
   const [confirmed, setConfirmed] = useState(Boolean(verified));
   const { state, error, save } = useSaver(async () => {
-    await trpc.account.updateSettings.mutate({ deliveryDocuments: docs });
+    await trpc.account.updateSettings.mutate({ deliveryDocuments: docs, email: { meetingNotes: meetingEmails } });
     const r = await trpc.account.setDeliveryEmail.mutate({ email: value.trim() });
     setSent(r.sent);
     setConfirmed(r.verified);
@@ -235,15 +234,18 @@ export function DeliveryEmail({ initial, verified, documents }: { initial: strin
   return (
     <div className="stack">
       <p className="muted">
-        A copy of the planner, action list and meeting notes, attached as PDFs, after every run. Leave it empty to send nothing.
+        After every run, the same documents that go to the tablet are emailed as PDFs. Leave the address empty to send nothing.
       </p>
       <div className="field">
-        <label htmlFor="delivery">Delivery address</label>
+        <label htmlFor="delivery">Send to</label>
         <input id="delivery" type="email" placeholder="you@example.com" value={value} onChange={(e) => { setValue(e.target.value); setSent(false); }} />
       </div>
-      <label className="check"><input type="checkbox" checked={docs.planner} onChange={(e) => setDocs({ ...docs, planner: e.target.checked })} /><span>Planner (day, week, month, quarter, year, inbox)</span></label>
-      <label className="check"><input type="checkbox" checked={docs.actionList} onChange={(e) => setDocs({ ...docs, actionList: e.target.checked })} /><span>Action List</span></label>
-      <label className="check"><input type="checkbox" checked={docs.meetingNotes} onChange={(e) => setDocs({ ...docs, meetingNotes: e.target.checked })} /><span>Meeting Notes</span></label>
+      <p className="kicker" style={{ marginTop: 6 }}>Documents</p>
+      <label className="check"><input type="checkbox" checked={docs.meetingNotes} onChange={(e) => setDocs({ ...docs, meetingNotes: e.target.checked })} /><span>Meeting Notes (PDF)</span></label>
+      <label className="check"><input type="checkbox" checked={docs.actionList} onChange={(e) => setDocs({ ...docs, actionList: e.target.checked })} /><span>Action List (PDF)</span></label>
+      <label className="check"><input type="checkbox" checked={docs.planner} onChange={(e) => setDocs({ ...docs, planner: e.target.checked })} /><span>Planner (PDF — day, week, month, quarter, year, inbox)</span></label>
+      <p className="kicker" style={{ marginTop: 12 }}>Also</p>
+      <label className="check"><input type="checkbox" checked={meetingEmails} onChange={(e) => setMeetingEmails(e.target.checked)} /><span>One email per decoded meeting, with the note in the body, to {loginEmail}</span></label>
       {value.trim() && none ? <div className="notice">No documents ticked, so nothing will be attached.</div> : null}
       {value.trim() && !dirty ? (
         confirmed ? (

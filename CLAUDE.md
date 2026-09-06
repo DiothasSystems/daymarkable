@@ -35,7 +35,8 @@ unchanged.
     implementations (read merge + draft invite creation). Nothing outside this package
     touches calendar APIs.
   - `packages/mail` — transactional email (SES/Resend): meeting-note emails (subject
-    `"<topic> — <date> <time>"`), idempotency keys per (user, meeting, date).
+    `"<topic> — <date> <time>"`) and the nightly delivery of the three notebooks as PDF
+    attachments; idempotency keys per (user, meeting, date) and (user, date, address).
   - `apps/runner` — the run pipeline (nightly AND on-demand — same job): sync → render →
     decode → merge → compose → upload → email → draft invites → rotate 1-day cache.
   - `apps/web` — Next.js, fully responsive (mobile HTML experience): account setup flow,

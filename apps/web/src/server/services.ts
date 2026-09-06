@@ -17,7 +17,7 @@ export const settingsPatchSchema = z.object({
   outputToRoot: z.boolean().optional(),
   includePdfs: z.boolean().optional(),
   conventions: z.object({ active: z.array(z.object({ id: z.string(), meaning: z.string(), keyword: z.string().optional() })) }).optional(),
-  email: z.object({ meetingNotes: z.boolean(), runSummary: z.boolean(), inviteConfirmations: z.boolean() }).optional(),
+  email: z.object({ meetingNotes: z.boolean() }).optional(),
   deliveryDocuments: z.object({ planner: z.boolean(), actionList: z.boolean(), meetingNotes: z.boolean() }).optional(),
   confidenceThreshold: z.number().min(0.3).max(0.95).optional(),
   decodeModel: z.string().min(1).nullable().optional(),

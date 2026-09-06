@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CalibrationPanel } from "@/components/Calibration";
-import { ConventionsPicker, EmailPrefs, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
+import { ConventionsPicker, DeliveryEmail, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
 import { errorMessage, trpc } from "@/lib/trpc";
 import type { getAccount } from "@/server/services";
 
@@ -39,7 +39,15 @@ export function SetupWizard({ account, calibration }: { account: Account; calibr
       {step === 2 ? <TimezonePicker initial={account.timezone} /> : null}
       {step === 3 ? <ConventionsPicker initial={account.settings.conventions} catalog={account.conventionCatalog} /> : null}
       {step === 4 ? <CalibrationPanel initial={calibration} /> : null}
-      {step === 5 ? <EmailPrefs initial={account.settings.email} email={account.email} /> : null}
+      {step === 5 ? (
+        <DeliveryEmail
+          initial={account.settings.deliveryEmail}
+          verified={account.settings.deliveryVerifiedAt}
+          documents={account.settings.deliveryDocuments}
+          perMeeting={account.settings.email.meetingNotes}
+          loginEmail={account.email}
+        />
+      ) : null}
       {error ? <div className="notice bad">{error}</div> : null}
       <div className="row between" style={{ marginTop: 20 }}>
         <button className="secondary" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</button>

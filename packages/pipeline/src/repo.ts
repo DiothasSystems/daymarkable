@@ -30,7 +30,7 @@ export function defaultSettings(): UserSettings {
     outputToRoot: false,
     includePdfs: false,
     conventions: STARTER_CONVENTIONS as UserSettings["conventions"],
-    email: { meetingNotes: true, runSummary: false, inviteConfirmations: true },
+    email: { meetingNotes: true },
     deliveryEmail: null,
     deliveryVerifiedAt: null,
     deliveryDocuments: { planner: true, actionList: true, meetingNotes: true },

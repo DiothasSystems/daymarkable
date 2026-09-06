@@ -54,7 +54,11 @@ export interface UserSettings {
   includePdfs: boolean;
   /** UserInkConventions from @daymarkable/decode. */
   conventions: { active: Array<{ id: string; meaning: string; keyword?: string }> };
-  email: { meetingNotes: boolean; runSummary: boolean; inviteConfirmations: boolean };
+  /**
+   * One email per decoded meeting, with the note in the body, to the sign-in address. Separate
+   * from the delivery below, which attaches the notebooks as PDFs.
+   */
+  email: { meetingNotes: boolean };
   /**
    * Where the night's PDFs are delivered. Typed by the user in their own settings, and only
    * used once `deliveryVerifiedAt` is set by clicking the link mailed to it (rule 10) — a typo
