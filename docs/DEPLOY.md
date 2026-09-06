@@ -148,6 +148,10 @@ docker compose --profile edge up -d caddy
   on start.
 - Backups: `docker compose exec db pg_dump -U daymarkable daymarkable > backup.sql` (contains
   only the encrypted working set, never pages).
+- Re-read a week after changing decoding, merging or the page templates:
+  `scripts/reset-week.sh` (or `scripts/clear-lists.sh` and `scripts/rerun-week.sh [days]`
+  separately). Clearing prompts for confirmation; `--yes` skips it. The re-run uses the standard
+  API so it finishes while you watch, and does not consume the Sync-now quota.
 - Admin portal: `https://<APP_DOMAIN>/admin` (separate login, 60-minute sessions, every action
   in `admin_audit`).
 
