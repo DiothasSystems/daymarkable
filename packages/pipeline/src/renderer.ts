@@ -1,18 +1,12 @@
 /** Rendering behind an interface so fixture runs need no render service. */
 import type { DownloadedDocument } from "@daymarkable/tablet";
-import { RenderServiceError, renderHealthy, renderPdfPages, renderRmPages, type PageLayout, type RenderedSegment } from "./render-client.js";
+import { RenderServiceError, renderHealthy, renderPdfPages, renderRmPages, type RenderedSegment } from "./render-client.js";
 
 export interface PageImages {
   pageId: string;
   pageIndex: number;
   segments: Uint8Array[];
   renderer: string;
-  /**
-   * Structure measured from the .rm stroke coordinates rather than inferred from the image:
-   * how many lines were written and how far each is indented. Absent for a PDF-only page or
-   * when the strokes could not be walked.
-   */
-  layout?: PageLayout;
 }
 
 export interface Renderer {
@@ -30,7 +24,7 @@ export class HttpRenderer implements Renderer {
     const want = new Set(pageIds);
     const pages = doc.pages.filter((p) => want.has(p.pageId));
     const byId = new Map(doc.pages.map((p) => [p.pageId, p] as const));
-    const { segments, layouts, errors } = await renderRmPages(
+    const { segments, errors } = await renderRmPages(
       this.baseUrl,
       pages.map((p) => ({ pageId: p.pageId, rm: p.rm, pdfPageIndex: doc.basePdf ? p.index : null, cropTop: options.cropTop ?? null })),
       doc.basePdf,
@@ -52,11 +46,10 @@ export class HttpRenderer implements Renderer {
     } else {
       for (const e of errors) failed.push({ pageId: e.pageId, reason: e.code });
     }
-    const layoutById = new Map(layouts.map((l) => [l.pageId, l] as const));
     const out: PageImages[] = [];
     for (const [pageId, segs] of grouped) {
       const p = byId.get(pageId)!;
-      out.push({ pageId, pageIndex: p.index, segments: segs.map((s) => s.png), renderer: segs[0]?.renderer ?? "?", layout: layoutById.get(pageId) });
+      out.push({ pageId, pageIndex: p.index, segments: segs.map((s) => s.png), renderer: segs[0]?.renderer ?? "?" });
     }
     return { pages: out, failed };
   }

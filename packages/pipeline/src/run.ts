@@ -263,9 +263,6 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
             pageCount: doc.document.pageCount,
             todayIso: localDate,
             timezone: tz,
-            // Line count and indent depths measured from the pen strokes, so the decoder is
-            // told the page's structure instead of inferring it from pixels.
-            ...(p.layout ? { strokeLines: { lineCount: p.layout.lineCount, indents: p.layout.indents } } : {}),
           },
         });
       }
