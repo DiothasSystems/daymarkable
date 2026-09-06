@@ -260,6 +260,7 @@ export async function loadWorkingSet(db: Db, sealer: Sealer, userId: string): Pr
       source: e.source,
       confidence: e.confidence,
       status: e.status,
+      recurrence: e.recurrence,
     })),
     meetingRequests: mrs.map((m) => ({
       id: m.id,
@@ -346,7 +347,7 @@ export async function saveWorkingSet(db: Db, sealer: Sealer, userId: string, run
     await db.insert(schema.tasks).values({ ...values, createdRunId: runId }).onConflictDoUpdate({ target: schema.tasks.id, set: values });
   }
   for (const e of state.events) {
-    const values = { id: e.id, userId, title: e.title, date: e.date, startTime: e.startTime, endTime: e.endTime, location: e.location, people: e.people, source: e.source, confidence: e.confidence, status: e.status, updatedAt: now };
+    const values = { id: e.id, userId, title: e.title, date: e.date, startTime: e.startTime, endTime: e.endTime, location: e.location, people: e.people, source: e.source, confidence: e.confidence, status: e.status, recurrence: e.recurrence ?? null, updatedAt: now };
     await db.insert(schema.events).values({ ...values, createdRunId: runId }).onConflictDoUpdate({ target: schema.events.id, set: values });
   }
   for (const m of state.meetingRequests) {
@@ -404,7 +405,8 @@ export async function decideItem(db: Db, sealer: Sealer, userId: string, d: Deci
   for (const e of res.created.events) {
     await db.insert(schema.events).values({
       id: e.id, userId, title: e.title, date: e.date, startTime: e.startTime, endTime: e.endTime,
-      location: e.location, people: e.people, source: e.source, confidence: e.confidence, status: e.status, updatedAt: now,
+      location: e.location, people: e.people, source: e.source, confidence: e.confidence, status: e.status,
+      recurrence: e.recurrence ?? null, updatedAt: now,
     }).onConflictDoNothing();
   }
   for (const m of res.created.meetingRequests) {

@@ -31,6 +31,11 @@ export const EventSchema = z.object({
   end_time: HHMM.nullable(),
   location: z.string().nullable(),
   people: z.array(z.string()),
+  /**
+   * Set when the writer marked the entry as repeating ("weekly", "every Tuesday"). Report only
+   * what the page says; which dates it lands on is computed in packages/core (rule 1).
+   */
+  recurrence: z.enum(["daily", "weekdays", "weekly", "biweekly", "monthly", "yearly"]).nullable().default(null),
   confidence: Confidence,
 });
 export type ExtractedEvent = z.infer<typeof EventSchema>;
@@ -133,7 +138,9 @@ export const SCHEMA_DESCRIPTION = `{
     "confidence": 0..1
   }],
   "events": [{ "title": string, "date": "YYYY-MM-DD" | null, "start_time": "HH:MM" | null,
-               "end_time": "HH:MM" | null, "location": string | null, "people": string[], "confidence": 0..1 }],
+               "end_time": "HH:MM" | null, "location": string | null, "people": string[],
+               "recurrence": "daily" | "weekdays" | "weekly" | "biweekly" | "monthly" | "yearly" | null,
+               "confidence": 0..1 }],
   "meeting_requests": [{ "topic": string, "proposed_date": "YYYY-MM-DD" | null, "proposed_time": "HH:MM" | null,
                "duration_minutes": integer | null, "attendees": string[], "confidence": 0..1 }],
   "notes": [{ "meeting_topic": string | null, "meeting_date": "YYYY-MM-DD" | null, "meeting_time": "HH:MM" | null,

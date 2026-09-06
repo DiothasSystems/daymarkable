@@ -38,6 +38,12 @@ export interface CalendarItem {
   people: string[];
   source: "ink" | "external";
   confidence: number;
+  /**
+   * Set when the writer marked the entry as repeating ("weekly", "every Tuesday"). The event is
+   * stored once and expanded per date by packages/core/recurrence.ts; `date` is the series
+   * anchor, and an expanded occurrence carries the date it falls on.
+   */
+  recurrence?: import("./recurrence.js").Recurrence | null;
 }
 
 export type InboxKind = "task" | "event" | "meeting_request" | "margin_note";

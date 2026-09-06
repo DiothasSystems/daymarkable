@@ -6,7 +6,7 @@
  * Layout contract with the decoder: PLANNER_LAYOUT_DESCRIPTION in packages/decode. Change
  * both together (CLAUDE.md rule 6).
  */
-import type { ActionItem, CalendarItem, DailySheetModel, PrintedItem } from "@daymarkable/core";
+import { recurrenceLabel, type ActionItem, type CalendarItem, type DailySheetModel, type PrintedItem } from "@daymarkable/core";
 import { CARRIED, CHECKBOX_PX, INK, RULE, SECONDARY, TERTIARY } from "./brand.js";
 import { BODY_BOTTOM, CONTENT_RIGHT, CONTENT_W, CONTENT_X, addPage, newDocument, type Canvas } from "./canvas.js";
 import { formatShortDate, formatTag, formatTitleDate, generatedStamp, pageCode, sourceRef, type ComposeContext } from "./section.js";
@@ -100,7 +100,9 @@ function schedule(c: Canvas, m: DailySheetModel, x: number, top: number, bottom:
     let cx = x + hourX + 12;
     const chipY = rowTop + Math.max(12, (rowH - (SIDE_SIZE + 18)) / 2);
     const inHour = [
-      ...timed.filter((e) => Number(e.startTime!.slice(0, 2)) === hh).map((e) => ({ text: `${e.title}${e.endTime ? ` ${e.startTime}–${e.endTime}` : e.startTime!.endsWith(":00") ? "" : ` ${e.startTime}`}`, filled: true })),
+      // A repeating meeting is marked so the reader can tell a series from a one-off — and knows
+      // that crossing it out ends the series, not just today's occurrence.
+      ...timed.filter((e) => Number(e.startTime!.slice(0, 2)) === hh).map((e) => ({ text: `${e.title}${e.endTime ? ` ${e.startTime}–${e.endTime}` : e.startTime!.endsWith(":00") ? "" : ` ${e.startTime}`}${e.recurrence ? ` (${recurrenceLabel(e.recurrence).toLowerCase()})` : ""}`, filled: true })),
       ...drafts.filter((r) => Number(r.proposedTime!.slice(0, 2)) === hh).map((r) => ({ text: r.topic, filled: false })),
     ];
     for (const item of inHour) {

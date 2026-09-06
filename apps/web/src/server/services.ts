@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
-import type { DecisionAction, DecisionItemType } from "@daymarkable/core";
+import { nextOccurrence, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
 import { BASELINE_DECODE_MODEL, CONVENTION_CATALOG, anthropicClient, isRetiredDecodeModel, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
@@ -137,7 +137,14 @@ export async function getRegistry(userId: string) {
   const today = DateTime.now().setZone(user.timezone).toISODate()!;
   const state = await repo.loadWorkingSet(rt.db, rt.sealer, userId);
   const actions = state.tasks.filter((t) => t.status === "open" || t.status === "carried");
-  const events = state.events.filter((e) => e.status === "active" && e.date !== null && e.date >= today).sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+  // A repeating series is stored at the date it was written, which may be weeks back, so it is
+  // shown at its NEXT occurrence rather than filtered out for being in the past.
+  const events = state.events
+    .filter((e) => e.status === "active" && e.date !== null)
+    .map((e) => ({ e, next: nextOccurrence(e, today) }))
+    .filter((x): x is { e: typeof x.e; next: string } => x.next !== null)
+    .map(({ e, next }) => (e.date === next ? e : { ...e, date: next }))
+    .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
   const meetings = [...state.meetings].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || (b.time ?? "").localeCompare(a.time ?? ""));
   const inbox = state.inbox.filter((i) => i.status === "pending");
   const doneRecently = state.tasks.filter((t) => t.status === "done" && t.completedOn && t.completedOn >= DateTime.fromISO(today).minus({ days: 7 }).toISODate()!);

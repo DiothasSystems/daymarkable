@@ -29,6 +29,13 @@
       "when": 1788629185452,
       "tag": "0003_needy_black_crow",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788703355644,
+      "tag": "0004_unknown_silver_samurai",
+      "breakpoints": true
     }
   ]
 }

@@ -345,3 +345,51 @@ describe("buildActionList grouping", () => {
     expect(m.openCount).toBe(3);
   });
 });
+
+describe("repeating events", () => {
+  const weekly = (over: Record<string, unknown> = {}) => ({
+    title: "Team meeting", date: "2026-09-07", start_time: "09:00", end_time: "10:00",
+    location: null, people: [], recurrence: "weekly" as const, confidence: 0.9, ...over,
+  });
+
+  it("stores the series once and shows it on every occurrence", () => {
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ events: [weekly()] })], { ...opts, today: "2026-09-07" });
+    expect(activeEvents(r.state)).toHaveLength(1);
+    expect(activeEvents(r.state)[0]!.recurrence).toBe("weekly");
+    const view = { today: "2026-09-14", timezone: "UTC", generatedAt: "2026-09-14T03:00:00Z", runLabel: "test" };
+    const daily = buildOutputSet(r.state, view).planner.daily;
+    expect(daily.events.map((e) => e.title)).toEqual(["Team meeting"]);
+    expect(daily.events[0]!.date).toBe("2026-09-14");
+  });
+
+  it("does not start a second series when the same meeting is written again later", () => {
+    const r1 = mergeRun(emptyWorkingSet(), [notesPage({ events: [weekly()] })], { ...opts, today: "2026-09-07" });
+    const r2 = mergeRun(r1.state, [notesPage({ events: [weekly({ date: "2026-09-14" })] }, 1)], { ...opts, today: "2026-09-14" });
+    expect(activeEvents(r2.state)).toHaveLength(1);
+    expect(r2.changes.eventsCreated).toBe(0);
+  });
+
+  it("a repeating entry on an old page is kept, where a one-off would be dropped as stale", () => {
+    const old = { ...weekly(), date: "2026-08-03" };
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ events: [old] })], { ...opts, today: "2026-09-07" });
+    expect(activeEvents(r.state)).toHaveLength(1);
+    const oneOff = mergeRun(emptyWorkingSet(), [notesPage({ events: [{ ...old, recurrence: null }] })], { ...opts, today: "2026-09-07" });
+    expect(activeEvents(oneOff.state)).toHaveLength(0);
+  });
+
+  it("writing 'weekly' beside a meeting already known turns it into a series", () => {
+    const once = { ...weekly(), recurrence: null };
+    const r1 = mergeRun(emptyWorkingSet(), [notesPage({ events: [once] })], { ...opts, today: "2026-09-07" });
+    expect(activeEvents(r1.state)[0]!.recurrence).toBeNull();
+    const r2 = mergeRun(r1.state, [notesPage({ events: [weekly()] }, 1)], { ...opts, today: "2026-09-07" });
+    expect(activeEvents(r2.state)).toHaveLength(1);
+    expect(activeEvents(r2.state)[0]!.recurrence).toBe("weekly");
+  });
+
+  it("dropping the series stops every future occurrence", () => {
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ events: [weekly()] })], { ...opts, today: "2026-09-07" });
+    r.state.events[0]!.status = "dropped";
+    const view = { today: "2026-09-14", timezone: "UTC", generatedAt: "2026-09-14T03:00:00Z", runLabel: "test" };
+    expect(buildOutputSet(r.state, view).planner.daily.events).toHaveLength(0);
+  });
+});

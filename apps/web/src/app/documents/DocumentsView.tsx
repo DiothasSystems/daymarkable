@@ -52,8 +52,8 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
             {registry.events.map((e) => (
               <li key={e.id}>
                 <span className="mono" style={{ minWidth: 110 }}>{e.date ? fmtDate(e.date) : "undated"}{e.startTime ? ` ${e.startTime}` : ""}</span>
-                <span><EditableItem itemType="event" itemId={e.id} text={e.title} />{e.location ? <span className="muted"> · {e.location}</span> : null}{e.people.length ? <div className="meta">{e.people.join(", ")}</div> : null}</span>
-                <span style={{ marginLeft: "auto" }}><DropButton itemType="event" itemId={e.id} text={e.title} label="Not a real commitment — remove" /></span>
+                <span><EditableItem itemType="event" itemId={e.id} text={e.title} />{e.location ? <span className="muted"> · {e.location}</span> : null}{e.recurrence ? <span className="badge" style={{ marginLeft: 8 }}>{e.recurrence}</span> : null}{e.people.length ? <div className="meta">{e.people.join(", ")}</div> : null}</span>
+                <span style={{ marginLeft: "auto" }}><DropButton itemType="event" itemId={e.id} text={e.title} label={e.recurrence ? "End this repeating meeting — removes every future occurrence" : "Not a real commitment — remove"} /></span>
               </li>
             ))}
           </ul>

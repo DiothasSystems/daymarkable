@@ -233,6 +233,8 @@ export const events = pgTable(
     source: eventSource("source").notNull().default("ink"),
     confidence: real("confidence").notNull(),
     status: eventStatus("status").notNull().default("active"),
+    /** Repeating series: the row is the anchor, occurrences are expanded per date in core. */
+    recurrence: text("recurrence").$type<"daily" | "weekdays" | "weekly" | "biweekly" | "monthly" | "yearly">(),
     createdRunId: uuid("created_run_id"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

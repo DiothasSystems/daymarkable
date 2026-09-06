@@ -4,6 +4,7 @@
  */
 import { compareActions } from "./daily.js";
 import { activeEvents, draftedMeetingRequests, openActionList, pendingInbox } from "./merge.js";
+import { eventsOnDate, occurrencesInRange } from "./recurrence.js";
 import type { Meeting, StoredEvent, StoredInboxItem, StoredMeetingRequest, StoredTask, WorkingSet } from "./state.js";
 import type { DailySheetModel } from "./types.js";
 
@@ -127,7 +128,8 @@ export interface OutputSet {
 }
 
 function eventsOn(events: StoredEvent[], date: string): StoredEvent[] {
-  return events.filter((e) => e.date === date).sort((a, b) => (a.startTime ?? "99").localeCompare(b.startTime ?? "99"));
+  // Expands repeating series, so a weekly meeting appears on every page it falls on.
+  return eventsOnDate(events, date);
 }
 
 function cell(date: string, opts: ViewOptions, events: StoredEvent[], tasks: StoredTask[], inMonth: boolean): DayCell {
@@ -200,8 +202,10 @@ export function buildDaily(state: WorkingSet, opts: ViewOptions): DailySheetMode
   const events = activeEvents(state);
   const tasks = openActionList(state);
   const horizon = addDays(opts.today, 7);
-  const todayEvents = events.filter((e) => e.date === opts.today);
-  const upcoming = events.filter((e) => e.date !== null && e.date > opts.today && e.date <= horizon);
+  // Occurrences, not stored rows: a weekly meeting shows on today's page and on each of the
+  // next seven days it falls on, each carrying its own date.
+  const todayEvents = eventsOnDate(events, opts.today);
+  const upcoming = occurrencesInRange(events, addDays(opts.today, 1), horizon);
   const byTime = (a: StoredEvent, b: StoredEvent) => (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "99").localeCompare(b.startTime ?? "99");
   todayEvents.sort(byTime);
   upcoming.sort(byTime);

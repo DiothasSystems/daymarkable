@@ -1,4 +1,5 @@
 import type { PageExtraction } from "@daymarkable/decode";
+import { eventsOnDate, occurrencesInRange } from "./recurrence.js";
 import { similar, stableId } from "./text.js";
 import type {
   ActionItem,
@@ -167,8 +168,8 @@ export function assembleDailySheet(pages: readonly DecodedPage[], opts: Assemble
 
   actions.sort(compareActions);
   const horizon = addDays(opts.date, 7);
-  const today = events.filter((e) => e.date === opts.date);
-  const upcoming = events.filter((e) => e.date !== null && e.date > opts.date && e.date <= horizon);
+  const today = eventsOnDate(events, opts.date);
+  const upcoming = occurrencesInRange(events, addDays(opts.date, 1), horizon);
   const byTime = (a: CalendarItem, b: CalendarItem) =>
     (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "99").localeCompare(b.startTime ?? "99");
   today.sort(byTime);

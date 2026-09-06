@@ -18,6 +18,7 @@ import type {
   StoredTask,
   WorkingSet,
 } from "./state.js";
+import { occursOn } from "./recurrence.js";
 import { repairNoteLines, similar, stableId } from "./text.js";
 import type { ItemSource, Priority } from "./types.js";
 
@@ -146,13 +147,31 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
 
   const addEvent = (e: ExtractedEvent, _source: ItemSource): boolean => {
     const grace = opts.pastEventGraceDays ?? 1;
-    if (e.date && e.date < addDays(today, -grace)) return false; // stale: already happened
+    // A repeating entry is never stale: its date anchors the series, and the page it was written
+    // on may be weeks old. Only a one-off that has already happened is dropped.
+    if (!e.recurrence && e.date && e.date < addDays(today, -grace)) return false;
     const id = stableId("event", `${e.title} ${e.date ?? ""} ${e.start_time ?? ""}`);
-    if (state.events.some((x) => x.id === id)) return false;
+    const same = state.events.find((x) => x.id === id);
+    if (same) {
+      // The id does not include the recurrence, so the same entry re-read with "weekly" beside
+      // it lands here rather than on the dup branch below. Adopt the rule; nothing else changes.
+      if (same.status === "active" && !same.recurrence && e.recurrence) same.recurrence = e.recurrence;
+      return false;
+    }
+    // A repeating series already covering this date is the same commitment written again on a
+    // later occurrence — fold into it rather than starting a second series alongside it.
+    const series = state.events.find((x) => x.status === "active" && x.recurrence && similar(x.title, e.title) && e.date !== null && occursOn(x, e.date));
+    if (series) {
+      if (!series.startTime && e.start_time) series.startTime = e.start_time;
+      if (!series.endTime && e.end_time) series.endTime = e.end_time;
+      return false;
+    }
     const dup = state.events.find((x) => x.status === "active" && x.date === e.date && similar(x.title, e.title));
     if (dup) {
       if (!dup.startTime && e.start_time) dup.startTime = e.start_time;
       if (!dup.endTime && e.end_time) dup.endTime = e.end_time;
+      // "Weekly" written beside a meeting already on the page turns that one into a series.
+      if (!dup.recurrence && e.recurrence) dup.recurrence = e.recurrence;
       return false;
     }
     state.events.push({
@@ -166,6 +185,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
       source: "ink",
       confidence: e.confidence,
       status: "active",
+      recurrence: e.recurrence ?? null,
     });
     changes.eventsCreated++;
     return true;

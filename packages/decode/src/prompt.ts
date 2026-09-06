@@ -48,8 +48,10 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
   checkbox_updates), with the page's date as context.
 - Daily page: two columns. Left ACTIONS / CARRIED OVER / CONFIRM checkbox rows and a NOTES area
   of ruled lines; right a SCHEDULE of hourly rows where filled black chips are confirmed
-  meetings and outlined chips are tentative ones. Handwriting on an hour row is an event at that
-  hour.
+  meetings and outlined chips are tentative ones. A chip ending in a bracketed word — "(weekly)",
+  "(monthly)" — is a repeating meeting dayMarkable already knows about; that word is printed
+  metadata, not handwriting, and the chip is not a new event. Handwriting on an hour row is an
+  event at that hour.
 - Week page: left sidebar of open actions with due tags, right one row per day (today shaded);
   Month page: left sidebar of open actions, right a 7-column grid (today outlined, weekends
   shaded); Year page: six period cards and progress bars. Handwriting inside a day row or grid
@@ -113,6 +115,15 @@ Rules:
    Events: dated/timed commitments already agreed ("dentist Tue 2pm"). An event needs a date
    you can actually read or resolve — a bare heading or topic line ("Meetings in Sacramento")
    is transcription, not a commitment, so leave it out of events entirely.
+   REPEATING events: when the entry is marked as recurring — "weekly", "wkly", "every week",
+   "each Monday", "repeats", "biweekly", "fortnightly", "monthly", "daily", "every weekday", a
+   circled "R" — set "recurrence" to the matching value and set "date" to the FIRST occurrence,
+   which is normally the day the entry sits on. "Team meeting 9-10 weekly" written on a Monday
+   is date = that Monday, start_time 09:00, end_time 10:00, recurrence "weekly". Do not emit one
+   event per future occurrence: dayMarkable works out the repeats from the rule. A note like
+   "every Tuesday" written on a Friday means recurrence "weekly" with date set to the next
+   Tuesday. Leave recurrence null when the entry says nothing about repeating — never infer it
+   from a meeting simply appearing on two pages.
    Meeting requests: intent to SET UP a meeting ("set up 30 min with Priya next Tue").
    Notes: meeting-note content. meeting_topic names the MEETING itself (who it was with or
    what it was about, usually the page's title line, e.g. "Dave from Plume"), never a section
