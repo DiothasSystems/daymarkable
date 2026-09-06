@@ -64,7 +64,7 @@ export default async function AccountPage() {
         </section>
         <section className="card">
           <h2>Send documents to</h2>
-          <DeliveryEmail initial={account.settings.deliveryEmail} verified={account.settings.deliveryVerifiedAt} />
+          <DeliveryEmail initial={account.settings.deliveryEmail} verified={account.settings.deliveryVerifiedAt} documents={account.settings.deliveryDocuments} />
         </section>
         <section className="card">
           <h2>Decoding</h2>

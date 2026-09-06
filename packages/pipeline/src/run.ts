@@ -379,11 +379,16 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       if (!settings.deliveryVerifiedAt) {
         log("delivery: address not confirmed yet — nothing sent (check the settings page)");
       } else {
+        const wanted = settings.deliveryDocuments;
+        const chosen = outputs.filter((o) => (o.kind === "planner" ? wanted.planner : o.kind === "action_list" ? wanted.actionList : wanted.meetingNotes));
+        if (chosen.length === 0) {
+          log("delivery: no documents selected — nothing sent");
+        } else {
         const mail = buildDeliveryMail(
           settings.deliveryEmail,
           user.id,
           localDate,
-          outputs.map((o) => ({ name: o.name, pdf: o.composed.pdf, pageCount: o.composed.pageCount })),
+          chosen.map((o) => ({ name: o.name, pdf: o.composed.pdf, pageCount: o.composed.pageCount })),
           { openActions: views.actionList.openCount, meetings: views.meetingNotes.meetings.length },
         );
         if (await repo.emailAlreadySent(db, mail.idempotencyKey)) {
@@ -392,7 +397,8 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
           const res = await deps.mail.send(mail);
           await repo.logEmail(db, { userId: user.id, runId: run.id, idempotencyKey: mail.idempotencyKey, toEmail: settings.deliveryEmail, subject: mail.subject, status: res.status, providerId: res.providerId, error: res.error });
           if (res.status === "sent") stats.emailsSent++;
-          log(`delivery: ${outputs.length} PDF(s) ${res.status} via ${deps.mail.name}${res.error ? ` — ${res.error}` : ""}`);
+          log(`delivery: ${chosen.length} PDF(s) ${res.status} via ${deps.mail.name}${res.error ? ` — ${res.error}` : ""}`);
+          }
         }
       }
     }

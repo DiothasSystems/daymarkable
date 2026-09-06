@@ -62,6 +62,8 @@ export interface UserSettings {
    */
   deliveryEmail: string | null;
   deliveryVerifiedAt: string | null;
+  /** Which of the three notebooks are attached to the delivery. All on by default. */
+  deliveryDocuments: { planner: boolean; actionList: boolean; meetingNotes: boolean };
   /** Single-use token for the confirmation link, with its expiry. Cleared once used. */
   deliveryToken: string | null;
   deliveryTokenExpires: string | null;

@@ -218,15 +218,18 @@ export function EmailPrefs({ initial, email }: { initial: Account["settings"]["e
  * The address must confirm itself before anything is sent: it is typed by hand, and a slip like
  * "gmial.com" would otherwise mail this person's notes to a stranger every night (rule 10).
  */
-export function DeliveryEmail({ initial, verified }: { initial: string | null; verified: string | null }) {
+export function DeliveryEmail({ initial, verified, documents }: { initial: string | null; verified: string | null; documents: Account["settings"]["deliveryDocuments"] }) {
   const [value, setValue] = useState(initial ?? "");
+  const [docs, setDocs] = useState(documents);
   const [sent, setSent] = useState(false);
   const [confirmed, setConfirmed] = useState(Boolean(verified));
   const { state, error, save } = useSaver(async () => {
+    await trpc.account.updateSettings.mutate({ deliveryDocuments: docs });
     const r = await trpc.account.setDeliveryEmail.mutate({ email: value.trim() });
     setSent(r.sent);
     setConfirmed(r.verified);
   });
+  const none = !docs.planner && !docs.actionList && !docs.meetingNotes;
   const dirty = value.trim().toLowerCase() !== (initial ?? "").toLowerCase();
 
   return (
@@ -238,6 +241,10 @@ export function DeliveryEmail({ initial, verified }: { initial: string | null; v
         <label htmlFor="delivery">Delivery address</label>
         <input id="delivery" type="email" placeholder="you@example.com" value={value} onChange={(e) => { setValue(e.target.value); setSent(false); }} />
       </div>
+      <label className="check"><input type="checkbox" checked={docs.planner} onChange={(e) => setDocs({ ...docs, planner: e.target.checked })} /><span>Planner (day, week, month, quarter, year, inbox)</span></label>
+      <label className="check"><input type="checkbox" checked={docs.actionList} onChange={(e) => setDocs({ ...docs, actionList: e.target.checked })} /><span>Action List</span></label>
+      <label className="check"><input type="checkbox" checked={docs.meetingNotes} onChange={(e) => setDocs({ ...docs, meetingNotes: e.target.checked })} /><span>Meeting Notes</span></label>
+      {value.trim() && none ? <div className="notice">No documents ticked, so nothing will be attached.</div> : null}
       {value.trim() && !dirty ? (
         confirmed ? (
           <div className="notice ok">Confirmed — the next run will deliver here.</div>

@@ -18,6 +18,7 @@ export const settingsPatchSchema = z.object({
   includePdfs: z.boolean().optional(),
   conventions: z.object({ active: z.array(z.object({ id: z.string(), meaning: z.string(), keyword: z.string().optional() })) }).optional(),
   email: z.object({ meetingNotes: z.boolean(), runSummary: z.boolean(), inviteConfirmations: z.boolean() }).optional(),
+  deliveryDocuments: z.object({ planner: z.boolean(), actionList: z.boolean(), meetingNotes: z.boolean() }).optional(),
   confidenceThreshold: z.number().min(0.3).max(0.95).optional(),
   decodeModel: z.string().min(1).nullable().optional(),
   escalationModel: z.string().min(1).nullable().optional(),
@@ -51,6 +52,7 @@ export async function updateSettings(userId: string, patch: SettingsPatch) {
   if (patch.outputToRoot !== undefined) next.outputToRoot = patch.outputToRoot;
   if (patch.conventions) next.conventions = validateConventions(patch.conventions) as UserSettings["conventions"];
   if (patch.email) next.email = patch.email;
+  if (patch.deliveryDocuments) next.deliveryDocuments = patch.deliveryDocuments;
   if (patch.confidenceThreshold !== undefined) next.confidenceThreshold = patch.confidenceThreshold;
   // A retired model must not be selectable by hand either — say so instead of accepting it
   // and quietly substituting, so the setting always means what it says.
