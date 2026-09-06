@@ -68,9 +68,6 @@ export interface UserSettings {
   deliveryVerifiedAt: string | null;
   /** Which of the three notebooks are attached to the delivery. All on by default. */
   deliveryDocuments: { planner: boolean; actionList: boolean; meetingNotes: boolean };
-  /** Single-use token for the confirmation link, with its expiry. Cleared once used. */
-  deliveryToken: string | null;
-  deliveryTokenExpires: string | null;
   confidenceThreshold: number;
   autoSendInvites: boolean;
   /** Decode model config for this user (null = global default from env). */
@@ -438,6 +435,27 @@ export const loginTokens = pgTable("login_tokens", {
   usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Confirmation links for an address the user asked us to send documents to.
+ *
+ * A table rather than a field on the settings blob: the token is looked up BY token on every
+ * click, so it needs an index — scanning every user's settings would be a full table scan per
+ * confirmation. Keyed by the token itself, like login_tokens beside it.
+ */
+export const emailVerifications = pgTable(
+  "email_verifications",
+  {
+    token: text("token").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    /** The address being confirmed, kept so a token cannot confirm a since-changed address. */
+    email: text("email").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("email_verifications_user").on(t.userId)],
+);
 
 export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),

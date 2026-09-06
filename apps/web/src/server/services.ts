@@ -475,9 +475,9 @@ export async function setDeliveryEmail(userId: string, email: string | null) {
   if (!address) {
     next.deliveryEmail = null;
     next.deliveryVerifiedAt = null;
-    next.deliveryToken = null;
-    next.deliveryTokenExpires = null;
     await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+    // Retire any outstanding link so it cannot confirm an address that is no longer set.
+    await repo.clearDeliveryVerifications(rt.db, userId);
     return { deliveryEmail: null, verified: false, sent: false };
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(address)) throw new Error("that does not look like an email address");
@@ -487,12 +487,10 @@ export async function setDeliveryEmail(userId: string, email: string | null) {
     return { deliveryEmail: address, verified: true, sent: false };
   }
 
-  const token = randomUUID().replace(/-/g, "");
   next.deliveryEmail = address;
   next.deliveryVerifiedAt = null;
-  next.deliveryToken = token;
-  next.deliveryTokenExpires = DateTime.utc().plus({ hours: DELIVERY_TOKEN_HOURS }).toISO();
   await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+  const token = await repo.createDeliveryVerification(rt.db, userId, address, DELIVERY_TOKEN_HOURS);
 
   // The link is only useful if APP_URL is the address the user actually browses. A confirmation
   // mail pointing at localhost is a dead end in someone's inbox, so refuse to send one and say
@@ -511,19 +509,21 @@ export async function setDeliveryEmail(userId: string, email: string | null) {
   return { deliveryEmail: address, verified: false, sent: true };
 }
 
-/** Called by the link in the confirmation email. Single use, and expires. */
+/**
+ * Called by the link in the confirmation email. Single use, expiring, and resolved by one
+ * indexed lookup on the token — not a scan of every account.
+ */
 export async function verifyDeliveryEmail(token: string): Promise<boolean> {
   const rt = await getRuntime();
-  const users = await rt.db.query.users.findMany();
-  for (const row of users) {
-    const settings = repo.normalizeSettings(row.settings);
-    if (!settings.deliveryToken || settings.deliveryToken !== token) continue;
-    if (settings.deliveryTokenExpires && settings.deliveryTokenExpires < DateTime.utc().toISO()) return false;
-    const next: UserSettings = { ...settings, deliveryVerifiedAt: DateTime.utc().toISO(), deliveryToken: null, deliveryTokenExpires: null };
-    await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, row.id));
-    return true;
-  }
-  return false;
+  const claim = await repo.consumeDeliveryVerification(rt.db, token);
+  if (!claim) return false;
+  const user = await repo.getUser(rt.db, claim.userId);
+  // The address may have been changed since the link was mailed; confirming the old one would
+  // be wrong. The token is spent either way, which is what makes it single use.
+  if (user.settings.deliveryEmail !== claim.email) return false;
+  const next: UserSettings = { ...user.settings, deliveryVerifiedAt: DateTime.utc().toISO() };
+  await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, claim.userId));
+  return true;
 }
 
 export async function correctionHistory(userId: string) {

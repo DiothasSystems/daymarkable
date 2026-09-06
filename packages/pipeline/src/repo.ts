@@ -3,6 +3,7 @@
  * snapshots for change detection, runs, costs, documents, and email log.
  * No content in logs; meeting bodies and device tokens sealed with the data key.
  */
+import { randomBytes } from "node:crypto";
 import type { DecodeStageUsage } from "@daymarkable/decode";
 import { applyDecision, repairNoteLines, type Decision, type DecisionResult, type Meeting, type PrintedItem, type WorkingSet } from "@daymarkable/core";
 import {
@@ -34,8 +35,6 @@ export function defaultSettings(): UserSettings {
     deliveryEmail: null,
     deliveryVerifiedAt: null,
     deliveryDocuments: { planner: true, actionList: true, meetingNotes: true },
-    deliveryToken: null,
-    deliveryTokenExpires: null,
     confidenceThreshold: 0.7,
     autoSendInvites: false,
     decodeModel: null,
@@ -62,8 +61,6 @@ export function normalizeSettings(raw: Partial<UserSettings> | null | undefined)
     deliveryEmail: raw?.deliveryEmail ?? d.deliveryEmail,
     deliveryDocuments: { ...d.deliveryDocuments, ...(raw?.deliveryDocuments ?? {}) },
     deliveryVerifiedAt: raw?.deliveryVerifiedAt ?? d.deliveryVerifiedAt,
-    deliveryToken: raw?.deliveryToken ?? d.deliveryToken,
-    deliveryTokenExpires: raw?.deliveryTokenExpires ?? d.deliveryTokenExpires,
     profile: raw?.profile ?? d.profile,
   };
 }
@@ -427,6 +424,38 @@ export async function decideItem(db: Db, sealer: Sealer, userId: string, d: Deci
     }).onConflictDoNothing();
   }
   return res;
+}
+
+// ---------------------------------------------------------------- delivery address confirmation
+/**
+ * Issue a confirmation link for a delivery address. Any outstanding token for this user is
+ * retired first, so a link mailed to a previous address can never confirm the current one.
+ */
+export async function clearDeliveryVerifications(db: Db, userId: string): Promise<void> {
+  await db.delete(schema.emailVerifications).where(and(eq(schema.emailVerifications.userId, userId), isNull(schema.emailVerifications.usedAt)));
+}
+
+export async function createDeliveryVerification(db: Db, userId: string, email: string, ttlHours = 48): Promise<string> {
+  await clearDeliveryVerifications(db, userId);
+  const token = randomBytes(24).toString("base64url");
+  await db.insert(schema.emailVerifications).values({
+    token,
+    userId,
+    email,
+    expiresAt: new Date(Date.now() + ttlHours * 3600_000),
+  });
+  return token;
+}
+
+/**
+ * Redeem a confirmation token: one indexed lookup by primary key, not a scan of every account.
+ * Single use, expiring, and it only confirms the address the token was issued for.
+ */
+export async function consumeDeliveryVerification(db: Db, token: string): Promise<{ userId: string; email: string } | null> {
+  const row = await db.query.emailVerifications.findFirst({ where: eq(schema.emailVerifications.token, token) });
+  if (!row || row.usedAt || row.expiresAt.getTime() < Date.now()) return null;
+  await db.update(schema.emailVerifications).set({ usedAt: new Date() }).where(eq(schema.emailVerifications.token, token));
+  return { userId: row.userId, email: row.email };
 }
 
 export async function registerDocument(db: Db, input: { userId: string; runId: string; kind: "planner" | "action_list" | "meeting_notes"; name: string; cachePath: string; bytes: number; pageCount: number; tabletDocId: string | null }): Promise<void> {
