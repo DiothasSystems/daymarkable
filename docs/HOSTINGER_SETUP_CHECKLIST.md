@@ -1,7 +1,7 @@
 # dayMarkable on Hostinger: step-by-step setup checklist
 
-This guide takes you from "I own daymarkable.com" to "dayMarkable is running at
-https://app.daymarkable.com and reads my tablet every night." It assumes you can use a web
+This guide takes you from "I own daymarkable.com" to "the public site is at https://daymarkable.com,
+my account is at https://app.daymarkable.com, and dayMarkable reads my tablet every night." It assumes you can use a web
 browser, copy and paste, and follow instructions carefully. You do not need to understand
 Docker, Linux, or DNS beyond what is explained here.
 
@@ -69,17 +69,24 @@ Tick the boxes as you go.
 
   | Type | Name | Points to / content | TTL |
   |---|---|---|---|
+  | A | `@` | your `VPS_IP` | 300 (or default) |
+  | A | `www` | your `VPS_IP` | 300 (or default) |
   | A | `app` | your `VPS_IP` | 300 (or default) |
+
+  `@` means the bare domain `daymarkable.com` (the public website, sign-in, and payments);
+  `app` is `app.daymarkable.com`, where you manage your service after signing in; `www` is
+  redirected to the bare domain automatically. If Hostinger already has an A record for `@`
+  pointing at its parking page, edit that record rather than adding a second one.
 
   Then add the three records Resend showed you in A5 exactly as displayed (they are usually
   one TXT for SPF, one TXT or CNAME for DKIM, one TXT for DMARC). The "Name" Resend shows
   often includes `.daymarkable.com`; in Hostinger you enter only the part before that.
 - [ ] **B6. Check DNS.** After 5–10 minutes open https://dnschecker.org, enter
-      `app.daymarkable.com`, type A. You should see your `VPS_IP` in most locations. In Resend,
+      `daymarkable.com`, type A. You should see your `VPS_IP` in most locations. In Resend,
       click *Verify DNS Records* on the domain page; wait until it says *Verified* (can take up
       to an hour, occasionally longer). You can continue with Part C meanwhile.
 
-**Check:** VPS shows Running, `app.daymarkable.com` resolves to the VPS IP.
+**Check:** VPS shows Running; `daymarkable.com`, `www.daymarkable.com`, and `app.daymarkable.com` all resolve to the VPS IP.
 
 ---
 
@@ -158,8 +165,9 @@ do nothing.
   paste yours). Leave lines you do not recognise alone.
 
   ```
-  APP_URL=https://app.daymarkable.com
-  APP_DOMAIN=app.daymarkable.com
+  APP_URL=https://daymarkable.com
+  SERVICE_URL=https://app.daymarkable.com
+  APP_DOMAIN=daymarkable.com
   ANTHROPIC_API_KEY=sk-ant-...            (A3)
   DATA_ENCRYPTION_KEY=...                 (C6)
   POSTGRES_PASSWORD=...                   (C6)
@@ -181,7 +189,7 @@ do nothing.
       over your shoulder):
 
   ```bash
-  grep -E "^(APP_URL|APP_DOMAIN|USER_EMAIL|ADMIN_LOGIN_ID|DATABASE_URL|RENDER_SERVICE_URL)=" .env
+  grep -E "^(APP_URL|SERVICE_URL|APP_DOMAIN|USER_EMAIL|ADMIN_LOGIN_ID|DATABASE_URL|RENDER_SERVICE_URL)=" .env
   ```
   `DATABASE_URL=` and `RENDER_SERVICE_URL=` should show nothing after the `=`.
 
@@ -214,7 +222,7 @@ do nothing.
   `3AM scheduler running inside the web server`, and finally a line with `Ready` and port
   3000. Press `Ctrl+C` to stop watching (the app keeps running).
 - [ ] **D4. Turn on HTTPS.** This starts the small web server that gets a free certificate for
-      `app.daymarkable.com` automatically. DNS from B6 must be working first.
+      `daymarkable.com`, `www`, and `app` automatically. DNS from B6 must be working first.
 
   ```bash
   docker compose --profile edge up -d caddy
@@ -223,10 +231,13 @@ do nothing.
   Look for `certificate obtained successfully`. If you see repeated errors mentioning
   `challenge`, DNS is not pointing at the server yet; wait 15 minutes and rerun the second
   line.
-- [ ] **D5. Open the site.** In your browser go to **https://app.daymarkable.com**. You should
-      see the dayMarkable sign-in page with the emblem and a padlock in the address bar.
+- [ ] **D5. Open the site.** In your browser go to **https://daymarkable.com**. You should
+      see the dayMarkable public website (the animated hero builds itself over ten seconds)
+      with a padlock in the address bar. **Sign in** is at the top right, or go straight to
+      https://daymarkable.com/login. After you sign in you are moved to
+      **https://app.daymarkable.com**, where your account lives.
 
-**Check:** the sign-in page loads over https. If the browser says "connection refused", run
+**Check:** the website loads over https. If the browser says "connection refused", run
 `docker compose ps` — every service should say `running` or `healthy`.
 
 ---
@@ -292,7 +303,7 @@ do nothing.
 
 ## Part G — After the first night
 
-- [ ] **G1. Next morning**, open https://app.daymarkable.com. *Runs* should show an
+- [ ] **G1. Next morning**, open https://app.daymarkable.com/today. *Runs* should show an
       **Automatic** run at about 03:00 with the number of pages read and the cost. The tablet
       folder has fresh notebooks and your inbox has one email per meeting decoded.
 - [ ] **G2. Rate the run** (stars on the *Runs* page). Your ratings feed the admin *Feedback*

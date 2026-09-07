@@ -3,7 +3,8 @@ import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, schema } from "@daymarkable/db";
 import { defaultSettings } from "@daymarkable/pipeline";
 import { cookies } from "next/headers";
-import { appUrl, getRuntime } from "./runtime";
+import { publicUrl, sessionCookieDomain } from "@/lib/hosts";
+import { getRuntime } from "./runtime";
 
 export const SESSION_COOKIE = "dm_session";
 const LINK_TTL_MS = 15 * 60_000;
@@ -51,7 +52,7 @@ export async function requestMagicLink(rawEmail: string): Promise<MagicLinkResul
   const rt = await getRuntime();
   const token = randomBytes(32).toString("base64url");
   await rt.db.insert(schema.loginTokens).values({ tokenHash: sha256(token), email, expiresAt: new Date(Date.now() + LINK_TTL_MS) });
-  const link = `${appUrl()}/auth/verify?token=${token}`;
+  const link = `${publicUrl()}/auth/verify?token=${token}`;
   const res = await rt.mail.send({
     to: email,
     subject: "Your dayMarkable sign-in link",
@@ -83,7 +84,7 @@ export async function verifyMagicLink(token: string): Promise<SessionUser | null
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await rt.db.insert(schema.sessions).values({ id, userId: user!.id, expiresAt });
   const jar = await cookies();
-  jar.set(SESSION_COOKIE, id, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", expires: expiresAt });
+  jar.set(SESSION_COOKIE, id, { ...cookieScope(), expires: expiresAt });
   return toSessionUser(user!);
 }
 
@@ -109,5 +110,11 @@ export async function logout(): Promise<void> {
     const rt = await getRuntime();
     await rt.db.delete(schema.sessions).where(eq(schema.sessions.id, id));
   }
-  jar.delete(SESSION_COOKIE);
+  jar.set(SESSION_COOKIE, "", { ...cookieScope(), maxAge: 0 });
+}
+
+/** Host-only in dev; scoped to daymarkable.com in production so the sign-in carries from the public site to app. */
+function cookieScope() {
+  const domain = sessionCookieDomain();
+  return { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/", ...(domain ? { domain } : {}) };
 }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Emblem, Wordmark } from "@/components/Brand";
 import { Shell } from "@/components/Shell";
+import { serviceUrl } from "@/lib/hosts";
 import { getSessionUser } from "@/server/auth";
 import { LoginForm } from "./LoginForm";
 
@@ -8,7 +9,7 @@ export const metadata = { title: "Sign in" };
 export const dynamic = "force-dynamic";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ expired?: string }> }) {
-  if (await getSessionUser()) redirect("/today");
+  if (await getSessionUser()) redirect(`${serviceUrl()}/today`);
   const { expired } = await searchParams;
   return (
     <Shell>

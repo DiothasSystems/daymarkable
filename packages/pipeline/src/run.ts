@@ -359,7 +359,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       for (const m of merged.newMeetings) {
         const mail = buildMeetingMail(user.email, user.id, m, {
           syncedAt: now().setZone(tz).toFormat("HH:mm"),
-          ...(process.env.APP_URL ? { appUrl: `${process.env.APP_URL.replace(/\/$/, "")}/documents?tab=meetings` } : {}),
+          ...((process.env.SERVICE_URL || process.env.APP_URL) ? { appUrl: `${(process.env.SERVICE_URL || process.env.APP_URL)!.replace(/\/$/, "")}/documents?tab=meetings` } : {}),
           notebooksRead: stats.docsChanged,
           pagesRead: stats.pagesDecoded,
         });

@@ -40,7 +40,8 @@ services:
         condition: service_started
     environment:
       NODE_ENV: production
-      APP_URL: ${APP_URL:?set APP_URL, e.g. https://app.daymarkable.com}
+      APP_URL: ${APP_URL:?set APP_URL, e.g. https://daymarkable.com}
+      SERVICE_URL: ${SERVICE_URL:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-daymarkable}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-daymarkable}
       RENDER_SERVICE_URL: http://render:8787
       DAYMARKABLE_STATE_DIR: /data
@@ -71,7 +72,7 @@ services:
     depends_on:
       - app
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN, e.g. app.daymarkable.com}
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN, e.g. daymarkable.com (Caddy also serves app. and redirects www.)}
     ports:
       - "80:80"
       - "443:443"

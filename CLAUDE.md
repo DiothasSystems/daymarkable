@@ -39,10 +39,12 @@ unchanged.
     attachments; idempotency keys per (user, meeting, date) and (user, date, address).
   - `apps/runner` — the run pipeline (nightly AND on-demand — same job): sync → render →
     decode → merge → compose → upload → email → draft invites → rotate 1-day cache.
-  - `apps/web` — Next.js, fully responsive (mobile HTML experience): the public marketing
-    site at `/` (`src/app/(marketing)`: landing with the animated hero, `/product`, `/pricing`,
-    `/start` onboarding entry, `/privacy`, `/terms`, `/support`; frame = `MarketingShell`),
-    then the signed-in app at `/today` (frame = `Shell`): account setup flow, settings,
+  - `apps/web` — Next.js, fully responsive (mobile HTML experience). One server, two hosts
+    (`src/lib/hosts.ts` + `src/proxy.ts`): the public site on `APP_URL` = daymarkable.com
+    (`src/app/(marketing)`: landing with the animated hero, `/product`, `/pricing`, `/start`
+    registration entry, `/login`, `/privacy`, `/terms`, `/support`, and every future payment
+    page; frame = `MarketingShell`), and the signed-in service on `SERVICE_URL` =
+    app.daymarkable.com (`/today`, frame = `Shell`; unset locally = same host): account setup flow, settings,
     document viewer (calendar files, meeting notes, action list), Sync now, run history,
     conversion-quality rating, Stripe billing pages (web is the ONLY payment surface), and
     the `/admin` portal (operator-only; see rule 13). The hero animation

@@ -23,12 +23,18 @@ ships Docker Engine + Compose. Pick the data centre closest to you (US East for 
 time). Hostinger's 1-click "Docker Manager" is optional; this runbook uses plain
 `docker compose` over SSH, which the Docker Manager can also import.
 
-Domain: `daymarkable.com` is registered. Use the apex for the Phase 2 marketing site and put
-the app on **`app.daymarkable.com`**. In Hostinger's DNS zone (hPanel → Domains → DNS):
+Domain: `daymarkable.com` is registered. One Next.js server answers on two hostnames:
+**`daymarkable.com`** is the public site (marketing, sign-in, registration, and every payment
+page) and **`app.daymarkable.com`** is the signed-in service (Today, documents, runs, account,
+setup, admin). The app redirects any request that lands on the wrong host, the session cookie
+is scoped to `daymarkable.com` so a sign-in on the public site carries over, and `www.`
+redirects to the apex. In Hostinger's DNS zone (hPanel → Domains → DNS):
 
 ```
+A     @       <VPS IPv4>     TTL 300
+A     www     <VPS IPv4>     TTL 300
 A     app     <VPS IPv4>     TTL 300
-AAAA  app     <VPS IPv6>     (optional)
+AAAA  @       <VPS IPv6>     (optional; repeat for www and app)
 ```
 
 Email sending (`EMAIL_FROM`): verify `daymarkable.com` in Resend and add the DKIM/SPF/DMARC
@@ -53,7 +59,7 @@ Console steps (https://console.hetzner.cloud):
    price) for the Postgres volume.
 2. **Firewall** (Networking → Firewalls): allow inbound TCP 22 from your IP, TCP 80 and 443
    from anywhere; deny everything else. The app itself only listens on `127.0.0.1:3000`.
-3. **DNS**: point `app.daymarkable.com` at the server's IPv4 (and IPv6) in Hostinger's DNS
+3. **DNS**: point `daymarkable.com`, `www`, and `app` at the server's IPv4 (and IPv6) in Hostinger's DNS
    zone, or move the zone to Hetzner DNS (free) if you prefer one console.
 4. `ssh root@<ip>`, then continue at section 2 (clone), 3 (environment), 4 (start).
 
@@ -89,7 +95,7 @@ sudo usermod -aG docker $USER && newgrp docker
 docker compose version
 ```
 
-Point your domain (e.g. `app.daymarkable.com`) at the VPS IP before enabling the edge profile.
+Point `daymarkable.com`, `www`, and `app` at the VPS IP before enabling the edge profile.
 
 ## 2. Put the code on the box
 
@@ -105,8 +111,9 @@ Compose reads them from the shell environment; the simplest way is `set -a; sour
 
 | Variable | Required | Notes |
 |---|---|---|
-| `APP_URL` | yes | `https://app.daymarkable.com` (magic links, email CTA) |
-| `APP_DOMAIN` | edge profile | `app.daymarkable.com` for Caddy |
+| `APP_URL` | yes | `https://daymarkable.com` — the public site; magic links point here |
+| `SERVICE_URL` | production | `https://app.daymarkable.com` — the signed-in service; email CTAs and the delivery-confirmation link point here. Leave unset to run everything on `APP_URL` |
+| `APP_DOMAIN` | edge profile | `daymarkable.com`; Caddy also serves `app.` and redirects `www.` |
 | `POSTGRES_PASSWORD` | yes | any long random string |
 | `DATA_ENCRYPTION_KEY` | yes | `openssl rand -base64 32`; losing it makes stored tokens and caches unreadable |
 | `ANTHROPIC_API_KEY` | yes | decode |
@@ -134,7 +141,7 @@ docker compose --profile edge up -d caddy
 
 ## 5. First run
 
-1. Open `https://<APP_DOMAIN>/login`, request a link (it arrives by email when `EMAIL_API_KEY`
+1. Open `https://<APP_DOMAIN>/login` (you are sent to `app.<APP_DOMAIN>/setup` after the link), request a link (it arrives by email when `EMAIL_API_KEY`
    is set; otherwise read it from `docker compose logs app`).
 2. Complete `/setup` (pairing, folders, timezone, conventions, email).
 3. Press **Sync now** once to seed the tablet; the scheduler takes over at 03:00 local.
@@ -152,7 +159,7 @@ docker compose --profile edge up -d caddy
   `scripts/reset-week.sh` (or `scripts/clear-lists.sh` and `scripts/rerun-week.sh [days]`
   separately). Clearing prompts for confirmation; `--yes` skips it. The re-run uses the standard
   API so it finishes while you watch, and does not consume the Sync-now quota.
-- Admin portal: `https://<APP_DOMAIN>/admin` (separate login, 60-minute sessions, every action
+- Admin portal: `https://app.<APP_DOMAIN>/admin` (separate login, 60-minute sessions, every action
   in `admin_audit`).
 
 ## 7. Proving the 3AM cron on the host

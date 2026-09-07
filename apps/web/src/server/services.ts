@@ -492,14 +492,14 @@ export async function setDeliveryEmail(userId: string, email: string | null) {
   await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
   const token = await repo.createDeliveryVerification(rt.db, userId, address, DELIVERY_TOKEN_HOURS);
 
-  // The link is only useful if APP_URL is the address the user actually browses. A confirmation
+  // The link is only useful if APP_URL / SERVICE_URL is the address the user actually browses. A confirmation
   // mail pointing at localhost is a dead end in someone's inbox, so refuse to send one and say
   // which variable is wrong — the token stays valid for a retry once it is fixed.
-  const base = (process.env.APP_URL ?? "").replace(/\/$/, "");
+  const base = (process.env.SERVICE_URL || process.env.APP_URL || "").replace(/\/$/, "");
   const reachable = /^https?:\/\//.test(base) && !/localhost|127\.0\.0\.1|0\.0\.0\.0/.test(base);
   const link = `${base}/settings/verify-delivery?token=${token}`;
   if (!reachable && rt.mail.name !== "memory") {
-    throw new Error(`APP_URL is "${base || "unset"}", so the confirmation link would not work. Set it to the address you browse (e.g. https://app.daymarkable.com) and recreate the container.`);
+    throw new Error(`APP_URL is "${base || "unset"}", so the confirmation link would not work. Set APP_URL (and SERVICE_URL if the app has its own host) to the address you browse, e.g. https://app.daymarkable.com, and recreate the container.`);
   }
   const mail = buildDeliveryVerificationMail(address, userId, link);
   const res = await rt.mail.send(mail);

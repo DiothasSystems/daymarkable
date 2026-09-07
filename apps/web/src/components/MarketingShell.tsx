@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { serviceUrl } from "@/lib/hosts";
 import { getSessionUser } from "@/server/auth";
 import { CompassRose, Wordmark } from "./Brand";
 import "./marketing.css";
@@ -24,7 +25,7 @@ export async function MarketingShell({ children }: { children: React.ReactNode }
         </nav>
         <div className="mk-actions">
           {user ? (
-            <Link href="/today" className="btn small">Open dayMarkable</Link>
+            <a href={`${serviceUrl()}/today`} className="btn small">Open dayMarkable</a>
           ) : (
             <>
               <Link href="/login" className="mk-signin">Sign in</Link>

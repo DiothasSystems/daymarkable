@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/app/login/LoginForm";
 import { MarketingShell } from "@/components/MarketingShell";
+import { serviceUrl } from "@/lib/hosts";
 import { getSessionUser } from "@/server/auth";
 
 export const metadata: Metadata = { title: "Start free", description: "Create your dayMarkable account and pair your reMarkable in a few minutes." };
@@ -20,7 +21,7 @@ const STEPS = [
 
 export default async function StartPage() {
   const user = await getSessionUser();
-  if (user) redirect(user.onboardedAt ? "/today" : "/setup");
+  if (user) redirect(`${serviceUrl()}${user.onboardedAt ? "/today" : "/setup"}`);
   return (
     <MarketingShell>
       <section className="mk-wrap mk-section">

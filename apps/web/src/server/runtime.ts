@@ -16,6 +16,4 @@ export function getRuntime(): Promise<Runtime> {
   return g.__dmRuntime;
 }
 
-export function appUrl(): string {
-  return (process.env.APP_URL || "http://localhost:3000").replace(/\/$/, "");
-}
+export { publicUrl as appUrl } from "@/lib/hosts";

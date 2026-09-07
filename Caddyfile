@@ -1,4 +1,10 @@
-{$APP_DOMAIN} {
+# One Next.js server behind two hostnames (see apps/web/src/lib/hosts.ts):
+#   APP_DOMAIN        daymarkable.com      public site, sign-in, registration, payments
+#   app.APP_DOMAIN    app.daymarkable.com  the signed-in service
+# The app itself redirects a request that lands on the wrong host. www. redirects to the apex.
+# Caddy obtains a certificate for each hostname.
+
+{$APP_DOMAIN}, app.{$APP_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy app:3000
 	header {
@@ -6,4 +12,8 @@
 		X-Content-Type-Options nosniff
 		Referrer-Policy same-origin
 	}
+}
+
+www.{$APP_DOMAIN} {
+	redir https://{$APP_DOMAIN}{uri} permanent
 }
