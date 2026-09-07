@@ -151,7 +151,9 @@ docker compose --profile edge up -d caddy
 - Logs carry counts and hashes, never note content: `docker compose logs app`.
 - The 1-day cache lives in the `dmstate` volume under `/data/cache/<runId>`; the run's final
   step purges the previous run and a 48h sweep is the failsafe.
-- Upgrade: `git pull && docker compose build app && docker compose up -d app`. Migrations run
+- Upgrade: `bash scripts/vps-upgrade.sh` (pulls main, sets the two-host env vars once DNS is
+  ready, rebuilds and restarts `app`, reloads Caddy) — or by hand:
+  `git pull && docker compose build app && docker compose up -d app`. Migrations run
   on start.
 - Backups: `docker compose exec db pg_dump -U daymarkable daymarkable > backup.sql` (contains
   only the encrypted working set, never pages).
