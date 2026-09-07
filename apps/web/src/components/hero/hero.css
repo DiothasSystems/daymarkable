@@ -1,0 +1,112 @@
+/* dayMarkable hero — the supplied artwork assembles itself over ten seconds, then holds.
+   Every layer is a cut-out of the reference image (scripts/hero-slice.py), positioned in
+   percentages of the 1143×724 frame so it lands exactly where the artwork has it. */
+
+.hero-stage {
+  position: relative;
+  aspect-ratio: 1143 / 724;
+  width: 100%;
+  overflow: hidden;
+  container-type: inline-size;
+  background: #0a1327;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(30, 42, 68, 0.12);
+  isolation: isolate;
+  user-select: none;
+}
+.hero-stage img { position: absolute; display: block; height: auto; pointer-events: none; }
+.hero-stage .hl { position: absolute; transform-origin: 50% 50%; will-change: transform, opacity; }
+.hero-stage .hl > img { position: static; width: 100%; }
+.hero-stage .arc { position: absolute; }
+.hero-stage .arc > .hl { position: relative; width: 100%; }
+
+/* 0.0–1.5 s: the environment emerges from the far field */
+.hero-base { inset: 0; width: 100%; transform-origin: 50% 60%; }
+.hero-stage[data-play="1"] .hero-base { animation: dmBase 1.7s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+@keyframes dmBase {
+  0% { opacity: 0; transform: scale(1.07); filter: blur(10px) brightness(0.7); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0) brightness(1); }
+}
+
+/* Generic fly-in: each layer sets its own origin offset, scale, rotation and blur. */
+.hero-stage[data-play="1"] .fly {
+  animation: dmFly var(--dur, 1s) cubic-bezier(0.18, 0.75, 0.22, 1) var(--delay, 0s) both;
+}
+@keyframes dmFly {
+  0% { opacity: 0; transform: translate(var(--dx, 0px), var(--dy, 0px)) scale(var(--s, 1)) rotate(var(--r, 0deg)); filter: blur(var(--b, 0px)); }
+  25% { opacity: 1; }
+  100% { opacity: 1; transform: translate(0, 0) scale(1) rotate(0deg); filter: blur(0); }
+}
+/* Curved trajectories: the wrapper eases the horizontal leg on a different curve. */
+.hero-stage[data-play="1"] .arc { animation: dmArcX var(--dur, 1s) cubic-bezier(0.45, 0.05, 0.2, 1) var(--delay, 0s) both; }
+@keyframes dmArcX { 0% { transform: translateX(var(--ax, 0px)); } 100% { transform: translateX(0); } }
+
+/* 1.5–3.0 s: golden trails sweep left→right underneath the icons */
+.hero-trails {
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 40%, transparent 62%);
+  mask-image: linear-gradient(90deg, #000 0%, #000 40%, transparent 62%);
+  -webkit-mask-size: 260% 100%; mask-size: 260% 100%;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: 0 0; mask-position: 0 0;
+}
+.hero-stage[data-play="1"] .hero-trails { animation: dmSweep 1.7s cubic-bezier(0.4, 0.1, 0.3, 1) 1.35s both; }
+@keyframes dmSweep {
+  0% { -webkit-mask-position: 100% 0; mask-position: 100% 0; opacity: 0; }
+  18% { opacity: 1; }
+  100% { -webkit-mask-position: 0 0; mask-position: 0 0; opacity: 1; }
+}
+
+/* 3.0–4.5 s: the brain illuminates and a pulse travels outward */
+.hero-glow {
+  position: absolute; border-radius: 50%; pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(circle, rgba(70, 160, 255, 0.55) 0%, rgba(50, 130, 255, 0.28) 32%, rgba(30, 90, 220, 0) 70%);
+  opacity: 0;
+}
+.hero-stage[data-play="1"] .hero-glow { animation: dmGlowIn 0.7s ease-out 4.25s both, dmGlowPulse 4.2s ease-in-out 5s infinite; }
+@keyframes dmGlowIn { 0% { opacity: 0; transform: scale(0.5); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes dmGlowPulse { 0%, 100% { opacity: 0.85; transform: scale(1); } 50% { opacity: 1; transform: scale(1.09); } }
+.hero-pulse {
+  position: absolute; border-radius: 50%; pointer-events: none; opacity: 0;
+  border: 2px solid rgba(140, 200, 255, 0.7); box-shadow: 0 0 18px rgba(90, 170, 255, 0.5), inset 0 0 18px rgba(90, 170, 255, 0.35);
+}
+.hero-stage[data-play="1"] .hero-pulse { animation: dmPulse 1.1s cubic-bezier(0.2, 0.6, 0.3, 1) 4.45s both; }
+@keyframes dmPulse { 0% { opacity: 0.9; transform: scale(0.35); } 100% { opacity: 0; transform: scale(2.4); } }
+
+/* 6.5–8.0 s: the gold rules extend outward from the centre */
+.hero-stage[data-play="1"] .grow-l { animation: dmGrow 0.8s cubic-bezier(0.2, 0.7, 0.3, 1) var(--delay, 7.3s) both; transform-origin: 100% 50%; }
+.hero-stage[data-play="1"] .grow-r { animation: dmGrow 0.8s cubic-bezier(0.2, 0.7, 0.3, 1) var(--delay, 7.3s) both; transform-origin: 0% 50%; }
+@keyframes dmGrow { 0% { opacity: 0; transform: scaleX(0); } 30% { opacity: 1; } 100% { opacity: 1; transform: scaleX(1); } }
+
+/* The live wordmark — dayMarkable, always with the capital M. Source Serif 4 Bold only. */
+.hero-wordmark {
+  position: absolute; display: flex; white-space: nowrap; pointer-events: none; z-index: 2;
+  font-family: var(--font-display); font-weight: 700; font-size: 7.6cqw; line-height: 1; letter-spacing: -0.015em;
+  text-shadow: 0 0 1.2cqw rgba(0, 0, 0, 0.35);
+}
+.hero-wordmark .day { color: #c9973f; }
+.hero-wordmark .mark { color: #f7f0e3; }
+.hero-wordmark .hl { position: relative; }
+
+/* 8.7–9.5 s: the exact reference frame fades over the assembled layers */
+.hero-final { inset: 0; width: 100%; opacity: 0; }
+.hero-stage[data-play="1"] .hero-final { animation: dmFinal 0.9s linear 8.7s both; }
+@keyframes dmFinal { to { opacity: 1; } }
+
+.hero-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+
+.hero-replay {
+  position: absolute; right: 12px; bottom: 12px; z-index: 3; min-height: 0; padding: 6px 10px; font-size: 11px;
+  font-family: var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; border-radius: 3px;
+  background: rgba(30, 42, 68, 0.55); color: #f7f0e3; border: 1px solid rgba(247, 240, 227, 0.35);
+  opacity: 0; transition: opacity 0.3s;
+}
+.hero-stage:hover .hero-replay, .hero-replay:focus-visible { opacity: 1; }
+.hero-replay:hover { background: rgba(30, 42, 68, 0.85); color: #f7f0e3; border-color: #c9973f; }
+
+/* Static composition for people who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-stage[data-play="1"] * { animation: none !important; }
+  .hero-stage .hero-final { opacity: 1; }
+  .hero-stage .hero-glow { opacity: 0.85; }
+  .hero-replay { display: none; }
+}

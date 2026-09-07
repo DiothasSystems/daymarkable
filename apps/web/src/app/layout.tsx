@@ -7,6 +7,7 @@ const ui = Public_Sans({ weight: ["400", "500", "600", "700"], subsets: ["latin"
 const mono = IBM_Plex_Mono({ weight: ["400", "500"], subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL || "http://localhost:3000"),
   title: { default: "dayMarkable", template: "%s · dayMarkable" },
   description: "Note to Action Organizer. Today's notes, tomorrow's actions.",
   icons: { icon: "/icon.svg" },

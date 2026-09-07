@@ -4,6 +4,12 @@
     {
       "name": "web",
       "url": "http://localhost:3000"
+    },
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["apps/web/node_modules/next/dist/bin/next", "dev", "--webpack", "-p", "3000", "apps/web"],
+      "port": 3000
     }
   ]
 }

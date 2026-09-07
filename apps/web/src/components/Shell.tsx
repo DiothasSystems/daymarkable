@@ -10,7 +10,7 @@ export async function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="shell">
       <header className="topbar">
-        <Link href="/" className="brand" aria-label="dayMarkable home">
+        <Link href={user ? "/today" : "/"} className="brand" aria-label="dayMarkable home">
           <CompassRose size={28} />
           <Wordmark size={20} />
         </Link>

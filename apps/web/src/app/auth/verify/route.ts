@@ -8,6 +8,6 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get("token");
   const user = token ? await verifyMagicLink(token) : null;
-  const to = user ? (user.onboardedAt ? "/" : "/setup") : "/login?expired=1";
+  const to = user ? (user.onboardedAt ? "/today" : "/setup") : "/login?expired=1";
   return Response.redirect(new URL(to, req.url), 303);
 }

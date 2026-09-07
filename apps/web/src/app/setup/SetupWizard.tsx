@@ -19,7 +19,7 @@ export function SetupWizard({ account, calibration }: { account: Account; calibr
   async function finish() {
     try {
       await trpc.account.completeOnboarding.mutate();
-      router.push("/");
+      router.push("/today");
       router.refresh();
     } catch (err) {
       setError(errorMessage(err));
