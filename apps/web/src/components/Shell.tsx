@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { publicUrl } from "@/lib/hosts";
 import { getSessionUser } from "@/server/auth";
 import { lastSyncLabel } from "@/server/services";
@@ -11,10 +10,16 @@ export async function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="shell">
       <header className="topbar">
-        <Link href={user ? "/today" : publicUrl()} className="brand" aria-label="dayMarkable home">
+        {/*
+          The wordmark leaves the app for the public site, signed in or not. Inside the service
+          the nav already carries every destination, so the mark is the way out to daymarkable.com
+          rather than a second route to Today. A plain anchor, since this is a cross-host
+          navigation when the two hosts are split.
+        */}
+        <a href={publicUrl()} className="brand" aria-label="dayMarkable — go to daymarkable.com">
           <CompassRose size={28} />
           <Wordmark size={20} />
-        </Link>
+        </a>
         {user ? <NavLinks /> : null}
         {synced ? <span className="synced">{synced}</span> : null}
       </header>
