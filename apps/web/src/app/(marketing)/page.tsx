@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HeroScene } from "@/components/hero/HeroScene";
+import { HeroBuild } from "@/components/hero/HeroBuild";
 import { MarketingShell } from "@/components/MarketingShell";
 
 export const metadata: Metadata = {
@@ -22,27 +22,7 @@ const IconMail = () => (
 export default function LandingPage() {
   return (
     <MarketingShell>
-      {/* HERO */}
-      <header className="mk-wrap mk-hero">
-        <div className="mk-hero-top">
-          <div>
-            <div className="mk-kicker">Note to Action Organizer · for reMarkable</div>
-            <h1 className="mk-h1">You write by hand. We turn it into tomorrow.</h1>
-            <p className="mk-lede">Every night, dayMarkable reads the notebooks on your reMarkable tablet and returns a plan by morning: meeting summaries, action items, and follow-ups for the day, week, and month ahead.</p>
-            <div className="mk-cta-row">
-              <Link href="/start" className="btn">Start free — 14 days</Link>
-              <a href="#how">See how it works →</a>
-            </div>
-            <div className="mk-foot">NO APP TO LEARN · YOUR PEN, YOUR PAPER, YOUR HANDWRITING</div>
-          </div>
-          <aside className="mk-hero-aside" aria-label="At a glance">
-            <div className="mk-stat"><strong>03:00</strong><span>Runs while you sleep, in your timezone. Only pages you wrote on are read.</span></div>
-            <div className="mk-stat"><strong>24 h</strong><span>Maximum retention of your page images. Nothing is archived.</span></div>
-            <div className="mk-stat"><strong>0 apps</strong><span>Pages arrive on the tablet like any notebook. Tick a box with your pen.</span></div>
-          </aside>
-        </div>
-        <HeroScene />
-      </header>
+      <HeroBuild />
 
       {/* HOW IT WORKS */}
       <section id="how" className="mk-band">
