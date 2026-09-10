@@ -48,7 +48,7 @@ export async function republishNotebooks(deps: RepublishDeps, userId: string): P
   const outputs = [
     { kind: "planner" as const, name: "Planner", composed: planner },
     { kind: "action_list" as const, name: "Action List", composed: actionList },
-    { kind: "meeting_notes" as const, name: "Meeting Notes", composed: meetingNotes },
+    { kind: "meeting_notes" as const, name: "Notes", composed: meetingNotes },
   ];
 
   // Attach to the latest successful run so the viewer serves these from its cache (rule 12)

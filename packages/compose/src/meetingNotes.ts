@@ -1,4 +1,4 @@
-/** The Meeting Notes notebook: one section per decoded meeting, appended chronologically. */
+/** The Notes notebook: one section per decoded meeting, appended chronologically. */
 import type { MeetingNotesModel } from "@daymarkable/core";
 import { SECONDARY } from "./brand.js";
 import { newDocument } from "./canvas.js";
@@ -16,7 +16,7 @@ export async function composeMeetingNotes(input: MeetingNotesInput): Promise<Com
   const { doc, fonts } = await newDocument();
   const ctx: ComposeContext = { doc, fonts, date: input.date, generatedAt: input.generatedAt, runLabel: input.runLabel, printed: [] };
   const meetings = input.model.meetings;
-  const s = new Section(ctx, "MEETINGS", (p) => (p === 1 ? "Meeting Notes" : "Meeting Notes · cont."), () => `dayMarkable MEETINGS · ${meetings.length} MEETING${meetings.length === 1 ? "" : "S"} · ${generatedStamp(ctx)}`);
+  const s = new Section(ctx, "MEETINGS", (p) => (p === 1 ? "Notes" : "Notes · cont."), () => `dayMarkable MEETINGS · ${meetings.length} MEETING${meetings.length === 1 ? "" : "S"} · ${generatedStamp(ctx)}`);
   s.newPage();
   if (meetings.length === 0) {
     s.label("No meetings decoded yet");
@@ -42,6 +42,6 @@ export async function composeMeetingNotes(input: MeetingNotesInput): Promise<Com
     }
     s.y += 30;
   });
-  doc.setTitle(`dayMarkable Meeting Notes ${input.date}`);
+  doc.setTitle(`dayMarkable Notes ${input.date}`);
   return { pdf: await doc.save(), pageCount: doc.getPageCount(), printed: ctx.printed };
 }

@@ -393,3 +393,57 @@ describe("repeating events", () => {
     expect(buildOutputSet(r.state, view).planner.daily.events).toHaveLength(0);
   });
 });
+
+describe("a closed action is not resurrected by re-reading its page", () => {
+  const page = (tasks: ExtractedTask[], pageIndex = 0) => notesPage({ tasks }, pageIndex);
+
+  it("keeps a ticked-off item closed when its page is decoded again", () => {
+    // The reported defect: an action was completed and crossed off, then the notebook was
+    // edited elsewhere, the whole page was re-decoded, and the item came back open.
+    const r1 = mergeRun(emptyWorkingSet(), [page([task("dayMarkable email server")])], opts);
+    const created = openActionList(r1.state)[0]!;
+    created.status = "done";
+    created.completedOn = opts.today;
+
+    const r2 = mergeRun(r1.state, [page([task("dayMarkable email server")])], { ...opts, today: "2026-09-03" });
+    expect(openActionList(r2.state)).toHaveLength(0);
+    expect(r2.changes.tasksCreated).toBe(0);
+    expect(r2.state.tasks).toHaveLength(1);
+    expect(r2.state.tasks[0]!.status).toBe("done");
+  });
+
+  it("keeps a dropped item dropped", () => {
+    const r1 = mergeRun(emptyWorkingSet(), [page([task("Not relevant")])], opts);
+    r1.state.tasks[0]!.status = "dropped";
+    const r2 = mergeRun(r1.state, [page([task("Not relevant")])], { ...opts, today: "2026-09-03" });
+    expect(r2.state.tasks).toHaveLength(1);
+    expect(openActionList(r2.state)).toHaveLength(0);
+  });
+
+  it("still enriches an OPEN item re-read from its own page", () => {
+    const r1 = mergeRun(emptyWorkingSet(), [page([task("Call Dana")])], opts);
+    const r2 = mergeRun(r1.state, [page([task("Call Dana", { due: "2026-09-20", priority: "high" })])], opts);
+    const [t] = openActionList(r2.state);
+    expect(t!.due).toBe("2026-09-20");
+    expect(t!.priority).toBe("high");
+    expect(r2.state.tasks).toHaveLength(1);
+  });
+
+  it("treats the same words on a DIFFERENT page as a new intent", () => {
+    // Writing it down again on a fresh page means the user wants it again.
+    const r1 = mergeRun(emptyWorkingSet(), [page([task("Book travel")], 0)], opts);
+    r1.state.tasks[0]!.status = "done";
+    const r2 = mergeRun(r1.state, [page([task("Book travel")], 4)], { ...opts, today: "2026-09-03" });
+    expect(openActionList(r2.state).map((t) => t.text)).toEqual(["Book travel"]);
+    expect(r2.changes.tasksCreated).toBe(1);
+  });
+
+  it("does not resurrect across a re-read of a page in a different notebook", () => {
+    const r1 = mergeRun(emptyWorkingSet(), [page([task("Shared wording")])], opts);
+    r1.state.tasks[0]!.status = "done";
+    const other = { notebook: "Other", pageIndex: 0, extraction: { ...emptyExtraction("notes"), tasks: [task("Shared wording")] } };
+    const r2 = mergeRun(r1.state, [other], { ...opts, today: "2026-09-03" });
+    // A different notebook is a different page: this one IS a new intent.
+    expect(openActionList(r2.state)).toHaveLength(1);
+  });
+});

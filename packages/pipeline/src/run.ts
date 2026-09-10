@@ -10,7 +10,7 @@ import { composeActionList, composeMeetingNotes, composePlanner } from "@daymark
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
 import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
 import { buildDeliveryMail, buildMeetingMail, type MailProvider } from "@daymarkable/mail";
-import { TabletProviderError, type DownloadedDocument, type TabletDocument, type TabletFolder, type TabletProvider } from "@daymarkable/tablet";
+import { TabletProviderError, parseCloudDate, type DownloadedDocument, type TabletDocument, type TabletFolder, type TabletProvider } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
 import type { CacheStore } from "./cache.js";
 import type { Renderer } from "./renderer.js";
@@ -61,7 +61,14 @@ export const CALIBRATION_NOTEBOOK = "Handwriting Sample";
 export const CALIBRATION_MIN_ACCURACY = 0.25;
 const ARCHIVE_FOLDER = "/dayMarkable/Archive";
 /** Everything dayMarkable writes to the tablet, by name. */
-export const OUTPUT_NAMES = ["Planner", "Action List", "Meeting Notes"] as const;
+export const OUTPUT_NAMES = ["Planner", "Action List", "Notes"] as const;
+
+/**
+ * Names we used to write. Still recognised as ours — otherwise a renamed notebook left on the
+ * tablet would be treated as the user's own and decoded back into itself — and deleted on the
+ * next run wherever it is found.
+ */
+export const LEGACY_OUTPUT_NAMES = ["Meeting Notes"] as const;
 
 /** Where this user's notebooks are published: a folder, or the tablet root. */
 export function outputFolderFor(settings: { outputToRoot?: boolean }): string {
@@ -72,7 +79,10 @@ export function outputFolderFor(settings: { outputToRoot?: boolean }): string {
 export function isOurDocument(doc: TabletDocument): boolean {
   if (doc.path.startsWith(`${ARCHIVE_FOLDER}/`)) return false;
   const inRoot = doc.path.lastIndexOf("/") === 0;
-  const named = (OUTPUT_NAMES as readonly string[]).includes(doc.name) || doc.name === CALIBRATION_NOTEBOOK;
+  const named =
+    (OUTPUT_NAMES as readonly string[]).includes(doc.name) ||
+    (LEGACY_OUTPUT_NAMES as readonly string[]).includes(doc.name) ||
+    doc.name === CALIBRATION_NOTEBOOK;
   return (inRoot && named) || (doc.path.startsWith(`${OUTPUT_FOLDER}/`) && !doc.path.startsWith(`${ARCHIVE_FOLDER}/`));
 }
 
@@ -81,7 +91,12 @@ export function isOurDocument(doc: TabletDocument): boolean {
  * tablet never shows two Planners. Only ever touches documents we wrote, by name.
  */
 export async function cleanStaleOutputs(tablet: TabletProvider, docs: readonly TabletDocument[], targetFolderId: string, log: (m: string) => void): Promise<number> {
-  const stale = docs.filter((d) => isOurDocument(d) && d.parentId !== targetFolderId);
+  const stale = docs.filter(
+    (d) =>
+      isOurDocument(d) &&
+      // Wrong place, or the right place under a name we no longer write.
+      (d.parentId !== targetFolderId || (LEGACY_OUTPUT_NAMES as readonly string[]).includes(d.name)),
+  );
   for (const d of stale) {
     try {
       await tablet.deleteDocument(d);
@@ -154,17 +169,33 @@ export function changeWindowStart(localDate: string, timezone: string, lastSucce
 }
 
 /**
- * A page is processed when its ink hash differs from the last snapshot. For a page we have
- * never snapshotted (first sight of a notebook), the page's own modified timestamp decides:
- * only pages written inside the window are decoded; older pages are baselined silently.
+ * A page is processed when its ink hash differs from the last snapshot.
+ *
+ * For a page with no snapshot the question is which of two things it is: a page the user just
+ * added to a notebook we already read (always decode), or one page of a notebook we are seeing
+ * for the first time (decode only if it was written inside the window, so importing an old
+ * notebook does not decode years of history).
  */
-export function pageChanged(page: { pageId: string; hash: string | null; modified: string | null }, snapshot: Map<string, string | null>, windowStart: DateTime): boolean {
+export function pageChanged(
+  page: { pageId: string; hash: string | null; modified: string | null },
+  snapshot: Map<string, string | null>,
+  windowStart: DateTime,
+  documentIsNew = false,
+): boolean {
   if (!page.hash) return false;
   if (snapshot.has(page.pageId)) return snapshot.get(page.pageId) !== page.hash;
-  if (!page.modified) return true;
-  const ms = /^\d{10,}$/.test(page.modified) ? Number(page.modified) : Date.parse(page.modified);
-  if (Number.isNaN(ms)) return true;
-  return ms >= windowStart.toMillis();
+
+  // A page we have never seen, in a notebook we ALREADY track, is new ink by definition —
+  // the user added a page. Read it, and never let a timestamp decide: page 2 of a notebook
+  // whose page 1 was already snapshotted was being dropped whenever its timestamp did not
+  // parse the way this code assumed.
+  if (!documentIsNew) return true;
+
+  // First sight of a whole document is the only case where the timestamp matters, so that
+  // adding a years-old notebook does not decode its entire history. Unreadable timestamp =
+  // read the page: paying for one page beats losing it.
+  const at = parseCloudDate(page.modified);
+  return at === null || at.getTime() >= windowStart.toMillis();
 }
 
 export async function runPipeline(deps: PipelineDeps, params: PipelineParams): Promise<RunOutcome> {
@@ -220,7 +251,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       }
       const pageRefs = await deps.tablet.listPages(doc);
       const pageSnap = await repo.loadPageSnapshots(db, user.id, doc.id);
-      const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart)).map((p) => p.pageId);
+      const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart, !snap)).map((p) => p.pageId);
       if (changedPageIds.length === 0) {
         baselineOnly.push({ ...doc, pageCount: pageRefs.length });
         continue;
@@ -327,14 +358,14 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     const outputs = [
       { kind: "planner" as const, name: "Planner", composed: planner },
       { kind: "action_list" as const, name: "Action List", composed: actionList },
-      { kind: "meeting_notes" as const, name: "Meeting Notes", composed: meetingNotes },
+      { kind: "meeting_notes" as const, name: "Notes", composed: meetingNotes },
     ];
     const printed: PrintedItem[] = [];
     for (const o of outputs) {
       await deps.cache.put(run.id, `outputs/${o.name}.pdf`, o.composed.pdf);
       printed.push(...o.composed.printed);
     }
-    log(`compose: Planner ${planner.pageCount}p, Action List ${actionList.pageCount}p, Meeting Notes ${meetingNotes.pageCount}p; ${printed.length} checkbox rows printed`);
+    log(`compose: Planner ${planner.pageCount}p, Action List ${actionList.pageCount}p, Notes ${meetingNotes.pageCount}p; ${printed.length} checkbox rows printed`);
 
     // ---- 6. upload + archive rotation ------------------------------------------------
     const tabletIds = new Map<string, string>();

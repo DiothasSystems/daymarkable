@@ -7,7 +7,7 @@ import { SCHEMA_DESCRIPTION } from "./schema.js";
  */
 export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look like this (grayscale, typeset):
 - Header: a large serif title top-left (a date, "Week 36 · Aug 31 – Sep 6", "September 2026",
-  "2026", "Action List", "Meeting Notes"), a small monospace subtitle under it starting with
+  "2026", "Action List", "Notes"), a small monospace subtitle under it starting with
   "dayMarkable" (e.g. "dayMarkable DAILY · GENERATED 02:14"), a compass-rose mark (circle with
   four diamond points) top-right, and a thick black rule under the header.
 - A monospace footer code bottom-left of the form dM/<KIND>/<YYYY-MM-DD>/<page>, where KIND is

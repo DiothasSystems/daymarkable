@@ -49,7 +49,7 @@ describe("republishNotebooks", () => {
     await handle.db.update(schema.tasks).set({ text: "Call Warburton about Streambow" }).where(eq(schema.tasks.id, task.id));
 
     const r = await republishNotebooks({ db: handle.db, sealer, cache, tablet, log: () => {} }, userId);
-    expect(r.uploaded.sort()).toEqual(["Action List", "Meeting Notes", "Planner"]);
+    expect(r.uploaded.sort()).toEqual(["Action List", "Notes", "Planner"]);
     expect(tablet.uploads.length).toBe(before + 3);
     // No run row was created and no cost recorded: this calls no model.
     const runs = await handle.db.query.runs.findMany({ where: eq(schema.runs.userId, userId) });

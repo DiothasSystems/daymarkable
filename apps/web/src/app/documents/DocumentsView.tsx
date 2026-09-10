@@ -13,7 +13,7 @@ const TABS = [
   { id: "files", label: "Notebooks" },
   { id: "calendar", label: "Calendar" },
   { id: "actions", label: "Action list" },
-  { id: "meetings", label: "Meeting notes" },
+  { id: "meetings", label: "Notes" },
 ];
 
 export function DocumentsView({ documents, registry, initialTab }: { documents: Docs; registry: Registry; initialTab: string }) {

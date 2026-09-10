@@ -1,5 +1,5 @@
 /**
- * Shared page-flow helper for the list-style notebooks (Action List, Meeting Notes, Inbox,
+ * Shared page-flow helper for the list-style notebooks (Action List, Notes, Inbox,
  * continuation pages). Owns pagination, the header/footer, and the standard checkbox row that
  * prints an item code the decoder reads back (PLANNER_LAYOUT_DESCRIPTION in packages/decode
  * must match what is drawn here).

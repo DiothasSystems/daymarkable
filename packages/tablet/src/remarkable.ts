@@ -48,10 +48,27 @@ function wrap(err: unknown, context: string): TabletProviderError {
   return new TabletProviderError(code, `${context}: ${msg}`, err);
 }
 
-/** The cloud reports lastModified as ISO strings or epoch-millisecond strings; tolerate both. */
-export function parseCloudDate(value: string | undefined): Date | null {
-  if (!value) return null;
-  const d = /^\d{10,}$/.test(value) ? new Date(Number(value)) : new Date(value);
+/**
+ * The cloud reports timestamps as ISO strings, epoch-millisecond strings, or epoch-SECOND
+ * strings depending on the field and firmware. Tolerate all three.
+ *
+ * The seconds case matters: reading a 10-digit seconds value as milliseconds dates the page to
+ * January 1970, which put every newly written page before the change window and skipped it
+ * silently. Length decides — 10-digit values are seconds until the year 2286, 13-digit are
+ * milliseconds.
+ */
+export function parseCloudDate(value: string | undefined | null): Date | null {
+  if (value === undefined || value === null) return null;
+  const s = String(value).trim();
+  if (!s) return null;
+  let d: Date;
+  if (/^\d+$/.test(s)) {
+    const n = Number(s);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    d = new Date(s.length <= 11 ? n * 1000 : n);
+  } else {
+    d = new Date(s);
+  }
   return Number.isNaN(d.getTime()) ? null : d;
 }
 

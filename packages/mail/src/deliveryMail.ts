@@ -29,7 +29,7 @@ function shell(headline: string, body: string): string {
 }
 
 export interface DeliveryDocument {
-  /** "Planner", "Action List", "Meeting Notes". */
+  /** "Planner", "Action List", "Notes". */
   name: string;
   pdf: Uint8Array;
   pageCount: number;
@@ -69,7 +69,7 @@ export function buildDeliveryMail(to: string, userId: string, localDate: string,
 export function buildDeliveryVerificationMail(to: string, userId: string, verifyUrl: string): OutgoingMail {
   const html = shell(
     "Confirm this address",
-    `<p style="font-size:14px;line-height:1.6;color:#4a5266;margin:0 0 18px">Someone asked dayMarkable to deliver their planner, action list and meeting notes to this address. Confirm it and the nightly delivery begins; ignore this and nothing further is sent here.</p>
+    `<p style="font-size:14px;line-height:1.6;color:#4a5266;margin:0 0 18px">Someone asked dayMarkable to deliver their planner, action list and notes to this address. Confirm it and the nightly delivery begins; ignore this and nothing further is sent here.</p>
      <p style="margin:0 0 18px"><a href="${esc(verifyUrl)}" style="display:inline-block;background:#1e2a44;color:#f7f0e3;text-decoration:none;padding:11px 18px;border-radius:4px;font-size:14px;font-weight:600">Confirm this address</a></p>
      <p style="font-size:12px;line-height:1.6;color:#8a7d5f;margin:0">Or paste this link into a browser:<br>${esc(verifyUrl)}</p>`,
   );

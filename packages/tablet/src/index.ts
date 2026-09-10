@@ -1,2 +1,2 @@
 export * from "./provider.js";
-export { RemarkableCloudProvider, pairWithCode } from "./remarkable.js";
+export { RemarkableCloudProvider, pairWithCode, parseCloudDate } from "./remarkable.js";

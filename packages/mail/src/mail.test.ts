@@ -52,7 +52,7 @@ describe("delivery mail", () => {
   const docs = [
     { name: "Planner", pdf: pdf(1), pageCount: 6 },
     { name: "Action List", pdf: pdf(2), pageCount: 3 },
-    { name: "Meeting Notes", pdf: pdf(3), pageCount: 9 },
+    { name: "Notes", pdf: pdf(3), pageCount: 9 },
   ];
 
   it("attaches every document, named by kind and date", () => {
@@ -61,7 +61,7 @@ describe("delivery mail", () => {
     expect(m.attachments?.map((a) => a.filename)).toEqual([
       "Planner-2026-09-06.pdf",
       "Action-List-2026-09-06.pdf",
-      "Meeting-Notes-2026-09-06.pdf",
+      "Notes-2026-09-06.pdf",
     ]);
     expect(m.attachments?.[0]!.content).toEqual(pdf(1));
   });

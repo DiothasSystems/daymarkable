@@ -108,19 +108,36 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
 
   const openTasks = () => state.tasks.filter((t) => t.status === "open" || t.status === "carried");
 
+  const enrich = (existing: StoredTask, t: ExtractedTask): void => {
+    if (PRIORITY_RANK[t.priority] < PRIORITY_RANK[existing.priority]) existing.priority = t.priority;
+    if (!existing.due && t.due) {
+      existing.due = t.due;
+      existing.dueTime = t.due_time;
+    }
+    if (t.people.length) existing.people = [...new Set([...existing.people, ...t.people])];
+  };
+
   const addTask = (t: ExtractedTask, source: ItemSource): "created" | "merged" => {
-    const dup = openTasks().find((x) => similar(x.text, t.text));
-    if (dup) {
-      if (PRIORITY_RANK[t.priority] < PRIORITY_RANK[dup.priority]) dup.priority = t.priority;
-      if (!dup.due && t.due) {
-        dup.due = t.due;
-        dup.dueTime = t.due_time;
-      }
-      if (t.people.length) dup.people = [...new Set([...dup.people, ...t.people])];
+    // A page is decoded in full whenever ANYTHING on it changes, so every line it holds comes
+    // back on every re-read. An item already taken from THIS page is that same ink, not a new
+    // intent — including one the user has since ticked off. Without this, closing an action and
+    // then adding a line elsewhere on the page resurrects it the following night.
+    const fromThisPage = state.tasks.find(
+      (x) => x.source.notebook === source.notebook && x.source.pageIndex === source.pageIndex && similar(x.text, t.text),
+    );
+    if (fromThisPage) {
+      if (fromThisPage.status === "open" || fromThisPage.status === "carried") enrich(fromThisPage, t);
       changes.tasksMerged++;
       return "merged";
     }
-    // Reopen a done/dropped task written again? No: a re-written task is a new intent.
+    const dup = openTasks().find((x) => similar(x.text, t.text));
+    if (dup) {
+      enrich(dup, t);
+      changes.tasksMerged++;
+      return "merged";
+    }
+    // The same words written on a DIFFERENT page are a new intent, even if an older one was
+    // closed — that is the user writing it down again.
     const id = stableId(`task:${today}`, t.text);
     if (state.tasks.some((x) => x.id === id)) return "merged";
     state.tasks.push({

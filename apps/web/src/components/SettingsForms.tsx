@@ -79,7 +79,7 @@ export function OutputLocation({ initial }: { initial: boolean }) {
   const { state, error, save } = useSaver(async (v: boolean) => trpc.account.updateSettings.mutate({ outputToRoot: v }));
   return (
     <div className="stack">
-      <p className="muted" style={{ fontSize: 14 }}>Where Planner, Action List and Meeting Notes are written each night.</p>
+      <p className="muted" style={{ fontSize: 14 }}>Where Planner, Action List and Notes are written each night.</p>
       <label className="check">
         <input type="radio" name="outloc" checked={!toRoot} onChange={() => setToRoot(false)} />
         <span><strong>In a dayMarkable folder</strong><div className="hint">Tidy: everything dayMarkable writes lives in one place.</div></span>
@@ -199,7 +199,7 @@ export function ConventionsPicker({ initial, catalog }: { initial: Conventions; 
 
 // ------------------------------------------------------------ delivery address
 /**
- * Where the night's planner, action list and meeting notes are delivered as PDFs.
+ * Where the night's planner, action list and notes are delivered as PDFs.
  *
  * The address must confirm itself before anything is sent: it is typed by hand, and a slip like
  * "gmial.com" would otherwise mail this person's notes to a stranger every night (rule 10).
@@ -241,7 +241,7 @@ export function DeliveryEmail({
         <input id="delivery" type="email" placeholder="you@example.com" value={value} onChange={(e) => { setValue(e.target.value); setSent(false); }} />
       </div>
       <p className="kicker" style={{ marginTop: 6 }}>Documents</p>
-      <label className="check"><input type="checkbox" checked={docs.meetingNotes} onChange={(e) => setDocs({ ...docs, meetingNotes: e.target.checked })} /><span>Meeting Notes (PDF)</span></label>
+      <label className="check"><input type="checkbox" checked={docs.meetingNotes} onChange={(e) => setDocs({ ...docs, meetingNotes: e.target.checked })} /><span>Notes (PDF)</span></label>
       <label className="check"><input type="checkbox" checked={docs.actionList} onChange={(e) => setDocs({ ...docs, actionList: e.target.checked })} /><span>Action List (PDF)</span></label>
       <label className="check"><input type="checkbox" checked={docs.planner} onChange={(e) => setDocs({ ...docs, planner: e.target.checked })} /><span>Planner (PDF — day, week, month, quarter, year, inbox)</span></label>
       <p className="kicker" style={{ marginTop: 12 }}>Also</p>

@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LocalCacheStore } from "./cache.js";
 import { FixtureDecoder, FixtureRenderer, FixtureTabletProvider } from "./fixtures.js";
 import * as repo from "./repo.js";
-import { changeWindowStart, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, type PipelineDeps } from "./run.js";
+import { changeWindowStart, cleanStaleOutputs, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, type PipelineDeps } from "./run.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(here, "..", "..", "..", "fixtures", "notebooks");
@@ -63,7 +63,7 @@ describe("runPipeline (fixtures)", () => {
     expect(out.stats!.docsChanged).toBe(1);
     expect(out.stats!.pagesDecoded).toBe(1);
     expect(out.stats!.tasksFound).toBeGreaterThan(0);
-    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Meeting Notes", "Planner"]);
+    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Notes", "Planner"]);
     const docs = await handle.db.query.documents.findMany({ where: eq(schema.documents.userId, userId) });
     expect(docs).toHaveLength(3);
     const costs = await handle.db.query.runCosts.findMany();
@@ -150,6 +150,23 @@ describe("selection and windows", () => {
     expect(outputFolderFor({ outputToRoot: false })).toBe("/dayMarkable");
     expect(outputFolderFor({ outputToRoot: true })).toBe("/");
   });
+
+  it("still recognises the old Meeting Notes name, and removes it", async () => {
+    // Renaming the notebook must not leave the old file behind looking like the user's own —
+    // it would be decoded straight back into itself.
+    expect(isOurDocument(doc("/Notes", "pdf"))).toBe(true);
+    expect(isOurDocument(doc("/Meeting Notes", "pdf"))).toBe(true);
+
+    const deleted: string[] = [];
+    const tabletStub = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as never;
+    const inFolder = { ...doc("/dayMarkable/Meeting Notes", "pdf"), parentId: "folder" };
+    const current = { ...doc("/dayMarkable/Notes", "pdf"), parentId: "folder" };
+    const elsewhere = { ...doc("/Planner", "pdf"), parentId: "root" };
+    const removed = await cleanStaleOutputs(tabletStub, [inFolder, current, elsewhere], "folder", () => {});
+    // The legacy name goes even though it is in the right folder; the current one stays.
+    expect(deleted.sort()).toEqual(["Meeting Notes", "Planner"]);
+    expect(removed).toBe(2);
+  });
   it("treats the root as a selectable folder without swallowing everything under it", () => {
     const docs = [doc("/Loose Notes"), doc("/Another"), doc("/Work/Meetings"), doc("/Work/Deep/Nested")];
     // Root selected: only notebooks sitting directly in the root.
@@ -161,15 +178,27 @@ describe("selection and windows", () => {
     expect(inWatchedFolder("/Loose Notes", "/")).toBe(true);
     expect(inWatchedFolder("/Work/Meetings", "/")).toBe(false);
   });
-  it("decides page changes by hash, and by page timestamp on first sight", () => {
+  it("decides page changes by hash, and by page timestamp only on first sight of a document", () => {
     const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });
     const snap = new Map<string, string | null>([["p1", "h1"], ["p2", "h2"]]);
+    // Snapshotted pages: the hash decides, whatever the timestamp says.
     expect(pageChanged({ pageId: "p1", hash: "h1", modified: null }, snap, w)).toBe(false);
     expect(pageChanged({ pageId: "p2", hash: "h9", modified: "1000" }, snap, w)).toBe(true);
-    expect(pageChanged({ pageId: "new-old", hash: "h", modified: "1761573438256" }, snap, w)).toBe(false);
-    expect(pageChanged({ pageId: "new-fresh", hash: "h", modified: "1788288231187" }, snap, w)).toBe(true);
-    expect(pageChanged({ pageId: "new-unknown", hash: "h", modified: null }, snap, w)).toBe(true);
     expect(pageChanged({ pageId: "blank", hash: null, modified: null }, snap, w)).toBe(false);
+
+    // A page added to a notebook we already track is new ink: read it regardless of when the
+    // cloud claims it was written. This is the defect — page 2 of a tracked notebook was
+    // dropped because its timestamp did not parse the way this code assumed.
+    expect(pageChanged({ pageId: "added", hash: "h", modified: "1761573438256" }, snap, w)).toBe(true);
+    expect(pageChanged({ pageId: "added-secs", hash: "h", modified: "1757000000" }, snap, w)).toBe(true);
+
+    // First sight of a whole document: the timestamp keeps an old notebook's history out.
+    expect(pageChanged({ pageId: "new-old", hash: "h", modified: "1761573438256" }, snap, w, true)).toBe(false);
+    expect(pageChanged({ pageId: "new-fresh", hash: "h", modified: "1788288231187" }, snap, w, true)).toBe(true);
+    expect(pageChanged({ pageId: "new-unknown", hash: "h", modified: null }, snap, w, true)).toBe(true);
+    // Epoch SECONDS, which read as 1970 before and silently skipped the page.
+    expect(pageChanged({ pageId: "new-secs", hash: "h", modified: "1788288231" }, snap, w, true)).toBe(true);
+    expect(pageChanged({ pageId: "old-secs", hash: "h", modified: "1761573438" }, snap, w, true)).toBe(false);
   });
   it("opens the window at local midnight of the previous day once the account has run", () => {
     const w = changeWindowStart("2026-09-02", "America/New_York", new Date("2026-09-01T07:00:00Z"));

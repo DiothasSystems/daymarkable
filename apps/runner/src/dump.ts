@@ -29,7 +29,7 @@ const latest = runs.find((r) => r.status === "succeeded");
 if (latest) {
   const cache = new LocalCacheStore(path.join(STATE_DIR, fixture ? "cache-fixture" : "cache"), sealer);
   await mkdir(out, { recursive: true });
-  for (const n of ["Planner", "Action List", "Meeting Notes"]) {
+  for (const n of ["Planner", "Action List", "Notes"]) {
     if (await cache.exists(latest.id, `outputs/${n}.pdf`)) {
       await writeFile(path.join(out, `${n}.pdf`), await cache.get(latest.id, `outputs/${n}.pdf`));
       console.log(`wrote ${n}.pdf`);
