@@ -48,7 +48,7 @@ export default async function StartPage() {
             <p className="muted" style={{ fontSize: 14 }}>Enter the address you want your meeting notes sent to. We email a sign-in link that works once.</p>
             <LoginForm />
             <p className="meta" style={{ marginTop: 16 }}>EARLY ACCESS · INVITED ACCOUNTS ONLY DURING THE PREVIEW</p>
-            <p className="muted" style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>Already have an account? <Link href="/login">Sign in</Link>. By continuing you agree to the <Link href="/terms">terms</Link> and <Link href="/privacy">privacy promise</Link>.</p>
+            <p className="muted" style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>Already have an account? <Link href="/login">Login</Link>. By continuing you agree to the <Link href="/terms">terms</Link> and <Link href="/privacy">privacy promise</Link>.</p>
           </div>
         </div>
       </section>

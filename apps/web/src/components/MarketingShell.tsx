@@ -21,6 +21,7 @@ export async function MarketingShell({ children }: { children: React.ReactNode }
           <Link href="/#how">How it works</Link>
           <Link href="/#pages">Your pages</Link>
           <Link href="/product">Product</Link>
+          <Link href="/remarkable">The tablet</Link>
           <Link href="/pricing">Pricing</Link>
         </nav>
         <div className="mk-actions">
@@ -28,8 +29,8 @@ export async function MarketingShell({ children }: { children: React.ReactNode }
             <a href={`${serviceUrl()}/today`} className="btn small">Open dayMarkable</a>
           ) : (
             <>
-              <Link href="/login" className="mk-signin">Sign in</Link>
-              <Link href="/start" className="btn small">Start free</Link>
+              <Link href="/start" className="btn secondary small mk-start">Start free</Link>
+              <Link href="/login" className="btn small">Login</Link>
             </>
           )}
         </div>

@@ -46,6 +46,14 @@ export default function PricingPage() {
           <div className="mk-faq">
             <div className="mk-kicker">Questions</div>
             <details>
+              <summary>What do I need before I start?</summary>
+              <p>A reMarkable tablet (reMarkable 2, Paper Pro, or Paper Pro Move) signed in to a reMarkable account with cloud sync turned on, and Wi-Fi at night. dayMarkable reads your notebooks through the reMarkable cloud, never from the device itself, so a tablet that is offline or not connected to an account has nothing for us to read. Read about <Link href="/remarkable">the tablet and where to buy one</Link>.</p>
+            </details>
+            <details>
+              <summary>Do I need reMarkable's paid Connect subscription?</summary>
+              <p>No. dayMarkable needs only the cloud sync that comes with a free reMarkable account. Connect adds features such as unlimited cloud storage and handwriting conversion in reMarkable's own apps; none of them is required, and dayMarkable does not use them.</p>
+            </details>
+            <details>
               <summary>Where do I manage billing?</summary>
               <p>On the web, from your account page. Payments are handled by Stripe. The phone experience is the same responsive site, so there is no app-store subscription and no app-store markup.</p>
             </details>
