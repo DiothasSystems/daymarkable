@@ -264,6 +264,15 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
         // Fallback: match by label against items printed on that page.
         resolved = state.printed.find((p) => p.pageCode === pageCode && labelMatches(state, p, u.label));
       }
+      if (!resolved && u.label && (u.checked || u.struck)) {
+        // Last resort: the footer code was unreadable, or the row was reprinted under a new
+        // code since the page reached the tablet. A tick beside a line whose words match one
+        // printed item — and only one — is not ambiguous, so honour it rather than losing the
+        // user's pen stroke to a misread page reference.
+        const byLabel = state.printed.filter((p) => labelMatches(state, p, u.label));
+        const ids = new Set(byLabel.map((p) => p.itemId));
+        if (ids.size === 1) resolved = byLabel[0];
+      }
       if (u.margin_note && u.margin_note.trim()) {
         addInbox({
           id: stableId(`inbox:margin:${today}`, u.margin_note),
@@ -361,7 +370,14 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
     const pageUsesMarks = ex.tasks.some((x) => Boolean(x.source_convention));
 
     for (const t of ex.tasks) {
-      if (ex.page_kind === "planner" && !t.source_convention) continue; // printed rows are not new tasks
+      // On our own planner pages, a task is either an echo of a row we printed or something the
+      // user wrote on the "Add by hand" lines. Dropping every unmarked one lost the handwriting;
+      // dropping the echoes is what was actually wanted, so match against what we printed there.
+      if (ex.page_kind === "planner") {
+        const code = ex.planner_page_code;
+        const echo = state.printed.some((p) => (code === null || p.pageCode === code) && labelMatches(state, p, t.text));
+        if (echo) continue;
+      }
       // Marks decide — but only on a page that uses them. If the writer marked anything here,
       // the unmarked lines around it are notes by contrast: "Travel to Nokia Supplier Day" sat
       // beside asterisked actions and became one anyway. If nothing on the page is marked, the
@@ -369,7 +385,8 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
       //
       // Held lines go to the Inbox to be confirmed (rule 3), never silently onto a list they
       // can only leave by hand (rule 8).
-      const unmarked = pageUsesMarks && !t.source_convention;
+      // Writing on our own Add-by-hand line IS the intent: those go straight to the list.
+      const unmarked = ex.page_kind !== "planner" && pageUsesMarks && !t.source_convention;
       if (unmarked || t.confidence < opts.threshold) {
         addInbox({
           id: stableId(`inbox:task:${today}`, t.text),

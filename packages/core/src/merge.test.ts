@@ -545,3 +545,73 @@ describe("weekly Notes", () => {
     expect(buildWeekNotes(s, "2026-08-30").meetings.map((m) => m.id)).toEqual(["last", "first"]);
   });
 });
+
+describe("the Action List page is an input form", () => {
+  const plannerPage = (over: Partial<PageExtraction>) => ({
+    notebook: "Action List",
+    pageIndex: 0,
+    extraction: { ...emptyExtraction("planner"), planner_page_code: "dM/ACTIONS/2026-09-02/1", ...over },
+  });
+  const check = (over: Record<string, unknown> = {}) => ({
+    item_code: "A01", label: "Buy milk", checked: true, struck: false, margin_note: null,
+    written_due: null, written_priority: null, confidence: 0.9, ...over,
+  });
+
+  const withPrinted = () => {
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ tasks: [task("Buy milk")] })], opts);
+    const t = openActionList(r.state)[0]!;
+    return {
+      state: { ...r.state, printed: [{ pageCode: "dM/ACTIONS/2026-09-02/1", itemCode: "A01", itemType: "task" as const, itemId: t.id }] },
+      id: t.id,
+    };
+  };
+
+  it("a mark in the box completes the action", () => {
+    const { state } = withPrinted();
+    const r = mergeRun(state, [plannerPage({ checkbox_updates: [check()] })], opts);
+    expect(openActionList(r.state)).toHaveLength(0);
+    expect(r.state.tasks[0]!.status).toBe("done");
+    expect(r.changes.checkboxApplied).toBe(1);
+  });
+
+  it("honours a mark even when the page code was misread", () => {
+    // Losing a pen stroke to a misread footer is the worst outcome here: the words identify it.
+    const { state } = withPrinted();
+    const r = mergeRun(state, [plannerPage({ planner_page_code: null, checkbox_updates: [check({ item_code: null })] })], opts);
+    expect(r.state.tasks[0]!.status).toBe("done");
+  });
+
+  it("will not guess when the words match more than one printed item", () => {
+    // Two rows a bare label cannot tell apart: better to leave both open than close the wrong one.
+    const state = emptyWorkingSet();
+    const stored = (id: string, text: string) => ({
+      id, text, due: null, dueTime: null, priority: "normal" as const, kind: "action" as const, project: null,
+      people: [], confidence: 0.9, source: { notebook: "Work", pageIndex: 0, pageDate: null }, carriedCount: 0,
+      createdOn: "2026-09-01", status: "open" as const, sourceConvention: "asterisk", lastAgedOn: "2026-09-01",
+      completedOn: null,
+    });
+    state.tasks.push(stored("t1", "Send report to Dana"), stored("t2", "Send report to Marcus"));
+    state.printed.push(
+      { pageCode: "dM/ACTIONS/2026-09-02/1", itemCode: "A01", itemType: "task", itemId: "t1" },
+      { pageCode: "dM/ACTIONS/2026-09-02/1", itemCode: "A02", itemType: "task", itemId: "t2" },
+    );
+    const r = mergeRun(state, [plannerPage({ planner_page_code: null, checkbox_updates: [check({ item_code: null, label: "Send report" })] })], opts);
+    expect(openActionList(r.state)).toHaveLength(2);
+    expect(r.changes.checkboxUnresolved).toBe(1);
+  });
+
+  it("adds an action written on the Add-by-hand rows", () => {
+    // The defect: handwriting on our own form was dropped for having no asterisk.
+    const { state } = withPrinted();
+    const r = mergeRun(state, [plannerPage({ tasks: [task("Ring the supplier", { source_convention: null })] })], opts);
+    expect(openActionList(r.state).map((t) => t.text)).toContain("Ring the supplier");
+    expect(pendingInbox(r.state)).toHaveLength(0);
+  });
+
+  it("does not re-add a row it printed itself", () => {
+    const { state } = withPrinted();
+    const r = mergeRun(state, [plannerPage({ tasks: [task("Buy milk", { source_convention: null })] })], opts);
+    expect(openActionList(r.state)).toHaveLength(1);
+    expect(r.changes.tasksCreated).toBe(0);
+  });
+});

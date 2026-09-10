@@ -26,9 +26,12 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
 - Checkbox rows: a small square box, the item text, and a short monospace item code at the
   right edge of the row (A01, A02... actions; C01... carried-over items; I01... Inbox items to
   confirm; M01... meeting invites to confirm; W01... tasks on the Week page; F01... "Focus"
-  and goal rows). Report every box whose state you can see in checkbox_updates: checked = a
-  tick, cross, or fill inside the box; struck = the text is crossed out with a line through it
-  (that means "drop this"). Copy the item code exactly.
+  and goal rows). Report every box whose state you can see in checkbox_updates: checked = ANY
+  mark inside or across the box — a tick, a cross, a scribble, a dot, a diagonal line, a filled
+  square. The user marking the box means "this is done"; only a completely empty box is
+  unchecked. struck = the text is crossed out with a line through it (that means "drop this").
+  Copy the item code exactly, and copy the row's text into "label" even when you are sure of the
+  code — the label is what lets a mark be honoured if the code is misread.
 - WHEN / PRIORITY field: on the Action List, each row has a short ruled write-on line between
   the item text and the item code, under a column heading reading "WHEN / PRI". It is where the
   user assigns a date or a priority to an action that has neither. Read what is written there
@@ -46,6 +49,10 @@ export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look 
 - Ruled lines with no printed text (NOTES areas, blank goal lines, sidebar lines) are for
   handwriting: anything written there is a NEW task or note (emit it in tasks or notes, not in
   checkbox_updates), with the page's date as context.
+- The Action List ends with an "ADD BY HAND" label above empty checkbox rows. Anything written
+  on those rows is a NEW action the user is adding to the list — emit it in "tasks". It needs no
+  markup to count: writing it there is the instruction. Do not emit the empty rows themselves,
+  and do not report them in checkbox_updates.
 - Daily page: two columns. Left ACTIONS / CARRIED OVER / CONFIRM checkbox rows and a NOTES area
   of ruled lines; right a SCHEDULE of hourly rows with the hour printed down the left edge.
   A meeting appears as a light grey rounded BOX spanning its start and end times, with the
