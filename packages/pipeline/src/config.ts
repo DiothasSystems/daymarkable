@@ -27,6 +27,8 @@ export interface RunnerConfig {
   decodeModel: string;
   escalationModel: string | null;
   confidenceThreshold: number;
+  /** Give up on the Batch API discount after this long and finish on the standard API. */
+  batchTimeoutMinutes: number;
   renderServiceUrl: string;
   timezone: string;
   conventions: UserInkConventions;
@@ -44,6 +46,7 @@ export function loadConfig(): RunnerConfig {
     decodeModel: env.DECODE_MODEL || "claude-sonnet-5",
     escalationModel: env.DECODE_ESCALATION_MODEL === "" ? null : (env.DECODE_ESCALATION_MODEL ?? "claude-opus-5"),
     confidenceThreshold: Number(env.DECODE_CONFIDENCE_THRESHOLD ?? "0.7"),
+    batchTimeoutMinutes: Number(env.DECODE_BATCH_TIMEOUT_MINUTES ?? "45"),
     renderServiceUrl: env.RENDER_SERVICE_URL || "http://127.0.0.1:8787",
     timezone: env.USER_TIMEZONE || Intl.DateTimeFormat().resolvedOptions().timeZone,
     conventions,

@@ -23,12 +23,26 @@ export class RenderServiceError extends Error {
   }
 }
 
+/** A render that never answers must not hold the run open; a page is seconds of work. */
+const RENDER_TIMEOUT_MS = Number(process.env.RENDER_TIMEOUT_MS ?? 180_000);
+
 async function post<T>(url: string, body: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(RENDER_TIMEOUT_MS),
+    });
   } catch (err) {
-    throw new RenderServiceError(`render service unreachable at ${url} (start it with pnpm render:dev or pnpm render:up)`, err);
+    const timedOut = (err as Error).name === "TimeoutError";
+    throw new RenderServiceError(
+      timedOut
+        ? `render service did not answer within ${Math.round(RENDER_TIMEOUT_MS / 1000)}s at ${url}`
+        : `render service unreachable at ${url} (start it with pnpm render:dev or pnpm render:up)`,
+      err,
+    );
   }
   if (!res.ok) throw new RenderServiceError(`render service ${res.status}: ${await res.text()}`);
   return (await res.json()) as T;

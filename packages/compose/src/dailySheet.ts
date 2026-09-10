@@ -117,7 +117,8 @@ function laneOut(blocks: Block[]): number {
  */
 function meetingBlock(c: Canvas, b: Block, x: number, top: number, w: number, h: number): void {
   const f = c.fonts;
-  c.rect(x, top, w, h, { fill: b.draft ? undefined : SHADE, stroke: SHADE_BORDER, thickness: 3, radius: 6 });
+  // A draft meeting is outlined only, so an unconfirmed block reads differently from a real one.
+  c.rect(x, top, w, h, { ...(b.draft ? {} : { fill: SHADE }), stroke: SHADE_BORDER, thickness: 3, radius: 6 });
   let ty = top + MEET_PAD + SIDE_SIZE;
   c.text(c.fit(b.title, f.uiSemibold, SIDE_SIZE, w - MEET_PAD * 2), x + MEET_PAD, ty, { font: f.uiSemibold, size: SIDE_SIZE });
   ty += 30;

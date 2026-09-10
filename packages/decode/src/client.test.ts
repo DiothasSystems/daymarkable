@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseExtraction } from "./client.js";
+import { AnthropicDecoder, parseExtraction, type DecodePageInput } from "./client.js";
 import { STARTER_CONVENTIONS, describeConventions, validateConventions } from "./conventions.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { costUsd } from "./pricing.js";
@@ -72,5 +72,97 @@ describe("pricing", () => {
     expect(costUsd(u, "claude-haiku-4-5", false)).toBeCloseTo(1.1);
     expect(costUsd(u, "claude-haiku-4-5", true)).toBeCloseTo(0.55);
     expect(costUsd(u, "unknown-model", false)).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// A nightly run has to land before the user wakes up. The Batch API is allowed 24h, so the
+// decoder must be able to give up on the discount rather than hold the run open all day.
+
+const reply = (body: unknown) => ({
+  content: [{ type: "text", text: JSON.stringify(body) }],
+  stop_reason: "end_turn",
+  usage: { input_tokens: 10, output_tokens: 20 },
+});
+
+function inputPage(key: string): DecodePageInput {
+  return {
+    key,
+    images: [new Uint8Array([1, 2, 3])],
+    context: { notebookName: "N", notebookPath: "/N", pageIndex: 0, pageCount: 1, todayIso: "2026-09-10", timezone: "UTC" },
+  };
+}
+
+function decoderWith(client: unknown, batchTimeoutMinutes: number): AnthropicDecoder {
+  return new AnthropicDecoder(
+    {
+      model: "claude-sonnet-5",
+      escalationModel: null,
+      confidenceThreshold: 0.7,
+      conventions: STARTER_CONVENTIONS,
+      batchTimeoutMinutes,
+    },
+    client as never,
+  );
+}
+
+describe("batch decoding", () => {
+  it("cancels a batch that outlives its deadline and finishes on the standard API", async () => {
+    let cancelled = 0;
+    let standardCalls = 0;
+    const client = {
+      messages: {
+        create: async () => {
+          standardCalls++;
+          return reply(good);
+        },
+        batches: {
+          create: async () => ({ id: "msgbatch_stuck", processing_status: "in_progress", request_counts: {} }),
+          retrieve: async () => {
+            throw new Error("must not keep polling past the deadline");
+          },
+          cancel: async () => {
+            cancelled++;
+            return {};
+          },
+          results: async () => {
+            throw new Error("must not read results of a cancelled batch");
+          },
+        },
+      },
+    };
+    const results = await decoderWith(client, 0).decodePages([inputPage("a"), inputPage("b")], "batch");
+    expect(cancelled).toBe(1);
+    expect(standardCalls).toBe(2);
+    expect(results.map((r) => r.extraction?.tasks[0]?.text)).toEqual(["call Steve", "call Steve"]);
+    // Metering has to show the full price actually paid, not the discount that was abandoned.
+    expect(results.flatMap((r) => r.usage.map((u) => u.mode))).toEqual(["standard", "standard"]);
+  });
+
+  it("reads the batch results when it ends in time", async () => {
+    let cancelled = 0;
+    const client = {
+      messages: {
+        create: async () => {
+          throw new Error("must not fall back while the batch is healthy");
+        },
+        batches: {
+          create: async () => ({ id: "msgbatch_ok", processing_status: "ended", request_counts: {} }),
+          retrieve: async () => ({ id: "msgbatch_ok", processing_status: "ended", request_counts: {} }),
+          cancel: async () => {
+            cancelled++;
+            return {};
+          },
+          results: async () => [
+            { custom_id: "p0", result: { type: "succeeded", message: reply(good) } },
+            { custom_id: "p1", result: { type: "succeeded", message: reply(good) } },
+          ],
+        },
+      },
+    };
+    const results = await decoderWith(client, 45).decodePages([inputPage("a"), inputPage("b")], "batch");
+    expect(cancelled).toBe(0);
+    expect(results.map((r) => r.key)).toEqual(["a", "b"]);
+    expect(results.flatMap((r) => r.usage.map((u) => u.mode))).toEqual(["batch", "batch"]);
   });
 });

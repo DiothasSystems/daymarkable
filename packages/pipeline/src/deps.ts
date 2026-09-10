@@ -126,6 +126,8 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
     conventions: validateConventions(user.settings.conventions),
     lexicon: user.settings.lexicon,
     calibration,
+    batchTimeoutMinutes: rt.config.batchTimeoutMinutes,
+    log,
   });
   if (calibration) log(`decode context: calibration sample + ${user.settings.lexicon.length} lexicon term(s)`);
   return { db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet: await tabletFor(rt, userId), renderer, decoder, mail: rt.mail, decodeModel: model, log };

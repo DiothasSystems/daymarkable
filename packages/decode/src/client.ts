@@ -18,6 +18,15 @@ export interface DecodeConfig {
   maxTokens?: number;
   /** Parallelism for standard-API calls (on-demand runs). */
   concurrency?: number;
+  /**
+   * How long to wait on a batch before giving up on the 50% discount. The Batch API is
+   * allowed 24h, but a 3AM run has to land before the user wakes up — past this deadline the
+   * batch is cancelled and its pages are re-sent on the standard API at full price. Better a
+   * night that costs a few cents more than a night with no notebooks on the tablet.
+   */
+  batchTimeoutMinutes?: number;
+  /** Progress line during long waits. Counts and ids only, never page content (rule 5). */
+  log?: (message: string) => void;
 }
 
 export interface DecodePageInput {
@@ -88,16 +97,24 @@ function textOf(message: Anthropic.Messages.Message): string {
     .join("\n");
 }
 
+/** Batch poll cadence, progress-report cadence, and how many consecutive poll failures to ride out. */
+const BATCH_POLL_MS = 30_000;
+const BATCH_REPORT_MS = 5 * 60_000;
+const BATCH_POLL_MISSES = 5;
+const DEFAULT_BATCH_TIMEOUT_MINUTES = 45;
+
 export class AnthropicDecoder implements Decoder {
   private readonly client: Anthropic;
   private readonly system: string;
   private readonly maxTokens: number;
+  private readonly batchTimeoutMs: number;
 
   constructor(
     private readonly config: DecodeConfig,
     client?: Anthropic,
   ) {
     this.client = client ?? new Anthropic();
+    this.batchTimeoutMs = (config.batchTimeoutMinutes ?? DEFAULT_BATCH_TIMEOUT_MINUTES) * 60_000;
     this.system = buildSystemPrompt({
       conventions: config.conventions,
       ...(config.lexicon ? { lexicon: config.lexicon } : {}),
@@ -218,15 +235,50 @@ export class AnthropicDecoder implements Decoder {
     return results;
   }
 
+  /**
+   * Poll until the batch ends. Returns false if the deadline passed first, so the caller can
+   * fall back. Transient poll failures are ridden out — a network blip must not discard a
+   * batch that has already been paid for.
+   */
+  private async awaitBatch(batch: Anthropic.Messages.MessageBatch, pageCount: number): Promise<boolean> {
+    const log = this.config.log ?? (() => {});
+    const id = batch.id.slice(-8);
+    const deadline = Date.now() + this.batchTimeoutMs;
+    let status = batch;
+    let misses = 0;
+    let nextReport = Date.now() + BATCH_REPORT_MS;
+    while (status.processing_status !== "ended") {
+      if (Date.now() >= deadline) {
+        log(`decode: batch ${id} still ${status.processing_status} after ${Math.round(this.batchTimeoutMs / 60_000)}m — cancelling and re-sending ${pageCount} page(s) on the standard API`);
+        return false;
+      }
+      await new Promise((r) => setTimeout(r, BATCH_POLL_MS));
+      try {
+        status = await this.client.messages.batches.retrieve(batch.id);
+        misses = 0;
+      } catch (err) {
+        if (++misses > BATCH_POLL_MISSES) throw err;
+        continue;
+      }
+      if (Date.now() >= nextReport) {
+        const c = status.request_counts;
+        log(`decode: batch ${id} ${status.processing_status}, ${c.succeeded}/${pageCount} done, ${c.processing} processing, ${c.errored} errored`);
+        nextReport = Date.now() + BATCH_REPORT_MS;
+      }
+    }
+    return true;
+  }
+
   private async runBatch(pages: readonly DecodePageInput[], model: string): Promise<DecodePageResult[]> {
     const ids = pages.map((_, i) => `p${i}`);
     const batch = await this.client.messages.batches.create({
       requests: pages.map((page, i) => ({ custom_id: ids[i]!, params: this.params(page, model) })),
     });
-    let status = batch;
-    while (status.processing_status !== "ended") {
-      await new Promise((r) => setTimeout(r, 30_000));
-      status = await this.client.messages.batches.retrieve(batch.id);
+    // A batch that never ends must not hold the run open forever: past the deadline, cancel it
+    // and pay standard-API price so the night still produces notebooks.
+    if (!(await this.awaitBatch(batch, pages.length))) {
+      await this.client.messages.batches.cancel(batch.id).catch(() => {});
+      return this.runStandard(pages, model);
     }
     const byId = new Map<string, DecodePageResult>();
     for await (const result of await this.client.messages.batches.results(batch.id)) {

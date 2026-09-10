@@ -138,9 +138,9 @@ describe("mergeRun", () => {
   it("drops stale past events and dedupes same-day titles", () => {
     const page = notesPage({
       events: [
-        { title: "Dentist", date: "2026-08-20", start_time: "14:00", end_time: null, location: null, people: [], confidence: 0.9 },
-        { title: "Board meeting", date: "2026-09-05", start_time: "09:00", end_time: null, location: null, people: [], confidence: 0.9 },
-        { title: "Board Meeting!", date: "2026-09-05", start_time: null, end_time: null, location: null, people: [], confidence: 0.9 },
+        { title: "Dentist", date: "2026-08-20", start_time: "14:00", end_time: null, location: null, people: [], recurrence: null, confidence: 0.9 },
+        { title: "Board meeting", date: "2026-09-05", start_time: "09:00", end_time: null, location: null, people: [], recurrence: null, confidence: 0.9 },
+        { title: "Board Meeting!", date: "2026-09-05", start_time: null, end_time: null, location: null, people: [], recurrence: null, confidence: 0.9 },
       ],
     });
     const r = mergeRun(emptyWorkingSet(), [page], opts);
@@ -154,7 +154,7 @@ describe("views", () => {
     expect(startOfWeek("2026-09-06", 0)).toBe("2026-09-06");
     const r = mergeRun(
       emptyWorkingSet(),
-      [notesPage({ tasks: [task("Buy milk", { due: "2026-09-04" })], events: [{ title: "Dentist", date: "2026-09-02", start_time: "14:00", end_time: null, location: null, people: [], confidence: 0.9 }] })],
+      [notesPage({ tasks: [task("Buy milk", { due: "2026-09-04" })], events: [{ title: "Dentist", date: "2026-09-02", start_time: "14:00", end_time: null, location: null, people: [], recurrence: null, confidence: 0.9 }] })],
       opts,
     );
     const vo = { today: "2026-09-02", timezone: "UTC", generatedAt: "2026-09-02T03:00:00Z", runLabel: "nightly" };
@@ -174,7 +174,7 @@ describe("views", () => {
 });
 
 describe("undated events", () => {
-  const heading = { title: "Meetings in Sacramento", date: null, start_time: null, end_time: null, location: null, people: [], confidence: 0.95 };
+  const heading = { title: "Meetings in Sacramento", date: null, start_time: null, end_time: null, location: null, people: [], recurrence: null, confidence: 0.95 };
 
   it("routes an event with no date to the Inbox instead of the calendar", () => {
     // A heading line reads like an event but has no date. Left as one it would show on the day

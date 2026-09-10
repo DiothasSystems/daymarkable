@@ -63,9 +63,9 @@ describe("assembleDailySheet", () => {
     const ex = {
       ...emptyExtraction("notes"),
       events: [
-        { title: "Dentist", date: "2026-09-02", start_time: "14:00", end_time: null, location: null, people: [], confidence: 0.9 },
-        { title: "Board", date: "2026-09-05", start_time: "09:00", end_time: null, location: null, people: [], confidence: 0.9 },
-        { title: "Far", date: "2026-10-05", start_time: null, end_time: null, location: null, people: [], confidence: 0.9 },
+        { title: "Dentist", date: "2026-09-02", start_time: "14:00", end_time: null, location: null, people: [], recurrence: null, confidence: 0.9 },
+        { title: "Board", date: "2026-09-05", start_time: "09:00", end_time: null, location: null, people: [], recurrence: null, confidence: 0.9 },
+        { title: "Far", date: "2026-10-05", start_time: null, end_time: null, location: null, people: [], recurrence: null, confidence: 0.9 },
       ],
     };
     const sheet = assembleDailySheet([{ notebook: "N", pageIndex: 0, extraction: ex }], opts);

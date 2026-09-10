@@ -52,6 +52,12 @@ services:
       DECODE_ESCALATION_MODEL: ${DECODE_ESCALATION_MODEL:-claude-opus-5}
       DECODE_MODEL_ROTATION: ${DECODE_MODEL_ROTATION:-}
       DECODE_CONFIDENCE_THRESHOLD: ${DECODE_CONFIDENCE_THRESHOLD:-0.7}
+      # A nightly batch that has not ended by then is cancelled and re-sent at standard price,
+      # so a slow batch costs a few cents instead of the night's notebooks.
+      DECODE_BATCH_TIMEOUT_MINUTES: ${DECODE_BATCH_TIMEOUT_MINUTES:-45}
+      # Per-call deadline for the reMarkable cloud, which sometimes answers a connection and
+      # then goes quiet.
+      RMAPI_TIMEOUT_MS: ${RMAPI_TIMEOUT_MS:-120000}
       EMAIL_API_KEY: ${EMAIL_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-dayMarkable <notes@daymarkable.app>}
       USER_EMAIL: ${USER_EMAIL:?set USER_EMAIL (the registered login address)}
