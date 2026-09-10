@@ -5,7 +5,7 @@
  * Idempotent per (user, local-date[, seq]) (rule 4/11). Only changed pages are processed
  * (rule 2). Nothing here logs note content — counts, hashes, ids only (rule 5).
  */
-import { mergeRun, buildOutputSet, type MergePage, type PrintedItem } from "@daymarkable/core";
+import { mergeRun, buildOutputSet, buildWeekNotes, notesWeekStart, type MergePage, type PrintedItem } from "@daymarkable/core";
 import { composeActionList, composeMeetingNotes, composePlanner } from "@daymarkable/compose";
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
 import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
@@ -345,11 +345,15 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
 
     // ---- 5. compose -----------------------------------------------------------------
     const generatedAt = now().setZone(tz).toISO()!;
+    // With weekly archiving on, the live Notes notebook holds this week only; everything older
+    // has been filed to the tablet, so it stays short and today's notes are at the top.
+    const weekStart = settings.weeklyNotesArchive ? notesWeekStart(localDate) : null;
     const views = buildOutputSet(merged.state, {
       today: localDate,
       timezone: tz,
       generatedAt,
       runLabel,
+      notesWeekStart: weekStart,
       stats: { pagesRead: stats.pagesDecoded, tasksFound: stats.tasksFound, eventsFound: stats.eventsFound, meetingRequestsFound: stats.meetingRequestsFound, notesFound: stats.meetingsFound },
     });
     const planner = await composePlanner(views.planner, merged.state.tasks);
@@ -374,6 +378,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       const folder = await deps.tablet.ensureFolder(target);
       const archive = await deps.tablet.ensureFolder(ARCHIVE_FOLDER);
       await rotateArchive(deps, tree.documents, folder, archive, localDate, log);
+      if (weekStart) await archiveFinishedWeeks(deps, merged.state, tree.documents, archive, weekStart, localDate, generatedAt, log);
       await cleanStaleOutputs(deps.tablet, tree.documents, folder.id, log);
       for (const o of outputs) {
         const res = await deps.tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true });
@@ -479,6 +484,52 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     await repo.finishRun(db, run.id, "failed", stats, msg);
     log(`run ${run.id.slice(0, 8)} failed: ${msg}`);
     return { runId: run.id, status: "failed", localDate, stats, error: msg };
+  }
+}
+
+/** "Notes - Week of 09-07-2026" — the Sunday that began the week. */
+export function weekNotesName(weekStart: string): string {
+  const [y, m, d] = weekStart.split("-");
+  // Dashes, not slashes: a document name becomes part of its path, and a "/" inside one would
+  // read as a folder boundary everywhere paths are compared.
+  return `Notes - Week of ${m}-${d}-${y}`;
+}
+
+/**
+ * File each finished week's notes onto the tablet as its own notebook, once.
+ *
+ * Idempotent by existence (rule 4): a week already on the tablet is skipped, so re-running a
+ * Sunday cannot produce a second copy and no state has to be tracked to know what was archived.
+ * Archived notebooks live under /dayMarkable/Archive, which the run never reads back — filing
+ * them anywhere else would feed them into the next decode as if they were the user's own notes.
+ */
+async function archiveFinishedWeeks(
+  deps: PipelineDeps,
+  state: Parameters<typeof buildWeekNotes>[0],
+  docs: readonly TabletDocument[],
+  archive: TabletFolder,
+  currentWeekStart: string,
+  localDate: string,
+  generatedAt: string,
+  log: (m: string) => void,
+): Promise<void> {
+  const weeks = new Set<string>();
+  for (const m of state.meetings) if (m.date && m.date < currentWeekStart) weeks.add(notesWeekStart(m.date));
+  const existing = new Set(docs.filter((d) => d.parentId === archive.id).map((d) => d.name));
+
+  for (const week of [...weeks].sort()) {
+    const name = weekNotesName(week);
+    if (existing.has(name)) continue;
+    const model = buildWeekNotes(state, week);
+    if (model.meetings.length === 0) continue;
+    try {
+      const composed = await composeMeetingNotes({ model, date: localDate, generatedAt, runLabel: `week of ${week}` });
+      await deps.tablet.uploadPdf(name, composed.pdf, archive, { replace: true });
+      log(`notes archive: filed "${name}" (${model.meetings.length} note${model.meetings.length === 1 ? "" : "s"}, ${composed.pageCount}p)`);
+    } catch (err) {
+      // Never fail the night over an archive copy: the live notebook still goes to the tablet.
+      log(`notes archive skipped for ${week}: ${(err as Error).message}`);
+    }
   }
 }
 

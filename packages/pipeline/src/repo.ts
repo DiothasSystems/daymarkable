@@ -35,6 +35,7 @@ export function defaultSettings(): UserSettings {
     deliveryEmail: null,
     deliveryVerifiedAt: null,
     deliveryDocuments: { planner: true, actionList: true, meetingNotes: true },
+    weeklyNotesArchive: true,
     confidenceThreshold: 0.7,
     autoSendInvites: false,
     decodeModel: null,
@@ -60,6 +61,7 @@ export function normalizeSettings(raw: Partial<UserSettings> | null | undefined)
     lexicon: raw?.lexicon ?? d.lexicon,
     deliveryEmail: raw?.deliveryEmail ?? d.deliveryEmail,
     deliveryDocuments: { ...d.deliveryDocuments, ...(raw?.deliveryDocuments ?? {}) },
+    weeklyNotesArchive: raw?.weeklyNotesArchive ?? d.weeklyNotesArchive,
     deliveryVerifiedAt: raw?.deliveryVerifiedAt ?? d.deliveryVerifiedAt,
     profile: raw?.profile ?? d.profile,
   };

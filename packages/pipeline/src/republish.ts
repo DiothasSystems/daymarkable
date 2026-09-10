@@ -7,7 +7,7 @@
  * an on-demand sync (whose quota exists to bound TOKEN spend) on a job that calls no model
  * would be the wrong trade. No API cost, no quota, no snapshot writes.
  */
-import { buildOutputSet, type PrintedItem } from "@daymarkable/core";
+import { buildOutputSet, notesWeekStart, type PrintedItem } from "@daymarkable/core";
 import { composeActionList, composeMeetingNotes, composePlanner } from "@daymarkable/compose";
 import { schema, type Db, type Sealer } from "@daymarkable/db";
 import type { TabletProvider } from "@daymarkable/tablet";
@@ -41,7 +41,14 @@ export async function republishNotebooks(deps: RepublishDeps, userId: string): P
   const generatedAt = nowLocal.toISO()!;
 
   const state = await repo.loadWorkingSet(db, deps.sealer, userId);
-  const views = buildOutputSet(state, { today: localDate, timezone: tz, generatedAt, runLabel: "updated" });
+  // Same week filter as a run, so a republish never resurrects notes the archive already took.
+  const views = buildOutputSet(state, {
+    today: localDate,
+    timezone: tz,
+    generatedAt,
+    runLabel: "updated",
+    notesWeekStart: user.settings.weeklyNotesArchive ? notesWeekStart(localDate) : null,
+  });
   const planner = await composePlanner(views.planner, state.tasks);
   const actionList = await composeActionList({ model: views.actionList, date: localDate, generatedAt, runLabel: "updated" });
   const meetingNotes = await composeMeetingNotes({ model: views.meetingNotes, date: localDate, generatedAt, runLabel: "updated" });

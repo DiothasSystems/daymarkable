@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LocalCacheStore } from "./cache.js";
 import { FixtureDecoder, FixtureRenderer, FixtureTabletProvider } from "./fixtures.js";
 import * as repo from "./repo.js";
-import { changeWindowStart, cleanStaleOutputs, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, type PipelineDeps } from "./run.js";
+import { changeWindowStart, cleanStaleOutputs, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, weekNotesName, type PipelineDeps } from "./run.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(here, "..", "..", "..", "fixtures", "notebooks");
@@ -213,5 +213,23 @@ describe("selection and windows", () => {
   it("reaches further back when catching up after a missed night", () => {
     const catchUp = changeWindowStart("2026-09-05", "America/New_York", new Date("2026-09-02T07:30:00Z"));
     expect(catchUp.toUTC().toISO()).toBe("2026-09-02T06:30:00.000Z");
+  });
+});
+
+describe("weekly notes archive naming", () => {
+  it("names a week by the Sunday that began it, with dashes", () => {
+    // Not slashes: a document name becomes part of its path, and "/" would read as a folder
+    // boundary everywhere paths are compared.
+    expect(weekNotesName("2026-09-06")).toBe("Notes - Week of 09-06-2026");
+    expect(weekNotesName("2026-12-27")).toBe("Notes - Week of 12-27-2026");
+    expect(weekNotesName("2026-09-06")).not.toContain("/");
+  });
+
+  it("archived weeks are never read back in", () => {
+    // Filing them anywhere the run reads would feed them into the next decode as if they were
+    // the user's own notes.
+    const archived = { id: "a", hash: "h", name: "Notes - Week of 09-06-2026", path: "/dayMarkable/Archive/Notes - Week of 09-06-2026", parentId: "arch", fileType: "pdf" as const, lastModified: null, pageCount: 0 };
+    expect(selectDocuments([archived], { watchFolders: [], includePdfs: true })).toHaveLength(0);
+    expect(isOurDocument(archived)).toBe(false);
   });
 });

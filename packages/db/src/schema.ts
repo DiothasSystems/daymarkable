@@ -68,6 +68,12 @@ export interface UserSettings {
   deliveryVerifiedAt: string | null;
   /** Which of the three notebooks are attached to the delivery. All on by default. */
   deliveryDocuments: { planner: boolean; actionList: boolean; meetingNotes: boolean };
+  /**
+   * Close the Notes notebook each week: the Sunday run files the week that just ended into the
+   * tablet's archive as "Notes - Week of MM-DD-YYYY" and the live notebook starts fresh. Off
+   * keeps every note in one ever-growing notebook.
+   */
+  weeklyNotesArchive: boolean;
   confidenceThreshold: number;
   autoSendInvites: boolean;
   /** Decode model config for this user (null = global default from env). */

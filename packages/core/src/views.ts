@@ -15,6 +15,11 @@ export interface ViewOptions {
   runLabel: string;
   /** 1 = Monday (default), 0 = Sunday. */
   weekStartsOn?: 0 | 1;
+  /**
+   * When set, the live Notes notebook carries only notes from this week onward; earlier ones
+   * have been archived to the tablet. Null keeps every note in one notebook.
+   */
+  notesWeekStart?: string | null;
   stats?: DailySheetModel["stats"];
 }
 
@@ -284,9 +289,33 @@ export function buildActionList(state: WorkingSet, opts: ViewOptions): ActionLis
   return { groups, openCount: tasks.length, completedRecently };
 }
 
-export function buildMeetingNotes(state: WorkingSet): MeetingNotesModel {
-  const meetings = [...state.meetings].sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || (a.time ?? "").localeCompare(b.time ?? "") || a.topic.localeCompare(b.topic));
+/** Notes weeks run Sunday to Saturday: the Sunday run closes the week that just ended. */
+export function notesWeekStart(iso: string): string {
+  return startOfWeek(iso, 0);
+}
+
+/** Newest first — today's notes are what you open the notebook for. */
+function newestFirst(a: Meeting, b: Meeting): number {
+  return (b.date ?? "").localeCompare(a.date ?? "") || (b.time ?? "").localeCompare(a.time ?? "") || a.topic.localeCompare(b.topic);
+}
+
+export interface MeetingNotesOptions {
+  /** Keep only this week's notes in the live notebook; earlier ones are archived. */
+  weekStart?: string | null;
+}
+
+export function buildMeetingNotes(state: WorkingSet, opts: MeetingNotesOptions = {}): MeetingNotesModel {
+  const from = opts.weekStart ?? null;
+  // An undated note has no week to belong to, so it stays in the live notebook rather than
+  // being filed into a week it may not have happened in.
+  const meetings = state.meetings.filter((m) => from === null || m.date === null || m.date >= from).sort(newestFirst);
   return { meetings };
+}
+
+/** The notes belonging to one Sunday-to-Saturday week, for the archived notebook. */
+export function buildWeekNotes(state: WorkingSet, weekStart: string): MeetingNotesModel {
+  const end = addDays(weekStart, 6);
+  return { meetings: state.meetings.filter((m) => m.date !== null && m.date >= weekStart && m.date <= end).sort(newestFirst) };
 }
 
 export function buildOutputSet(state: WorkingSet, opts: ViewOptions): OutputSet {
@@ -302,6 +331,6 @@ export function buildOutputSet(state: WorkingSet, opts: ViewOptions): OutputSet 
       inbox: { items: pendingInbox(state), meetingRequests: draftedMeetingRequests(state) },
     },
     actionList: buildActionList(state, opts),
-    meetingNotes: buildMeetingNotes(state),
+    meetingNotes: buildMeetingNotes(state, { weekStart: opts.notesWeekStart ?? null }),
   };
 }

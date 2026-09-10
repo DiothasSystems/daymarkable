@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { applyDecision } from "./decisions.js";
 import { activeEvents, mergeRun, openActionList, pendingInbox } from "./merge.js";
 import { emptyWorkingSet, type WorkingSet } from "./state.js";
-import { buildActionList, buildMonth, buildOutputSet, buildWeek, startOfWeek } from "./views.js";
+import { buildActionList, buildMeetingNotes, buildMonth, buildOutputSet, buildWeek, buildWeekNotes, notesWeekStart, startOfWeek } from "./views.js";
 
 const task = (text: string, extra: Partial<ExtractedTask> = {}): ExtractedTask => ({
   text,
@@ -490,5 +490,58 @@ describe("marks decide, on pages that use them", () => {
     const item = pendingInbox(r.state)[0]!;
     applyDecision(r.state, { itemType: "inbox", itemId: item.id, action: "complete" }, opts.today);
     expect(openActionList(r.state).map((t) => t.text).sort()).toEqual(["Call Dana", "Travel to Nokia Supplier Day"]);
+  });
+});
+
+describe("weekly Notes", () => {
+  const meeting = (id: string, date: string | null, topic = `Topic ${id}`, time: string | null = null) => ({
+    id, topic, date, time, attendees: [], text: "body", decisions: [], actions: [], confidence: 0.9,
+    source: { notebook: "Work", pageIndex: 0, pageDate: null },
+  });
+  const withMeetings = (...ms: ReturnType<typeof meeting>[]) => {
+    const s = emptyWorkingSet();
+    s.meetings.push(...ms);
+    return s;
+  };
+
+  it("puts the newest note first", () => {
+    const s = withMeetings(meeting("a", "2026-09-07"), meeting("c", "2026-09-09"), meeting("b", "2026-09-08"));
+    expect(buildMeetingNotes(s).meetings.map((m) => m.date)).toEqual(["2026-09-09", "2026-09-08", "2026-09-07"]);
+  });
+
+  it("orders same-day notes by time, latest first", () => {
+    const s = withMeetings(meeting("a", "2026-09-09", "Morning", "09:00"), meeting("b", "2026-09-09", "Afternoon", "15:00"));
+    expect(buildMeetingNotes(s).meetings.map((m) => m.topic)).toEqual(["Afternoon", "Morning"]);
+  });
+
+  it("weeks run Sunday to Saturday", () => {
+    // 2026-09-09 is a Wednesday; its week began Sunday the 6th.
+    expect(notesWeekStart("2026-09-09")).toBe("2026-09-06");
+    expect(notesWeekStart("2026-09-06")).toBe("2026-09-06"); // the Sunday itself
+    expect(notesWeekStart("2026-09-12")).toBe("2026-09-06"); // Saturday, same week
+    expect(notesWeekStart("2026-09-13")).toBe("2026-09-13"); // next Sunday, new week
+  });
+
+  it("the live notebook holds this week only when archiving is on", () => {
+    const s = withMeetings(meeting("old", "2026-09-02"), meeting("new", "2026-09-09"));
+    expect(buildMeetingNotes(s, { weekStart: "2026-09-06" }).meetings.map((m) => m.id)).toEqual(["new"]);
+    // Off keeps everything in one notebook.
+    expect(buildMeetingNotes(s).meetings).toHaveLength(2);
+  });
+
+  it("keeps an undated note in the live notebook rather than filing it into a guessed week", () => {
+    const s = withMeetings(meeting("undated", null), meeting("new", "2026-09-09"));
+    expect(buildMeetingNotes(s, { weekStart: "2026-09-06" }).meetings.map((m) => m.id).sort()).toEqual(["new", "undated"]);
+    expect(buildWeekNotes(s, "2026-08-30").meetings).toHaveLength(0);
+  });
+
+  it("a week's archive holds exactly that Sunday-to-Saturday span", () => {
+    const s = withMeetings(
+      meeting("before", "2026-08-29"), // Saturday, previous week
+      meeting("first", "2026-08-30"), // Sunday
+      meeting("last", "2026-09-05"), // Saturday
+      meeting("after", "2026-09-06"), // next Sunday
+    );
+    expect(buildWeekNotes(s, "2026-08-30").meetings.map((m) => m.id)).toEqual(["last", "first"]);
   });
 });

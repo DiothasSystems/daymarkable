@@ -74,6 +74,32 @@ export function PairingWizard({ tablet, onPaired }: { tablet: Account["tablet"];
 
 // ------------------------------------------------------------ watch folders
 /** Where the generated notebooks land on the tablet. */
+/** Close the Notes notebook each week and file the finished week onto the tablet. */
+export function WeeklyNotesArchive({ initial }: { initial: boolean }) {
+  const [on, setOn] = useState(initial);
+  const { state, error, save } = useSaver(async (v: boolean) => trpc.account.updateSettings.mutate({ weeklyNotesArchive: v }));
+  return (
+    <div className="stack">
+      <p className="muted" style={{ fontSize: 14 }}>
+        Newest notes are always at the top of the Notes notebook. With this on, each Sunday&apos;s run files the week
+        that just ended into <span className="mono">dayMarkable/Archive</span> as{" "}
+        <span className="mono">Notes - Week of MM-DD-YYYY</span>, and the live notebook starts the new week empty.
+      </p>
+      <label className="check">
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        <span>
+          File a notebook per week
+          <div className="hint">Off keeps every note in one notebook, which grows without limit.</div>
+        </span>
+      </label>
+      <div className="row">
+        <button onClick={() => void save(on)} disabled={state === "saving"}>Save</button>
+        <Status state={state} error={error} />
+      </div>
+    </div>
+  );
+}
+
 export function OutputLocation({ initial }: { initial: boolean }) {
   const [toRoot, setToRoot] = useState(initial);
   const { state, error, save } = useSaver(async (v: boolean) => trpc.account.updateSettings.mutate({ outputToRoot: v }));
