@@ -66,6 +66,8 @@ export type TabletProviderErrorCode =
   | "schema_drift"
   | "network"
   | "conflict"
+  /** The cloud asked us to slow down (429) and kept asking after every retry. */
+  | "rate_limit"
   | "unknown";
 
 /** Every failure inside a provider surfaces as this typed error (CLAUDE.md Gotchas). */

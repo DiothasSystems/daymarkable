@@ -42,6 +42,8 @@ export async function pairWithCode(code: string): Promise<string> {
  * The thrown Error is plain: the caller's own catch adds the context and `wrap` classifies it.
  */
 const CALL_TIMEOUT_MS = Number(process.env.RMAPI_TIMEOUT_MS ?? 120_000);
+const CALL_ATTEMPTS = Number(process.env.RMAPI_ATTEMPTS ?? 5);
+const CALL_BACKOFF_MS = Number(process.env.RMAPI_BACKOFF_MS ?? 3_000);
 
 export function withTimeout<T>(work: Promise<T>, ms = CALL_TIMEOUT_MS): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
@@ -51,6 +53,42 @@ export function withTimeout<T>(work: Promise<T>, ms = CALL_TIMEOUT_MS): Promise<
   return Promise.race([work, limit]).finally(() => clearTimeout(timer));
 }
 
+/**
+ * Worth another go: a rate limit, a server-side wobble, or a call that hung. A 401, a 404 or a
+ * schema mismatch will say the same thing however many times we ask.
+ */
+export function retryableCloudError(err: unknown): boolean {
+  const status = (err as { status?: number }).status;
+  if (status === 429 || (typeof status === "number" && status >= 500)) return true;
+  if (typeof status === "number") return false;
+  const msg = err instanceof Error ? err.message : String(err);
+  return /too many requests|timed out|fetch failed|ECONN|ETIMEDOUT|socket hang up/i.test(msg);
+}
+
+/**
+ * The cloud rate-limits a run that does its uploads back to back — each `uploadPdf(replace)`
+ * lists the whole tree, then deletes, then puts — and it sometimes accepts a connection and
+ * then goes quiet. rmapi-js gives us neither a deadline nor a retry, so every call gets both:
+ * a per-attempt timeout, then exponential backoff with jitter. A 429 should cost the run a few
+ * seconds, not the night's notebooks.
+ */
+export async function withRetry<T>(
+  work: () => Promise<T>,
+  opts: { attempts?: number; backoffMs?: number; timeoutMs?: number } = {},
+): Promise<T> {
+  const attempts = opts.attempts ?? CALL_ATTEMPTS;
+  const backoff = opts.backoffMs ?? CALL_BACKOFF_MS;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await withTimeout(work(), opts.timeoutMs ?? CALL_TIMEOUT_MS);
+    } catch (err) {
+      if (attempt >= attempts || !retryableCloudError(err)) throw err;
+      const wait = backoff * 2 ** (attempt - 1) + Math.floor(Math.random() * backoff);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+}
+
 function wrap(err: unknown, context: string): TabletProviderError {
   if (err instanceof TabletProviderError) return err;
   const msg = err instanceof Error ? err.message : String(err);
@@ -58,6 +96,8 @@ function wrap(err: unknown, context: string): TabletProviderError {
   let code: TabletProviderError["code"] = "unknown";
   if (status === 401 || status === 403) code = "auth";
   else if (status === 404) code = "not_found";
+  // Reaching wrap() with a 429 means the retries were used up and the cloud is still saying no.
+  else if (status === 429 || /too many requests/i.test(msg)) code = "rate_limit";
   else if (err instanceof Error && err.name === "ValidationError") code = "schema_drift";
   else if (err instanceof Error && err.name === "GenerationError") code = "conflict";
   else if (/fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|timed out/i.test(msg)) code = "network";
@@ -122,7 +162,7 @@ export class RemarkableCloudProvider implements TabletProvider {
   async listTree(): Promise<TabletTree> {
     let entries: Entry[];
     try {
-      entries = await withTimeout(this.api.listItems(true));
+      entries = await withRetry(() => this.api.listItems(true));
     } catch (err) {
       throw wrap(err, "Listing the document tree failed");
     }
@@ -170,7 +210,7 @@ export class RemarkableCloudProvider implements TabletProvider {
   private async contentPages(ref: ItemRef): Promise<ContentPage[]> {
     let content;
     try {
-      content = await withTimeout(this.api.getContent(ref));
+      content = await withRetry(() => this.api.getContent(ref));
     } catch (err) {
       throw wrap(err, `Reading content for ${ref.id} failed`);
     }
@@ -186,7 +226,7 @@ export class RemarkableCloudProvider implements TabletProvider {
 
   private async pageFileHashes(ref: ItemRef): Promise<Map<string, string>> {
     try {
-      const { entries } = await withTimeout(this.api.raw.getEntries(ref));
+      const { entries } = await withRetry(() => this.api.raw.getEntries(ref));
       const out = new Map<string, string>();
       for (const e of entries) {
         const m = /^[^/]+\/([^/]+)\.rm$/.exec(e.id);
@@ -220,9 +260,10 @@ export class RemarkableCloudProvider implements TabletProvider {
     for (const p of refs) {
       if (wanted && !wanted.has(p.pageId)) continue;
       let rm: Uint8Array | null = null;
-      if (p.hash) {
+      const hash = p.hash;
+      if (hash) {
         try {
-          rm = await withTimeout(this.api.raw.getHash({ id: `${doc.id}/${p.pageId}.rm`, hash: p.hash }));
+          rm = await withRetry(() => this.api.raw.getHash({ id: `${doc.id}/${p.pageId}.rm`, hash }));
         } catch (err) {
           throw wrap(err, `Downloading page ${p.index + 1} of "${doc.name}" failed`);
         }
@@ -232,7 +273,7 @@ export class RemarkableCloudProvider implements TabletProvider {
     let basePdf: Uint8Array | null = null;
     if (doc.fileType === "pdf") {
       try {
-        basePdf = await withTimeout(this.api.getPdf(ref));
+        basePdf = await withRetry(() => this.api.getPdf(ref));
       } catch {
         basePdf = null; // non-fatal: fallback input only
       }
@@ -250,7 +291,7 @@ export class RemarkableCloudProvider implements TabletProvider {
       let found = tree.folders.find((f) => f.path === wantPath);
       if (!found) {
         try {
-          await withTimeout(this.api.putFolder(part, { parent: parentId }, true));
+          await withRetry(() => this.api.putFolder(part, { parent: parentId }, true));
         } catch (err) {
           throw wrap(err, `Creating folder ${wantPath} failed`);
         }
@@ -279,7 +320,7 @@ export class RemarkableCloudProvider implements TabletProvider {
       for (const d of existing) await this.deleteDocument(d);
     }
     try {
-      const ref = await withTimeout(this.api.putPdf(name, bytes, { parent: folder.id, refresh: true }));
+      const ref = await withRetry(() => this.api.putPdf(name, bytes, { parent: folder.id, refresh: true }));
       return { id: ref.id, hash: ref.hash };
     } catch (err) {
       throw wrap(err, `Uploading "${name}" failed`);
@@ -288,7 +329,7 @@ export class RemarkableCloudProvider implements TabletProvider {
 
   async moveDocument(doc: TabletDocument, folder: TabletFolder): Promise<UploadResult> {
     try {
-      const ref = await withTimeout(this.api.move({ id: doc.id, hash: doc.hash }, folder.id, true));
+      const ref = await withRetry(() => this.api.move({ id: doc.id, hash: doc.hash }, folder.id, true));
       return { id: ref.id, hash: ref.hash };
     } catch (err) {
       throw wrap(err, `Moving "${doc.name}" failed`);
@@ -297,7 +338,7 @@ export class RemarkableCloudProvider implements TabletProvider {
 
   async renameDocument(doc: TabletDocument, name: string): Promise<UploadResult> {
     try {
-      const ref = await withTimeout(this.api.rename({ id: doc.id, hash: doc.hash }, name, true));
+      const ref = await withRetry(() => this.api.rename({ id: doc.id, hash: doc.hash }, name, true));
       return { id: ref.id, hash: ref.hash };
     } catch (err) {
       throw wrap(err, `Renaming "${doc.name}" failed`);
@@ -306,7 +347,7 @@ export class RemarkableCloudProvider implements TabletProvider {
 
   async deleteDocument(doc: TabletDocument): Promise<void> {
     try {
-      await withTimeout(this.api.delete({ id: doc.id, hash: doc.hash }, true));
+      await withRetry(() => this.api.delete({ id: doc.id, hash: doc.hash }, true));
     } catch (err) {
       throw wrap(err, `Deleting "${doc.name}" failed`);
     }

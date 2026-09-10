@@ -56,8 +56,10 @@ services:
       # so a slow batch costs a few cents instead of the night's notebooks.
       DECODE_BATCH_TIMEOUT_MINUTES: ${DECODE_BATCH_TIMEOUT_MINUTES:-45}
       # Per-call deadline for the reMarkable cloud, which sometimes answers a connection and
-      # then goes quiet.
+      # then goes quiet, plus backoff for its 429s when a run does its uploads back to back.
       RMAPI_TIMEOUT_MS: ${RMAPI_TIMEOUT_MS:-120000}
+      RMAPI_ATTEMPTS: ${RMAPI_ATTEMPTS:-5}
+      RMAPI_BACKOFF_MS: ${RMAPI_BACKOFF_MS:-3000}
       EMAIL_API_KEY: ${EMAIL_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-dayMarkable <notes@daymarkable.app>}
       USER_EMAIL: ${USER_EMAIL:?set USER_EMAIL (the registered login address)}
