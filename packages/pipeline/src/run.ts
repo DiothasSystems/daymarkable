@@ -172,28 +172,33 @@ export function changeWindowStart(localDate: string, timezone: string, lastSucce
  * A page is processed when its ink hash differs from the last snapshot.
  *
  * For a page with no snapshot the question is which of two things it is: a page the user just
- * added to a notebook we already read (always decode), or one page of a notebook we are seeing
- * for the first time (decode only if it was written inside the window, so importing an old
- * notebook does not decode years of history).
+ * added to a notebook whose pages we have recorded (always decode), or a page of a notebook we
+ * have no page-level record of at all (decode only if it was written inside the window, so
+ * taking up an old notebook does not decode years of history).
+ *
+ * The distinction is per-PAGE-record, not per-document: a document can carry a hash snapshot
+ * with no page rows behind it, and reading that as "we know this notebook" decoded a year of an
+ * existing one in a single night.
  */
 export function pageChanged(
   page: { pageId: string; hash: string | null; modified: string | null },
   snapshot: Map<string, string | null>,
   windowStart: DateTime,
-  documentIsNew = false,
+  /** True when this notebook has no page snapshots at all — nothing to compare against. */
+  pagesNeverSeen = false,
 ): boolean {
   if (!page.hash) return false;
   if (snapshot.has(page.pageId)) return snapshot.get(page.pageId) !== page.hash;
 
-  // A page we have never seen, in a notebook we ALREADY track, is new ink by definition —
-  // the user added a page. Read it, and never let a timestamp decide: page 2 of a notebook
-  // whose page 1 was already snapshotted was being dropped whenever its timestamp did not
-  // parse the way this code assumed.
-  if (!documentIsNew) return true;
+  // A page with no snapshot, in a notebook whose pages we HAVE recorded, is new ink by
+  // definition — the user added a page. Read it, and never let a timestamp decide: page 2 of a
+  // notebook whose page 1 was already snapshotted was being dropped whenever its timestamp did
+  // not parse the way this code assumed.
+  if (!pagesNeverSeen) return true;
 
-  // First sight of a whole document is the only case where the timestamp matters, so that
-  // adding a years-old notebook does not decode its entire history. Unreadable timestamp =
-  // read the page: paying for one page beats losing it.
+  // No page of this notebook has ever been recorded, so we cannot tell new ink from old: fall
+  // back to the timestamp, which is what stops adding a year-old notebook decoding its entire
+  // history. Unreadable timestamp = read the page: paying for one page beats losing it.
   const at = parseCloudDate(page.modified);
   return at === null || at.getTime() >= windowStart.toMillis();
 }
@@ -240,6 +245,8 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
 
     const downloaded: Array<{ doc: DownloadedDocument; changedPageIds: string[] }> = [];
     const baselineOnly: TabletDocument[] = [];
+    /** Pages seen but not decoded: snapshotted so they are never mistaken for new ink. */
+    const baselinePages: Array<{ docId: string; pages: Array<{ pageId: string; index: number; hash: string | null }> }> = [];
     for (const doc of candidates) {
       const snap = snapshots.get(doc.id);
       if (snap && snap.hash === doc.hash) continue;
@@ -251,7 +258,16 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       }
       const pageRefs = await deps.tablet.listPages(doc);
       const pageSnap = await repo.loadPageSnapshots(db, user.id, doc.id);
-      const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart, !snap)).map((p) => p.pageId);
+      // "Have we ever recorded this notebook's pages?" — NOT "have we seen the document?". A
+      // document can carry a hash snapshot with no page rows behind it (it was baselined whole,
+      // or only some pages were ever decoded), and treating those pages as new ink decoded a
+      // year of an existing notebook in one night.
+      const pagesNeverSeen = pageSnap.size === 0;
+      const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart, pagesNeverSeen)).map((p) => p.pageId);
+      // Record every page we did NOT decode at its current hash, so "no snapshot" converges on
+      // meaning "genuinely new page" instead of "never got round to it".
+      const changed = new Set(changedPageIds);
+      baselinePages.push({ docId: doc.id, pages: pageRefs.filter((p) => !changed.has(p.pageId)) });
       if (changedPageIds.length === 0) {
         baselineOnly.push({ ...doc, pageCount: pageRefs.length });
         continue;
@@ -447,6 +463,9 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // ---- 9. persist state + snapshots (only after everything above succeeded) -------
     await repo.saveWorkingSet(db, deps.sealer, user.id, run.id, merged.state, printed);
     for (const d of baselineOnly) await repo.upsertDocSnapshot(db, user.id, run.id, { id: d.id, hash: d.hash, name: d.name, path: d.path, fileType: d.fileType, lastModified: d.lastModified, pageCount: d.pageCount });
+    for (const { docId, pages } of baselinePages) {
+      for (const p of pages) await repo.upsertPageSnapshot(db, user.id, run.id, docId, { pageId: p.pageId, index: p.index, hash: p.hash, kind: null, confidence: null });
+    }
     for (const { doc } of downloaded) {
       const d = doc.document;
       const stillPending = doc.pages.filter((p) => unprocessed.has(`${d.id}/${p.pageId}`)).length;

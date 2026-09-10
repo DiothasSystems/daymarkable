@@ -186,11 +186,18 @@ describe("selection and windows", () => {
     expect(pageChanged({ pageId: "p2", hash: "h9", modified: "1000" }, snap, w)).toBe(true);
     expect(pageChanged({ pageId: "blank", hash: null, modified: null }, snap, w)).toBe(false);
 
-    // A page added to a notebook we already track is new ink: read it regardless of when the
-    // cloud claims it was written. This is the defect — page 2 of a tracked notebook was
-    // dropped because its timestamp did not parse the way this code assumed.
+    // A page added to a notebook whose pages we have recorded is new ink: read it regardless of
+    // when the cloud claims it was written. This is the first defect — page 2 of a tracked
+    // notebook was dropped because its timestamp did not parse the way this code assumed.
     expect(pageChanged({ pageId: "added", hash: "h", modified: "1761573438256" }, snap, w)).toBe(true);
     expect(pageChanged({ pageId: "added-secs", hash: "h", modified: "1757000000" }, snap, w)).toBe(true);
+
+    // No page record at all: the timestamp keeps an old notebook's history out. This is the
+    // SECOND defect — a document can hold a hash snapshot with no page rows behind it, and
+    // reading that as "we know this notebook" decoded a year of an existing one in one night.
+    const none = new Map<string, string | null>();
+    expect(pageChanged({ pageId: "ancient", hash: "h", modified: "1761573438256" }, none, w, true)).toBe(false);
+    expect(pageChanged({ pageId: "recent", hash: "h", modified: "1788288231187" }, none, w, true)).toBe(true);
 
     // First sight of a whole document: the timestamp keeps an old notebook's history out.
     expect(pageChanged({ pageId: "new-old", hash: "h", modified: "1761573438256" }, snap, w, true)).toBe(false);
