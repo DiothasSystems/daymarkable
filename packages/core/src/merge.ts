@@ -357,15 +357,28 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
     if (ex.page_kind === "blank") continue;
     const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex, pageDate: page.extraction.page_date };
     const pageTaskTexts: string[] = [];
+    /** Did the writer mark anything on THIS page? If so, an unmarked line is a note by contrast. */
+    const pageUsesMarks = ex.tasks.some((x) => Boolean(x.source_convention));
 
     for (const t of ex.tasks) {
       if (ex.page_kind === "planner" && !t.source_convention) continue; // printed rows are not new tasks
-      if (t.confidence < opts.threshold) {
+      // Marks decide — but only on a page that uses them. If the writer marked anything here,
+      // the unmarked lines around it are notes by contrast: "Travel to Nokia Supplier Day" sat
+      // beside asterisked actions and became one anyway. If nothing on the page is marked, the
+      // marks say nothing about intent, so the decoder's reading stands.
+      //
+      // Held lines go to the Inbox to be confirmed (rule 3), never silently onto a list they
+      // can only leave by hand (rule 8).
+      const unmarked = pageUsesMarks && !t.source_convention;
+      if (unmarked || t.confidence < opts.threshold) {
         addInbox({
           id: stableId(`inbox:task:${today}`, t.text),
           kind: "task",
           text: t.text,
-          detail: t.due ? `due ${t.due}${t.due_time ? ` ${t.due_time}` : ""}` : null,
+          detail:
+            [t.due ? `due ${t.due}${t.due_time ? ` ${t.due_time}` : ""}` : null, unmarked ? "no action mark" : null]
+              .filter(Boolean)
+              .join(" · ") || null,
           confidence: t.confidence,
           source,
           payload: t as unknown as Record<string, unknown>,

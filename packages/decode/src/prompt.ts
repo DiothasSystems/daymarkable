@@ -118,7 +118,18 @@ Rules:
    on the page, and never as a guess at when the user ought to do it. If the entry does not
    state a deadline, "due" is null. An undated action is normal and correct; the user assigns
    dates later, by hand, on the Action List page.
-3. Tasks: something the user must do. Follow-ups: something to chase with a person.
+3. Tasks: something the user must DO — an instruction to themselves, usually starting with a
+   verb ("call Dana", "send the survey back"). A line that merely records a fact, a plan, an
+   agenda item or a heading is NOT a task, however action-like it sounds: "Travel to Nokia
+   Supplier Day", "Meetings in Sacramento", "Budget review" are transcription. When in doubt,
+   ask whether the writer could tick it off; if the line only describes something happening,
+   leave it out of tasks and let the transcription carry it.
+   The strongest signal is the writer's own markup: set source_convention to the convention that
+   flagged the line, and leave it null when nothing marked it. On a page where some lines ARE
+   marked, an unmarked line is held for confirmation rather than acted on — so report the marks
+   exactly as you see them. A null is a real answer, never a guess to avoid, and inventing a
+   convention that is not on the page is worse than leaving it null.
+   Follow-ups: something to chase with a person.
    Events: dated/timed commitments already agreed ("dentist Tue 2pm"). An event needs a date
    you can actually read or resolve — a bare heading or topic line ("Meetings in Sacramento")
    is transcription, not a commitment, so leave it out of events entirely.

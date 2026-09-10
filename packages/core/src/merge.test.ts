@@ -1,5 +1,6 @@
 import { emptyExtraction, type ExtractedTask, type PageExtraction } from "@daymarkable/decode";
 import { describe, expect, it } from "vitest";
+import { applyDecision } from "./decisions.js";
 import { activeEvents, mergeRun, openActionList, pendingInbox } from "./merge.js";
 import { emptyWorkingSet, type WorkingSet } from "./state.js";
 import { buildActionList, buildMonth, buildOutputSet, buildWeek, startOfWeek } from "./views.js";
@@ -445,5 +446,49 @@ describe("a closed action is not resurrected by re-reading its page", () => {
     const r2 = mergeRun(r1.state, [other], { ...opts, today: "2026-09-03" });
     // A different notebook is a different page: this one IS a new intent.
     expect(openActionList(r2.state)).toHaveLength(1);
+  });
+});
+
+describe("marks decide, on pages that use them", () => {
+  const unmarked = (text: string, over: Partial<ExtractedTask> = {}) => task(text, { source_convention: null, ...over });
+
+  it("holds an unmarked line beside a marked one, instead of making it an action", () => {
+    // The reported defect: a plain note on a page of asterisked actions became an action item.
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ tasks: [task("Call Dana"), unmarked("Travel to Nokia Supplier Day")] })], opts);
+    expect(openActionList(r.state).map((t) => t.text)).toEqual(["Call Dana"]);
+    const [item] = pendingInbox(r.state);
+    expect(item!.text).toBe("Travel to Nokia Supplier Day");
+    expect(item!.kind).toBe("task");
+    expect(item!.detail).toContain("no action mark");
+  });
+
+  it("trusts the reading on a page where nothing is marked", () => {
+    // Marks say nothing about intent here, so a page of plain notes still yields its actions.
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ tasks: [unmarked("Call w/Sean on Wi-Fi 8"), unmarked("PFA Beta w/Test")] })], opts);
+    expect(openActionList(r.state).map((t) => t.text)).toEqual(["Call w/Sean on Wi-Fi 8", "PFA Beta w/Test"]);
+    expect(pendingInbox(r.state)).toHaveLength(0);
+  });
+
+  it("judges each page on its own marks", () => {
+    const marked = notesPage({ tasks: [task("Send the survey"), unmarked("Budget review")] }, 0);
+    const plain = { notebook: "Work", pageIndex: 1, extraction: { ...emptyExtraction("notes"), tasks: [unmarked("Book the room")] } };
+    const r = mergeRun(emptyWorkingSet(), [marked, plain], opts);
+    expect(openActionList(r.state).map((t) => t.text).sort()).toEqual(["Book the room", "Send the survey"]);
+    expect(pendingInbox(r.state).map((i) => i.text)).toEqual(["Budget review"]);
+  });
+
+  it("says both reasons when a held line is also unreadable", () => {
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ tasks: [task("Call Dana"), unmarked("Something faint", { confidence: 0.2, due: "2026-09-20" })] })], opts);
+    const [item] = pendingInbox(r.state);
+    expect(item!.detail).toContain("due 2026-09-20");
+    expect(item!.detail).toContain("no action mark");
+  });
+
+  it("confirming a held item promotes it to a real action", () => {
+    // The Inbox is a holding pen, not a bin: the user's tick is the mark.
+    const r = mergeRun(emptyWorkingSet(), [notesPage({ tasks: [task("Call Dana"), unmarked("Travel to Nokia Supplier Day")] })], opts);
+    const item = pendingInbox(r.state)[0]!;
+    applyDecision(r.state, { itemType: "inbox", itemId: item.id, action: "complete" }, opts.today);
+    expect(openActionList(r.state).map((t) => t.text).sort()).toEqual(["Call Dana", "Travel to Nokia Supplier Day"]);
   });
 });
