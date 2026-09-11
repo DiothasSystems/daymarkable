@@ -106,17 +106,17 @@ export function HeroBuild() {
                   <line x1="0" y1="0" x2="3" y2="-9" stroke="#c9973f" strokeWidth="3" />
                 </g>
               </g>
-            </g>
 
-            {/* the finished page, lifting off toward the emblem */}
-            <g className="hb-page" style={pageStyle}>
-              <rect x={PAGE.x} y={PAGE.y} width={PAGE.w} height={PAGE.h} rx="4" fill="#fbfbf9" stroke="#c9c4b6" strokeWidth="1" />
-              <g transform={`translate(${TABLET.x} ${TABLET.y})`} fill="none" stroke="#1a1a1a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path pathLength="1" d="M 22 70 C 40 60 52 78 72 68 C 90 60 104 76 124 67 C 140 60 152 70 168 66" />
+              {/* the finished page, lifting off toward the emblem */}
+              <g className="hb-page" style={pageStyle}>
+                <rect x={PAGE.x} y={PAGE.y} width={PAGE.w} height={PAGE.h} rx="4" fill="#fbfbf9" stroke="#c9c4b6" strokeWidth="1" />
+                <g transform={`translate(${TABLET.x} ${TABLET.y})`} fill="none" stroke="#1a1a1a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path pathLength="1" d="M 22 70 C 40 60 52 78 72 68 C 90 60 104 76 124 67 C 140 60 152 70 168 66" />
                 <path pathLength="1" d="M 22 105 L 36 105 M 46 101 C 64 93 78 109 100 100 C 118 92 134 107 156 99 C 164 96 170 100 176 98" />
                 <path pathLength="1" d="M 22 140 C 42 130 56 148 78 138 C 96 130 110 146 130 137 C 144 132 152 138 162 135" />
                 <path pathLength="1" d="M 22 175 L 36 175 M 46 171 C 62 163 74 179 96 170 C 114 162 130 177 150 169" />
                 <path pathLength="1" d="M 22 210 C 36 202 46 216 62 208 C 78 200 92 214 110 206 M 128 208 C 142 200 154 214 172 206" />
+                </g>
               </g>
             </g>
 
