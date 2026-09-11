@@ -9,6 +9,11 @@ import "./hero-build.css";
  * points tick a quarter turn, and a finished page drops onto the pile on the right. Four
  * conversions to a loop. The headline and call to action sit in a full-width box underneath.
  *
+ * The emblem arrives as two images: a disc with its compass points erased, which never moves,
+ * and the points on their own, which are what turns. Nothing else may rotate — the ring is
+ * shaded from one side, and the artwork's own points are not square to it — so the split is
+ * what makes every stop of the dial look exactly like the logo.
+ *
  * Pure CSS keyframes over inline SVG, no JavaScript, and a complete still frame under
  * prefers-reduced-motion. The artwork, and the geometry that lines the three logo parts up the
  * way the original lockup has them, come from design/design_handoff_hero_animation via
@@ -27,12 +32,6 @@ const at = (dx: number, dy: number) => ({ x: CX + dx * R, y: CY + dy * R });
 const emblem = { ...at(LOGO.emblem.dx, LOGO.emblem.dy), size: LOGO.emblem.size * R };
 const wordmark = { ...at(LOGO.wordmark.x, LOGO.wordmark.y), w: LOGO.wordmark.w * R, h: LOGO.wordmark.h * R };
 const tagline = { ...at(LOGO.tagline.x, LOGO.tagline.y), w: LOGO.tagline.w * R, h: LOGO.tagline.h * R };
-const wheel = { inner: LOGO.wheel.inner * R, outer: LOGO.wheel.outer * R };
-
-/** An even-odd annulus, so the spinning copy of the emblem keeps only its outer band. */
-const annulus = (r0: number, r1: number) =>
-  `M ${CX} ${CY - r1} A ${r1} ${r1} 0 1 0 ${CX} ${CY + r1} A ${r1} ${r1} 0 1 0 ${CX} ${CY - r1} Z ` +
-  `M ${CX} ${CY - r0} A ${r0} ${r0} 0 1 1 ${CX} ${CY + r0} A ${r0} ${r0} 0 1 1 ${CX} ${CY - r0} Z`;
 
 const TABLET = { x: 40, y: 65, w: 200, h: 260 };
 const PAGE = { x: 52, y: 80, w: 176, h: 230 };
@@ -75,12 +74,6 @@ export function HeroBuild() {
             aria-label="You write on your reMarkable tablet; overnight dayMarkable reads the page and hands back Tomorrow, Actions, Notes and Calendar pages."
           >
             <defs>
-              <clipPath id="hbDisc">
-                <circle cx={CX} cy={CY} r={wheel.inner} />
-              </clipPath>
-              <clipPath id="hbWheel" clipRule="evenodd">
-                <path d={annulus(wheel.inner, wheel.outer)} />
-              </clipPath>
               <radialGradient id="hbCore">
                 <stop offset="0%" stopColor="#c9973f" stopOpacity="0.55" />
                 <stop offset="55%" stopColor="#c9973f" stopOpacity="0.18" />
@@ -123,9 +116,9 @@ export function HeroBuild() {
             {/* OVERNIGHT — the logo, which is also the machine that reads the page */}
             <g className="hb-logo">
               <g className="hb-mark">
-                <image href="/brand/emblem.webp" x={emblem.x} y={emblem.y} width={emblem.size} height={emblem.size} clipPath="url(#hbDisc)" />
+                <image href="/brand/emblem-base.webp" x={emblem.x} y={emblem.y} width={emblem.size} height={emblem.size} />
                 <g className="hb-wheel" style={{ transformBox: "view-box", transformOrigin: `${CX}px ${CY}px`, animation: "dmTick 24s cubic-bezier(0.3, 0, 0.2, 1) var(--loop) infinite both" }}>
-                  <image href="/brand/emblem.webp" x={emblem.x} y={emblem.y} width={emblem.size} height={emblem.size} clipPath="url(#hbWheel)" />
+                  <image href="/brand/emblem-points.webp" x={emblem.x} y={emblem.y} width={emblem.size} height={emblem.size} />
                 </g>
                 <circle className="hb-core" cx={CX} cy={CY} r={R * 0.62} fill="url(#hbCore)" style={{ animation: "dmCore 6s ease-in-out var(--loop) infinite both" }} />
               </g>

@@ -16,7 +16,8 @@ ring runs off the left and bottom edges of emblem.png and a bounding box would b
 
 Writes:
 
-    apps/web/public/brand/emblem.webp              the emblem, transparent, for the machine
+    apps/web/public/brand/emblem-base.webp         the disc, with its compass points erased
+    apps/web/public/brand/emblem-points.webp       the four points alone — the layer that turns
     apps/web/public/brand/lockup-wordmark.webp     "dayMarkable" + rule, transparent, tight crop
     apps/web/public/brand/lockup-tagline.webp      the tagline, same
     apps/web/src/components/hero/logo-geometry.ts  placement, in multiples of the ring radius
@@ -35,12 +36,11 @@ ART = os.path.join(ROOT, "design", "design_handoff_hero_animation", "assets")
 BRAND = os.path.join(ROOT, "apps", "web", "public", "brand")
 TS = os.path.join(ROOT, "apps", "web", "src", "components", "hero", "logo-geometry.ts")
 
-# Where the emblem is split, as multiples of the ring radius. The seam sits just outside the navy
-# ring: the ring is shaded from one side, so spinning any part of it would land on a different
-# picture after a quarter turn. Everything that moves is therefore the four compass points, which
-# are identical to each other, and the logo at rest is the same at every stop.
-WHEEL_INNER = 1.005
-WHEEL_OUTER = 1.30
+# The emblem is split into two layers: a disc with its compass points erased, which never moves,
+# and the points on their own, which do. Nothing else can rotate — the ring is shaded from one
+# side, so turning any part of it would land on a different picture after a quarter turn.
+POINT_IN = 0.955   # where a point's own gold starts, just outside the ring's own gold band
+WEDGE = 16.0       # degrees either side of a cardinal that a point occupies
 
 
 def fit_ring(mask: np.ndarray, rows: int) -> tuple[float, float, float]:
@@ -114,8 +114,8 @@ print("wordmark box", word, "\ntagline box ", tag)
 
 # ---------------------------------------------------------------- the emblem
 # A square centred on the ring, wide enough for the compass points and no wider. The side is odd
-# so the ring centre sits exactly on the middle pixel, which lets the quadrants below be rotated
-# into place by whole right angles with no resampling and no drift.
+# so the ring centre sits on the middle pixel, which lets a point be rotated into the other three
+# places by whole right angles, with no resampling and no drift.
 HALF = 1.10
 k = int(round(HALF * lr))
 size = 2 * k + 1
@@ -125,28 +125,50 @@ gy, gx = np.mgrid[0:size, 0:size]
 er_ = np.hypot(gx - k, gy - k) / lr
 eang = (np.degrees(np.arctan2(gy - k, gx - k)) + 360) % 360
 
-# Inside the ring everything is rotationally symmetric, so it is kept as it is — and kept opaque,
-# because the artwork in there contains cream the background key would otherwise eat.
-inner_a = np.clip((1.002 - er_) / 0.006, 0, 1)
-# Outside the ring there is nothing but the four compass points. The wordmark sits close enough
-# under the emblem to fall inside this crop, so rather than trying to key it out, the whole outer
-# band is built from the northern quadrant — the one quadrant with nothing else near it — copied
-# to all four. That removes the wordmark and makes the four points identical to the pixel, which
-# is what lets the wheel land on the same picture after every quarter turn.
-key_a = np.clip(np.abs(bpx - bg).sum(-1) / 60.0, 0, 1)
-north = (er_ > 1.0) & (np.abs((eang - 270 + 180) % 360 - 180) < 45)
-src_a = np.where(north, key_a, 0.0)
-src_rgb = np.clip(bg + (bpx - bg) / np.maximum(key_a, 0.02)[..., None], 0, 255)
-rots_a = np.stack([np.rot90(src_a, q) for q in range(4)])
-rots_rgb = np.stack([np.rot90(src_rgb, q, axes=(0, 1)) for q in range(4)])
-outer_a = rots_a.max(0)
-outer_rgb = np.take_along_axis(rots_rgb, rots_a.argmax(0)[None, ..., None], axis=0)[0]
 
-alpha = np.maximum(inner_a, outer_a)
-rgb = np.where((inner_a >= outer_a)[..., None], bpx, outer_rgb)
-Image.fromarray(np.dstack([rgb, alpha * 255]).astype(np.uint8), "RGBA").save(
-    os.path.join(BRAND, "emblem.webp"), quality=90, method=6)
-print(f"emblem cut {size}x{size} px, centred on the ring, points rebuilt from the north quadrant")
+def sample(img: np.ndarray, sx: np.ndarray, sy: np.ndarray) -> np.ndarray:
+    """Bilinear lookup, for reading the ring at an angle a little to the side of a point."""
+    fx, fy = (sx - np.floor(sx))[..., None], (sy - np.floor(sy))[..., None]
+    x0 = np.clip(np.floor(sx).astype(int), 0, size - 1)
+    y0 = np.clip(np.floor(sy).astype(int), 0, size - 1)
+    x1, y1 = np.clip(x0 + 1, 0, size - 1), np.clip(y0 + 1, 0, size - 1)
+    return (img[y0, x0] * (1 - fx) * (1 - fy) + img[y0, x1] * fx * (1 - fy)
+            + img[y1, x0] * (1 - fx) * fy + img[y1, x1] * fx * fy)
+
+
+# The artwork's four points are not quite square to the ring: north sits on its axis, east and
+# west ride about 6.5px low. A point copied round by a quarter turn therefore never lands on the
+# one it replaced, which is what put the dial a few pixels out at the sides. So the disc keeps
+# everything except the points, which are rubbed out by blending the ring across each wedge from
+# the two angles just outside it.
+base_rgb = bpx.copy()
+for c in (0, 90, 180, 270):
+    d = (eang - c + 180) % 360 - 180
+    m = (er_ >= POINT_IN - 0.012) & (er_ <= 1.004) & (np.abs(d) <= WEDGE)
+    ys, xs = np.where(m)
+    rad = er_[m] * lr
+    left, right = np.radians(c - WEDGE - 3), np.radians(c + WEDGE + 3)
+    t = ((d[m] + WEDGE) / (2 * WEDGE))[..., None]
+    base_rgb[ys, xs] = (sample(bpx, k + rad * np.cos(left), k + rad * np.sin(left)) * (1 - t)
+                        + sample(bpx, k + rad * np.cos(right), k + rad * np.sin(right)) * t)
+
+# Opaque out to the ring's edge. The disc is never keyed against the background, because the
+# artwork inside it contains cream of its own that a key would eat.
+base_a = np.clip((1.002 - er_) / 0.006, 0, 1)
+Image.fromarray(np.dstack([base_rgb, base_a * 255]).astype(np.uint8), "RGBA").save(
+    os.path.join(BRAND, "emblem-base.webp"), quality=90, method=6)
+
+# The points, all four of them the north one turned into place. Gold reads clearly against both
+# the navy ring and the cream page, so red minus blue separates a point from whatever it lies on.
+goldness = np.clip((bpx[..., 0] - bpx[..., 2] - 30) / 60.0, 0, 1)
+north = (er_ >= POINT_IN) & (er_ <= HALF - 0.01) & (np.abs((eang - 270 + 180) % 360 - 180) <= WEDGE)
+rots_a = np.stack([np.rot90(np.where(north, goldness, 0.0), q) for q in range(4)])
+rots_rgb = np.stack([np.rot90(bpx, q, axes=(0, 1)) for q in range(4)])
+pts_a = rots_a.max(0)
+pts_rgb = np.take_along_axis(rots_rgb, rots_a.argmax(0)[None, ..., None], axis=0)[0]
+Image.fromarray(np.dstack([pts_rgb, pts_a * 255]).astype(np.uint8), "RGBA").save(
+    os.path.join(BRAND, "emblem-points.webp"), quality=90, method=6)
+print(f"emblem split into disc + points, {size}x{size} px, centred on the ring")
 
 # ---------------------------------------------------------------- geometry
 u = lambda v: round(float(v), 4)
@@ -161,10 +183,8 @@ export const LOGO = {{
   emblem: {{ size: {u(2 * HALF)}, dx: {-HALF}, dy: {-HALF} }},
   wordmark: {rel(word)},
   tagline: {rel(tag)},
-  /** The spinning copy is clipped to this band; the static copy ends at its inner edge. */
-  wheel: {{ inner: {WHEEL_INNER}, outer: {WHEEL_OUTER} }},
 }} as const;
 """)
 print("wrote", TS)
-for n in ("emblem.webp", "lockup-wordmark.webp", "lockup-tagline.webp"):
+for n in ("emblem-base.webp", "emblem-points.webp", "lockup-wordmark.webp", "lockup-tagline.webp"):
     print(f"  {n}: {os.path.getsize(os.path.join(BRAND, n)):,} bytes")
