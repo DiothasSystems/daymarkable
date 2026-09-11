@@ -1,47 +1,89 @@
-/* Landing hero, from design_handoff_hero_animation (README.md has every value). The logo
-   lockup is sliced into three images in public/brand (lockup-*.webp) so each part can animate
-   on its own; the header ground matches the lockup image's own background exactly. */
+/* Landing hero. The logo builds in the middle of the scene, then drives the conversion loop;
+   the headline sits in a full-width box underneath. See HeroBuild.tsx for the geometry and
+   design/design_handoff_hero_animation for the source artwork and the original timings. */
 
-.hb { background: #fefaf3; border-bottom: 1px solid #d9cdb4; overflow: hidden; }
-.hb-inner { max-width: 1240px; margin: 0 auto; padding: 44px 24px 0; display: flex; flex-direction: column; align-items: center; gap: 28px; }
-.hb-row { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 24px 56px; padding-bottom: 8px; }
-.hb-logo { width: min(600px, 86vw); flex: 1 1 460px; max-width: 600px; display: flex; flex-direction: column; align-items: center; }
-.hb-emblem, .hb-word, .hb-tag { width: 100%; background-repeat: no-repeat; background-size: 100% auto; background-position: 0 0; }
-.hb-emblem { aspect-ratio: 1536 / 640; background-color: #fefaf3; background-image: url("/brand/lockup-emblem.webp"); animation: dmEmblem 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both; }
-.hb-word { aspect-ratio: 1536 / 190; background-image: url("/brand/lockup-wordmark.webp"); animation: dmWord 0.9s cubic-bezier(0.4, 0, 0.2, 1) 1.1s both; }
-.hb-tag { aspect-ratio: 1536 / 130; background-image: url("/brand/lockup-tagline.webp"); animation: dmTag 0.6s ease-out 1.8s both; }
-.hb-text { flex: 1 1 380px; max-width: 520px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 18px; animation: dmTag 0.8s ease-out 2.2s both; }
-.hb-kicker { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.2em; color: #b8862f; }
-.hb-h1 { font-family: var(--font-display); font-size: clamp(34px, 3.8vw, 48px); font-weight: 700; line-height: 1.08; letter-spacing: -0.015em; margin: 0; text-wrap: balance; color: #1e2a44; }
-.hb-p { font-size: 16px; line-height: 1.65; color: #4a5266; margin: 0; text-wrap: pretty; }
-.hb-cta { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-.hb-btn { background: #1e2a44; color: #f7f0e3; text-decoration: none; border-radius: 4px; padding: 14px 28px; font-size: 15px; font-weight: 600; transition: background 0.15s; }
-.hb-btn:hover { background: #2a3a5e; color: #f7f0e3; }
-.hb-link { font-size: 15px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
-.hb-foot { font-family: var(--font-mono); font-size: 11px; color: #8a7d5f; letter-spacing: 0.06em; }
-.hb-scene { position: relative; width: 100%; animation: dmScene 2s cubic-bezier(0.4, 0, 0.2, 1) 2.7s both; }
-.hb-scene svg { display: block; }
+.hb { background: #fbf8f2; border-bottom: 1px solid #d9cdb4; overflow: hidden; }
+.hb-inner { max-width: 1240px; margin: 0 auto; padding: 28px 24px 56px; display: flex; flex-direction: column; align-items: center; gap: 26px; }
 
+/* When the conversion loop starts — every looping animation is delayed by this, so they all
+   stay in step with each other and none of them runs while the logo is still building. */
+.hb-scene { --loop: 3.2s; width: 100%; max-width: 1060px; }
+.hb-scene svg { display: block; width: 100%; height: auto; }
+
+/* ---- the logo building, once, on load ---- */
+.hb-mark { transform-box: fill-box; transform-origin: center; animation: hbIris 1.15s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s both; }
+.hb-word { transform-box: fill-box; animation: hbWipe 0.85s cubic-bezier(0.4, 0, 0.2, 1) 1.15s both; }
+.hb-tag { transform-box: fill-box; animation: hbRise 0.6s ease-out 1.85s both; }
+.hb-tablet { transform-box: fill-box; animation: hbInLeft 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) 2.45s both; }
+.hb-shadow { animation: hbFade 0.8s ease-out 2.7s both; }
+.hb-caps { animation: hbFade 0.6s ease-out 2.9s both; }
+.hb-box { animation: hbRise 0.8s ease-out 3.3s both; }
+/* Both of these are only ever shown by the loop, so they start out of the way. */
+.hb-pen, .hb-core { opacity: 0; }
+
+@keyframes hbIris {
+  0% { opacity: 0; clip-path: circle(0% at 50% 50%); transform: rotate(-25deg) scale(0.8); }
+  15% { opacity: 1; }
+  100% { opacity: 1; clip-path: circle(75% at 50% 50%); transform: rotate(0deg) scale(1); }
+}
+@keyframes hbWipe { 0% { clip-path: inset(0 100% 0 0); } 100% { clip-path: inset(0 0 0 0); } }
+@keyframes hbRise { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes hbInLeft { 0% { opacity: 0; transform: translateX(-24px); } 100% { opacity: 1; transform: translateX(0); } }
+@keyframes hbFade { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+/* ---- the conversion loop: 24s, four 6s conversions ---- */
 @keyframes dmInk1 { 0%,2% { stroke-dashoffset: 0; } 2.1%,55% { stroke-dashoffset: 1; } 63%,100% { stroke-dashoffset: 0; } }
 @keyframes dmInk2 { 0%,2% { stroke-dashoffset: 0; } 2.1%,63.5% { stroke-dashoffset: 1; } 71%,100% { stroke-dashoffset: 0; } }
 @keyframes dmInk3 { 0%,2% { stroke-dashoffset: 0; } 2.1%,71.5% { stroke-dashoffset: 1; } 79%,100% { stroke-dashoffset: 0; } }
 @keyframes dmInk4 { 0%,2% { stroke-dashoffset: 0; } 2.1%,79.5% { stroke-dashoffset: 1; } 87%,100% { stroke-dashoffset: 0; } }
 @keyframes dmInk5 { 0%,2% { stroke-dashoffset: 0; } 2.1%,87.5% { stroke-dashoffset: 1; } 95%,100% { stroke-dashoffset: 0; } }
 @keyframes dmPen { 0%,54% { transform: translate(22px,70px); opacity: 0; } 55% { transform: translate(22px,70px); opacity: 1; } 63% { transform: translate(168px,66px); } 63.5% { transform: translate(22px,105px); } 71% { transform: translate(176px,98px); } 71.5% { transform: translate(22px,140px); } 79% { transform: translate(162px,135px); } 79.5% { transform: translate(22px,175px); } 87% { transform: translate(150px,169px); } 87.5% { transform: translate(22px,210px); } 95% { transform: translate(172px,206px); opacity: 1; } 97%,100% { transform: translate(210px,240px); opacity: 0; } }
-@keyframes dmPage { 0%,3% { transform: translate(0,0) scale(1) rotate(0deg); opacity: 1; } 22% { transform: translate(335px,0) scale(0.45) rotate(-8deg); opacity: 1; } 30% { transform: translate(370px,0) scale(0.02) rotate(-40deg); opacity: 0; } 30.1%,100% { transform: translate(0,0) scale(1) rotate(0deg); opacity: 0; } }
-@keyframes dmCore { 0%,20% { opacity: 0; transform: scale(0.6); } 27% { opacity: 0.9; transform: scale(1.1); } 34%,100% { opacity: 0; transform: scale(0.6); } }
+.hb-page { transform-box: fill-box; transform-origin: center; animation: dmPage 6s cubic-bezier(0.4, 0, 0.6, 1) var(--loop) infinite both; }
+@keyframes dmPage {
+  0%,3% { transform: translate(0,0) scale(1) rotate(0deg); opacity: 1; }
+  22% { transform: translate(calc(var(--px) * 0.9), calc(var(--py) * 0.9)) scale(0.45) rotate(-8deg); opacity: 1; }
+  30% { transform: translate(var(--px), var(--py)) scale(0.02) rotate(-40deg); opacity: 0; }
+  30.1%,100% { transform: translate(0,0) scale(1) rotate(0deg); opacity: 0; }
+}
+@keyframes dmCore { 0%,20% { opacity: 0; transform: scale(0.6); } 27% { opacity: 1; transform: scale(1.1); } 34%,100% { opacity: 0; transform: scale(0.6); } }
+.hb-core { transform-box: fill-box; transform-origin: center; }
+/* A quarter turn just after each page is taken in: the compass points sweep and settle. */
 @keyframes dmTick { 0%,8.3% { transform: rotate(0deg); } 9.3%,33.3% { transform: rotate(90deg); } 34.3%,58.3% { transform: rotate(180deg); } 59.3%,83.3% { transform: rotate(270deg); } 84.3%,100% { transform: rotate(360deg); } }
+.hb-doc, .hb-scene [style*="dmDoc"] { transform-box: fill-box; transform-origin: center; }
 @keyframes dmDoc0 { 0%,9% { transform: translate(var(--sx),var(--sy)) scale(0.1) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 15%,97% { transform: translate(0,0) scale(1) rotate(var(--r)); opacity: 1; } 100% { transform: translate(0,0) scale(1) rotate(var(--r)); opacity: 0; } }
 @keyframes dmDoc1 { 0%,34% { transform: translate(var(--sx),var(--sy)) scale(0.1) rotate(0deg); opacity: 0; } 35% { opacity: 1; } 40%,97% { transform: translate(0,0) scale(1) rotate(var(--r)); opacity: 1; } 100% { transform: translate(0,0) scale(1) rotate(var(--r)); opacity: 0; } }
 @keyframes dmDoc2 { 0%,59% { transform: translate(var(--sx),var(--sy)) scale(0.1) rotate(0deg); opacity: 0; } 60% { opacity: 1; } 65%,97% { transform: translate(0,0) scale(1) rotate(var(--r)); opacity: 1; } 100% { transform: translate(0,0) scale(1) rotate(var(--r)); opacity: 0; } }
 @keyframes dmDoc3 { 0%,84% { transform: translate(var(--sx),var(--sy)) scale(0.1) rotate(0deg); opacity: 0; } 85% { opacity: 1; } 90%,97% { transform: translate(0,0) scale(1) rotate(var(--r)); opacity: 1; } 100% { transform: translate(0,0) scale(1) rotate(var(--r)); opacity: 0; } }
-@keyframes dmEmblem { 0% { clip-path: circle(0% at 50% 50%); transform: rotate(-25deg) scale(0.8); opacity: 0; } 15% { opacity: 1; } 100% { clip-path: circle(75% at 50% 50%); transform: rotate(0deg) scale(1); opacity: 1; } }
-@keyframes dmWord { 0% { clip-path: inset(0 100% 0 0); } 100% { clip-path: inset(0 0 0 0); } }
-@keyframes dmTag { 0% { opacity: 0; transform: translateY(10px); } 100% { opacity: 1; transform: translateY(0); } }
-@keyframes dmScene { 0% { clip-path: inset(0 100% 0 0); opacity: 0; filter: brightness(1.6); } 30% { opacity: 1; } 100% { clip-path: inset(0 0 0 0); opacity: 1; filter: brightness(1); } }
 
+/* ---- the text box under the scene ---- */
+/* A container, so the headline can be sized to span the box exactly on any width. */
+.hb-box {
+  width: 100%; container-type: inline-size; text-align: center;
+  background: var(--notepaper); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: var(--shadow-card); padding: 30px 40px 32px; overflow: hidden;
+}
+/* One line, edge to edge: the size follows the box, so it never wraps and never overflows. */
+.hb-h1 { font-family: var(--font-display); font-size: 5.36cqw; font-weight: 700; line-height: 1.1; letter-spacing: -0.015em; margin: 0; white-space: nowrap; color: #1e2a44; }
+.hb-p { font-size: 16px; line-height: 1.65; color: #4a5266; margin: 18px auto 0; max-width: 760px; text-wrap: pretty; }
+.hb-cta { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+.hb-btn { background: #1e2a44; color: #f7f0e3; text-decoration: none; border-radius: 4px; padding: 14px 28px; font-size: 15px; font-weight: 600; transition: background 0.15s; }
+.hb-btn:hover { background: #2a3a5e; color: #f7f0e3; }
+.hb-link { font-size: 15px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.hb-foot { font-family: var(--font-mono); font-size: 11px; color: #8a7d5f; letter-spacing: 0.06em; margin-top: 18px; }
+
+@media (max-width: 799px) {
+  .hb-inner { padding: 20px 16px 40px; gap: 20px; }
+  .hb-box { padding: 22px 16px 24px; }
+  .hb-p { font-size: 15px; margin-top: 14px; }
+  .hb-cta { margin-top: 18px; }
+}
+
+/* A single line would be smaller than the body text on a phone, so let it wrap there. */
+@media (max-width: 639px) {
+  .hb-h1 { white-space: normal; font-size: 28px; text-wrap: balance; }
+}
+
+/* Everything at rest: logo complete, page on the tablet, all four pages on the pile. */
 @media (prefers-reduced-motion: reduce) {
-  /* Final state, no motion: lockup complete, page on the tablet, pile full. */
   .hb *, .hb svg * { animation: none !important; }
-  .hb-pen, .hb-core { opacity: 0 !important; }
 }
