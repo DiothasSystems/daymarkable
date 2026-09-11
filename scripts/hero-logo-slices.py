@@ -1,10 +1,14 @@
 """Cut the dayMarkable lockup into hero animation assets and measure its geometry.
 
 The landing hero (apps/web/src/components/hero/HeroBuild.tsx) builds the logo in the middle of
-the scene and then uses its emblem as the machine that converts pages. To do that the emblem is
-drawn from the standalone transparent file, so its outer ring can be clipped off and spun on its
-own, while the wordmark and tagline come from the lockup artwork — and all three have to line up
-exactly the way the original lockup has them.
+the scene and then uses its emblem as the machine that converts pages: its outer band is clipped
+off and spun on its own. All three parts are cut from the lockup artwork, so they line up exactly
+the way the original lockup has them.
+
+The emblem comes from the lockup rather than from assets/emblem.png because that file is cropped
+off centre — it clips the west and south compass points harder than the east and north ones, so
+the band did not match itself after a quarter turn. Here the crop is centred on the ring to a
+fraction of a pixel, which is what makes every resting position of the wheel identical.
 
 Everything is measured from the emblem's navy ring, which is a true circle in both files. Its
 centre and radius come from a least-squares circle fit rather than a bounding box, because the
@@ -31,10 +35,11 @@ ART = os.path.join(ROOT, "design", "design_handoff_hero_animation", "assets")
 BRAND = os.path.join(ROOT, "apps", "web", "public", "brand")
 TS = os.path.join(ROOT, "apps", "web", "src", "components", "hero", "logo-geometry.ts")
 
-# Where the handoff's emblem clips fall, as multiples of the ring radius. The static inner copy
-# ends and the spinning outer copy begins inside the uniform navy ring (0.96–1.00), so the seam
-# is invisible and what visibly sweeps is the four gold compass points (1.00–1.13).
-WHEEL_INNER = 0.975
+# Where the emblem is split, as multiples of the ring radius. The seam sits just outside the navy
+# ring: the ring is shaded from one side, so spinning any part of it would land on a different
+# picture after a quarter turn. Everything that moves is therefore the four compass points, which
+# are identical to each other, and the logo at rest is the same at every stop.
+WHEEL_INNER = 1.005
 WHEEL_OUTER = 1.30
 
 
@@ -108,12 +113,40 @@ tag = cut(blocks[1][0], blocks[-1][1], "lockup-tagline", 86)
 print("wordmark box", word, "\ntagline box ", tag)
 
 # ---------------------------------------------------------------- the emblem
-emb = Image.open(os.path.join(ART, "emblem.png")).convert("RGBA")
-ES = emb.size[0]
-ea = np.array(emb).astype(np.int16)
-ecx, ecy, er = fit_ring((ea[..., 3] > 200) & (ea[..., :3].mean(-1) < 110), ES)
-print(f"emblem {emb.size}  ring ({ecx:.1f}, {ecy:.1f}) r {er:.1f}")
-emb.save(os.path.join(BRAND, "emblem.webp"), quality=88, method=6)
+# A square centred on the ring, wide enough for the compass points and no wider. The side is odd
+# so the ring centre sits exactly on the middle pixel, which lets the quadrants below be rotated
+# into place by whole right angles with no resampling and no drift.
+HALF = 1.10
+k = int(round(HALF * lr))
+size = 2 * k + 1
+box = lock.transform((size, size), Image.AFFINE, (1, 0, lcx - k, 0, 1, lcy - k), resample=Image.BICUBIC)
+bpx = np.array(box).astype(np.float32)
+gy, gx = np.mgrid[0:size, 0:size]
+er_ = np.hypot(gx - k, gy - k) / lr
+eang = (np.degrees(np.arctan2(gy - k, gx - k)) + 360) % 360
+
+# Inside the ring everything is rotationally symmetric, so it is kept as it is — and kept opaque,
+# because the artwork in there contains cream the background key would otherwise eat.
+inner_a = np.clip((1.002 - er_) / 0.006, 0, 1)
+# Outside the ring there is nothing but the four compass points. The wordmark sits close enough
+# under the emblem to fall inside this crop, so rather than trying to key it out, the whole outer
+# band is built from the northern quadrant — the one quadrant with nothing else near it — copied
+# to all four. That removes the wordmark and makes the four points identical to the pixel, which
+# is what lets the wheel land on the same picture after every quarter turn.
+key_a = np.clip(np.abs(bpx - bg).sum(-1) / 60.0, 0, 1)
+north = (er_ > 1.0) & (np.abs((eang - 270 + 180) % 360 - 180) < 45)
+src_a = np.where(north, key_a, 0.0)
+src_rgb = np.clip(bg + (bpx - bg) / np.maximum(key_a, 0.02)[..., None], 0, 255)
+rots_a = np.stack([np.rot90(src_a, q) for q in range(4)])
+rots_rgb = np.stack([np.rot90(src_rgb, q, axes=(0, 1)) for q in range(4)])
+outer_a = rots_a.max(0)
+outer_rgb = np.take_along_axis(rots_rgb, rots_a.argmax(0)[None, ..., None], axis=0)[0]
+
+alpha = np.maximum(inner_a, outer_a)
+rgb = np.where((inner_a >= outer_a)[..., None], bpx, outer_rgb)
+Image.fromarray(np.dstack([rgb, alpha * 255]).astype(np.uint8), "RGBA").save(
+    os.path.join(BRAND, "emblem.webp"), quality=90, method=6)
+print(f"emblem cut {size}x{size} px, centred on the ring, points rebuilt from the north quadrant")
 
 # ---------------------------------------------------------------- geometry
 u = lambda v: round(float(v), 4)
@@ -125,7 +158,7 @@ with open(TS, "w", encoding="utf-8") as f:
 // Place the ring and the wordmark and tagline land exactly where the original lockup has them.
 export const LOGO = {{
   /** The emblem file is this many ring radii wide, drawn at this offset from the ring centre. */
-  emblem: {{ size: {u(ES / er)}, dx: {u(-ecx / er)}, dy: {u(-ecy / er)} }},
+  emblem: {{ size: {u(2 * HALF)}, dx: {-HALF}, dy: {-HALF} }},
   wordmark: {rel(word)},
   tagline: {rel(tag)},
   /** The spinning copy is clipped to this band; the static copy ends at its inner edge. */
