@@ -1,5 +1,6 @@
 import type { Meeting } from "@daymarkable/core";
 import { describe, expect, it } from "vitest";
+import { buildSignInMail } from "./authMail.js";
 import { buildDeliveryMail, buildDeliveryVerificationMail } from "./deliveryMail.js";
 import { buildMeetingMail, meetingSubject } from "./meetingMail.js";
 import { MemoryProvider, ResendProvider } from "./provider.js";
@@ -88,5 +89,34 @@ describe("delivery mail", () => {
     expect(m.text).toContain("verify-delivery?token=abc");
     // Says plainly what happens if the recipient was not expecting it.
     expect(m.text.toLowerCase()).toContain("ignore");
+  });
+});
+
+describe("sign-in mail", () => {
+  const LINK = "https://daymarkable.com/auth/verify?token=abc123";
+
+  it("says who it signs in, and shows the link rather than hiding it behind a button", () => {
+    const mail = buildSignInMail("jim@example.com", LINK, "hash-1", 15);
+    expect(mail.subject).toBe("Sign in to dayMarkable");
+    expect(mail.idempotencyKey).toBe("login:hash-1");
+    expect(mail.html).toContain("jim@example.com");
+    expect(mail.html).toContain(`>${LINK}</a>`);
+    expect(mail.text).toContain(LINK);
+    expect(mail.text).toContain("15 minutes");
+  });
+
+  // A security mail that looks like a newsletter gets filed as one, and hides where its link
+  // goes. If any of this comes back, the mail stops reaching the inbox it is meant for.
+  it("carries none of the shapes that read as a promotion", () => {
+    const { html } = buildSignInMail("jim@example.com", LINK, "hash-1");
+    expect(html).not.toMatch(/<img|<table|background(-color)?:/i);
+    expect(html).not.toMatch(/border-radius|padding:\s*\d/i);
+    expect(html).not.toContain("#c9973f");
+  });
+
+  it("escapes the address it greets", () => {
+    const mail = buildSignInMail('x"<b>y@example.com', LINK, "h");
+    expect(mail.html).not.toContain("<b>");
+    expect(mail.html).toContain("&lt;b&gt;");
   });
 });

@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, schema } from "@daymarkable/db";
+import { buildSignInMail } from "@daymarkable/mail";
 import { defaultSettings } from "@daymarkable/pipeline";
 import { cookies } from "next/headers";
 import { publicUrl, sessionCookieDomain } from "@/lib/hosts";
@@ -53,13 +54,7 @@ export async function requestMagicLink(rawEmail: string): Promise<MagicLinkResul
   const token = randomBytes(32).toString("base64url");
   await rt.db.insert(schema.loginTokens).values({ tokenHash: sha256(token), email, expiresAt: new Date(Date.now() + LINK_TTL_MS) });
   const link = `${publicUrl()}/auth/verify?token=${token}`;
-  const res = await rt.mail.send({
-    to: email,
-    subject: "Your dayMarkable sign-in link",
-    text: `Sign in to dayMarkable:\n\n${link}\n\nThis link works once and expires in 15 minutes. If you did not request it, ignore this email.`,
-    html: `<p style="font-family:Public Sans,Helvetica,Arial,sans-serif;color:#1e2a44">Sign in to <strong>dayMarkable</strong>:</p><p><a href="${link}" style="display:inline-block;padding:12px 28px;background:#1e2a44;color:#f7f0e3;border-radius:4px;text-decoration:none;font-weight:600;font-family:Public Sans,Helvetica,Arial,sans-serif">Sign in</a></p><p style="font-family:Public Sans,Helvetica,Arial,sans-serif;color:#8a7d5f;font-size:13px">This link works once and expires in 15 minutes. If you did not request it, ignore this email.</p>`,
-    idempotencyKey: `login:${sha256(token)}`,
-  });
+  const res = await rt.mail.send(buildSignInMail(email, link, sha256(token), LINK_TTL_MS / 60_000));
   if (res.status === "skipped") {
     // No email provider configured. The link goes to the server log so the operator can still
     // sign in (bootstrapping a fresh host); it is only returned to the browser outside production.
