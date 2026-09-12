@@ -27,10 +27,17 @@ export interface StoredInboxItem extends InboxItem {
   createdOn: string;
 }
 
-/** One pen stroke, as an SVG path in the drawing's own coordinate space. */
+/**
+ * One pen stroke, as an SVG path in the drawing's own coordinate space, with what the page said
+ * about it. Colour and cap are carried rather than chosen, so the copy is a copy.
+ */
 export interface InkStroke {
   d: string;
   width: number;
+  /** As written on the page, e.g. "#1a1a1a". Null when the source named none. */
+  color: string | null;
+  /** SVG stroke-linecap, when the source gave one. */
+  cap: "butt" | "round" | "square" | null;
 }
 
 /**

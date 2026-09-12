@@ -5,19 +5,23 @@
  * decoder. This reads that SVG back so a drawing can be put into a composed notebook as real
  * vectors rather than a pasted screenshot: crisp at any size, and a few kilobytes.
  *
- * Nothing here interprets anything. A diagram goes onto the page as the same strokes the pen
- * made, because the ink is the authority and a redrawn diagram is not the customer's drawing.
+ * Nothing here interprets anything, and nothing here improves anything. The strokes go onto the
+ * page with the width, colour and cap the tablet recorded. A copy that tidies the ink is not a
+ * copy of the ink, and the page it came from is the authority.
  */
 import type { InkDrawing, InkStroke } from "@daymarkable/core";
 
 /** `<polyline points="x,y x,y">` is what rmc writes; a path `d` is what pdf-lib draws. */
 function pointsToPath(points: string): string | null {
-  const nums = points.trim().split(/[\s,]+/).map(Number);
-  if (nums.length < 4 || nums.some((n) => !Number.isFinite(n))) return null;
+  const nums = points.trim().split(/[\s,]+/).filter((s) => s !== "").map(Number);
+  // One point is a tap, which is a mark on the page like any other. Only an empty or malformed
+  // list has nothing in it.
+  if (nums.length < 2 || nums.length % 2 !== 0 || nums.some((n) => !Number.isFinite(n))) return null;
   const parts: string[] = [];
   for (let i = 0; i + 1 < nums.length; i += 2) parts.push(`${i === 0 ? "M" : "L"} ${nums[i]} ${nums[i + 1]}`);
-  // A single tap is a dot, which a two-point line of zero length would not show.
-  if (parts.length === 1) parts.push(`L ${nums[0]! + 0.4} ${nums[1]! + 0.4}`);
+  // A tap is one point. Repeat it exactly: with round caps that draws the dot the pen made,
+  // and with butt caps it draws nothing, which is what the page itself would show.
+  if (parts.length === 1) parts.push(`L ${nums[0]} ${nums[1]}`);
   return parts.join(" ");
 }
 
@@ -25,12 +29,22 @@ function attr(tag: string, name: string): string | null {
   return new RegExp(`${name}\\s*=\\s*"([^"]*)"`).exec(tag)?.[1] ?? null;
 }
 
-/** stroke-width may be an attribute or sit inside a style="". */
+/** SVG lets a presentation attribute sit either on the tag or inside style="". */
+function prop(tag: string, name: string): string | null {
+  const direct = attr(tag, name);
+  if (direct) return direct.trim();
+  const styled = new RegExp(`(?:^|[;\\s])${name}\\s*:\\s*([^;]+)`).exec(attr(tag, "style") ?? "");
+  return styled ? styled[1]!.trim() : null;
+}
+
 function strokeWidth(tag: string): number {
-  const direct = attr(tag, "stroke-width");
-  if (direct && Number.isFinite(Number(direct))) return Number(direct);
-  const styled = /stroke-width\s*:\s*([\d.]+)/.exec(attr(tag, "style") ?? "");
-  return styled ? Number(styled[1]) : 2;
+  const v = Number(prop(tag, "stroke-width"));
+  return Number.isFinite(v) && v > 0 ? v : 1;
+}
+
+function strokeCap(tag: string): "butt" | "round" | "square" | null {
+  const v = prop(tag, "stroke-linecap");
+  return v === "butt" || v === "round" || v === "square" ? v : null;
 }
 
 /**
@@ -48,7 +62,7 @@ export function parseInkSvg(svg: string): InkDrawing | null {
   for (const tag of svg.match(/<polyline\b[^>]*>/g) ?? []) {
     const points = attr(tag, "points");
     const d = points ? pointsToPath(points) : null;
-    if (d) strokes.push({ d, width: strokeWidth(tag) });
+    if (d) strokes.push({ d, width: strokeWidth(tag), color: prop(tag, "stroke"), cap: strokeCap(tag) });
   }
   if (strokes.length === 0) return null;
   return { strokes, x: vx!, y: vy!, width: vw!, height: vh! };

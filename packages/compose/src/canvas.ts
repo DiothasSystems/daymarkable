@@ -4,7 +4,7 @@
  * an input form: this draws the standard header, footer code, checkboxes, chips, and rules.
  */
 import type { InkDrawing } from "@daymarkable/core";
-import { LineCapStyle, PDFDocument, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
+import { LineCapStyle, PDFDocument, type PDFFont, type PDFPage, rgb, type RGB } from "pdf-lib";
 import { INK, PAGE_HEIGHT_PT, PAGE_WIDTH_PT, PAPER, RULE, SECONDARY, TERTIARY, px } from "./brand.js";
 import { embedBrandFonts, type BrandFonts } from "./fonts.js";
 
@@ -24,6 +24,27 @@ export interface TextOpts {
   align?: "left" | "right" | "center";
   /** Letter spacing in em (mono labels use 0.15). */
   tracking?: number;
+}
+
+const CAPS = { butt: LineCapStyle.Butt, round: LineCapStyle.Round, square: LineCapStyle.Projecting } as const;
+
+/** The handful of colour forms an SVG stroke actually arrives in. Null means the page said none. */
+function svgColor(value: string | null): RGB | null {
+  if (!value || value === "none" || value === "currentColor") return null;
+  const named: Record<string, [number, number, number]> = {
+    black: [0, 0, 0],
+    white: [255, 255, 255],
+    gray: [128, 128, 128],
+    grey: [128, 128, 128],
+    red: [255, 0, 0],
+    blue: [0, 0, 255],
+  };
+  const hit = named[value.toLowerCase()];
+  if (hit) return rgb(hit[0] / 255, hit[1] / 255, hit[2] / 255);
+  const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(value.trim());
+  if (!hex) return null;
+  const h = hex[1]!.length === 3 ? hex[1]!.split("").map((c) => c + c).join("") : hex[1]!;
+  return rgb(parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255);
 }
 
 const ROSE_PATHS = ["M 36 2 L 41 12 L 36 18 L 31 12 Z", "M 36 70 L 41 60 L 36 54 L 31 60 Z", "M 2 36 L 12 31 L 18 36 L 12 41 Z", "M 70 36 L 60 31 L 54 36 L 60 41 Z"];
@@ -123,13 +144,14 @@ export class Canvas {
   }
 
   /**
-   * Lay a page's ink into a box, scaled to fit and centred, keeping its proportions.
+   * Lay a page's ink into a box: scaled uniformly to fit, centred, and otherwise untouched.
    *
-   * Drawn as vectors, so the result is as sharp as the page it is printed on rather than as
-   * sharp as the 1568px image the decoder was given. Stroke weights are scaled with the drawing
-   * so a shrunk diagram does not turn into a blot, and floored so it cannot vanish.
+   * A copy, not a rendering. Widths scale with the drawing because that is what scaling a
+   * drawing means, and are not floored, smoothed or evened out; colour and cap are whatever the
+   * page recorded. The only reason this is drawn as vectors rather than as the decoder's
+   * bitmap is that the vectors are what the tablet actually stored.
    */
-  ink(drawing: InkDrawing, x: number, y: number, maxW: number, maxH: number, color: RGB = INK): { width: number; height: number } {
+  ink(drawing: InkDrawing, x: number, y: number, maxW: number, maxH: number, fallback: RGB = INK): { width: number; height: number } {
     const fit = Math.min(maxW / drawing.width, maxH / drawing.height);
     const w = drawing.width * fit;
     const h = drawing.height * fit;
@@ -140,9 +162,9 @@ export class Canvas {
         x: px(originX - drawing.x * fit),
         y: this.y(y - drawing.y * fit),
         scale: px(fit),
-        borderColor: color,
-        borderWidth: px(Math.max(1.5, s.width * fit)),
-        borderLineCap: LineCapStyle.Round,
+        borderColor: svgColor(s.color) ?? fallback,
+        borderWidth: px(s.width * fit),
+        ...(s.cap ? { borderLineCap: CAPS[s.cap] } : {}),
       });
     }
     return { width: w, height: h };
