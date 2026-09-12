@@ -4,8 +4,10 @@ import { and, eq, gt, isNull, schema } from "@daymarkable/db";
 import { buildSignInMail } from "@daymarkable/mail";
 import { defaultSettings } from "@daymarkable/pipeline";
 import { cookies } from "next/headers";
+import { normalizeEmail } from "@/lib/email";
 import { publicUrl, sessionCookieDomain } from "@/lib/hosts";
 import { getRuntime } from "./runtime";
+import { isInvited, markJoined } from "./waitlist";
 
 export const SESSION_COOKIE = "dm_session";
 const LINK_TTL_MS = 15 * 60_000;
@@ -17,13 +19,19 @@ export interface SessionUser {
   id: string;
   email: string;
   timezone: string;
+  status: "trial" | "active" | "past_due" | "canceled" | "deleted";
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
   onboardedAt: Date | null;
   settings: typeof schema.users.$inferSelect.settings;
 }
 
 /**
- * Phase 0 is single-tenant: a login is accepted for an existing account, for USER_EMAIL, or
- * for the very first account when none exists. Everyone else gets the same neutral message.
+ * Registration is not open, so a sign-in is accepted for an address that already has an account,
+ * for the operator's own USER_EMAIL, for anyone invited off the waiting list, or for the very
+ * first account when none exists. Everyone else gets the same neutral message, which is why the
+ * public page offers the waiting list instead of a sign-in form: a registration form that answers
+ * differently for a known address tells strangers who has an account.
  */
 async function loginAllowed(email: string): Promise<boolean> {
   const rt = await getRuntime();
@@ -31,13 +39,9 @@ async function loginAllowed(email: string): Promise<boolean> {
   if (existing) return true;
   const configured = (process.env.USER_EMAIL || "").trim().toLowerCase();
   if (configured && configured === email) return true;
+  if (await isInvited(email)) return true;
   const any = await rt.db.query.users.findFirst();
   return !any;
-}
-
-export function normalizeEmail(raw: string): string | null {
-  const email = raw.trim().toLowerCase();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null;
 }
 
 export interface MagicLinkResult {
@@ -74,6 +78,8 @@ export async function verifyMagicLink(token: string): Promise<SessionUser | null
   if (!user) {
     const tz = process.env.USER_TIMEZONE || "America/New_York";
     [user] = await rt.db.insert(schema.users).values({ email: row.email, timezone: tz, settings: defaultSettings() }).returning();
+    // They were invited and have now turned up, so the waiting list row stops being a promise.
+    await markJoined(row.email);
   }
   const id = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
@@ -84,7 +90,16 @@ export async function verifyMagicLink(token: string): Promise<SessionUser | null
 }
 
 function toSessionUser(u: typeof schema.users.$inferSelect): SessionUser {
-  return { id: u.id, email: u.email, timezone: u.timezone, onboardedAt: u.onboardedAt, settings: u.settings };
+  return {
+    id: u.id,
+    email: u.email,
+    timezone: u.timezone,
+    status: u.status,
+    stripeCustomerId: u.stripeCustomerId,
+    stripeSubscriptionId: u.stripeSubscriptionId,
+    onboardedAt: u.onboardedAt,
+    settings: u.settings,
+  };
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {

@@ -41,9 +41,9 @@ unchanged.
     decode → merge → compose → upload → email → draft invites → rotate 1-day cache.
   - `apps/web` — Next.js, fully responsive (mobile HTML experience). One server, two hosts
     (`src/lib/hosts.ts` + `src/proxy.ts`): the public site on `APP_URL` = daymarkable.com
-    (`src/app/(marketing)`: landing with the animated hero, `/product`, `/pricing`, `/start`
-    registration entry, `/login`, `/privacy`, `/terms`, `/support`, and every future payment
-    page; frame = `MarketingShell`), and the signed-in service on `SERVICE_URL` =
+    (`src/app/(marketing)`: landing with the animated hero, `/product`, `/pricing`, `/remarkable`,
+    `/start` waiting list, `/billing` checkout, `/login`, `/privacy`, `/terms`, `/support`;
+    frame = `MarketingShell`), and the signed-in service on `SERVICE_URL` =
     app.daymarkable.com (`/today`, frame = `Shell`; unset locally = same host): account setup flow, settings,
     document viewer (calendar files, meeting notes, action list), Sync now, run history,
     conversion-quality rating, Stripe billing pages (web is the ONLY payment surface), and
@@ -131,6 +131,18 @@ unchanged.
     plan change, cancel, refund) happens in `apps/web`. `apps/mobile` must contain no
     payment processing, purchase links, or price display — subscription management from a
     phone goes through the responsive web experience.
+15. **Registration is closed; an invitation is the whole of what opens it.** `/start` takes an
+    address onto the `waitlist` table and sends nothing. It answers identically for an address
+    that is new, waiting, invited, or already an account holder — a public form that replies
+    differently for a known address is an account-existence oracle. An operator invites from
+    `/admin/waitlist` (audited), which is what makes `loginAllowed` accept the address; the
+    invitation mail carries no token, so forwarding it grants nothing. Billing then gates
+    onboarding: `requireUser` sends anyone who `needsCheckout` to `/billing` before `/setup`,
+    skipping it while Stripe is unconfigured and for `USER_EMAIL`, which would otherwise be
+    locked out of its own service. Stripe is the record of who has paid — the webhook is the
+    only thing that moves an account between trial, active, past due and canceled. Decisions
+    live in `server/billing-core.ts` (pure, tested: signature verification, status mapping);
+    the HTTP lives in `server/billing.ts`, over fetch, with no SDK.
 
 ## Testing
 

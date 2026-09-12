@@ -26,6 +26,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const accountStatus = pgEnum("account_status", ["trial", "active", "past_due", "canceled", "deleted"]);
+export const waitlistState = pgEnum("waitlist_state", ["waiting", "invited", "joined"]);
 export const runKind = pgEnum("run_kind", ["nightly", "on_demand"]);
 export const runStatus = pgEnum("run_status", ["queued", "running", "succeeded", "failed", "skipped"]);
 export const taskStatus = pgEnum("task_status", ["open", "carried", "done", "dropped"]);
@@ -95,6 +96,13 @@ export const users = pgTable("users", {
   status: accountStatus("status").notNull().default("trial"),
   settings: jsonb("settings").$type<UserSettings>().notNull(),
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+  /** Stripe, from Phase 2. Null on every Phase 0 account, which never sees a payment page. */
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  /** "monthly" or "annual", from the price the customer chose. */
+  plan: text("plan"),
+  trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -486,4 +494,23 @@ export const adminLoginAttempts = pgTable("admin_login_attempts", {
   ip: text("ip").notNull(),
   success: boolean("success").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Who may open an account, and who is waiting to.
+ *
+ * Registration is not open: Phase 0 runs one tenant, and there is no billing to charge a
+ * stranger with. So the public site takes an address and puts it here, and an operator turns a
+ * row to invited when they want that person in. The sign-in guard reads this table, so an
+ * invitation is the whole of what admits someone.
+ */
+export const waitlist = pgTable("waitlist", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  email: text("email").notNull().unique(),
+  state: waitlistState("state").notNull().default("waiting"),
+  /** Where they came from, e.g. "start" for the public page. Never anything they typed. */
+  source: text("source").notNull().default("start"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  invitedAt: timestamp("invited_at", { withTimezone: true }),
+  joinedAt: timestamp("joined_at", { withTimezone: true }),
 });

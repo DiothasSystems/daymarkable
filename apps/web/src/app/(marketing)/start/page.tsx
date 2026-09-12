@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LoginForm } from "@/app/login/LoginForm";
+
 import { MarketingShell } from "@/components/MarketingShell";
 import { serviceUrl } from "@/lib/hosts";
 import { getSessionUser } from "@/server/auth";
+import { WaitlistForm } from "./WaitlistForm";
 
-export const metadata: Metadata = { title: "Start free", description: "Create your dayMarkable account and pair your reMarkable in a few minutes." };
+export const metadata: Metadata = { title: "Join the waiting list", description: "dayMarkable is in private preview. Leave your address and we will write when there is room." };
 export const dynamic = "force-dynamic";
 
 const STEPS = [
@@ -27,9 +28,9 @@ export default async function StartPage() {
       <section className="mk-wrap mk-section">
         <div className="mk-two" style={{ alignItems: "start" }}>
           <div>
-            <div className="mk-kicker">Start free · 14 days</div>
+            <div className="mk-kicker">Private preview</div>
             <h1 className="mk-h1 sm">Seven steps, then never touch a keyboard again.</h1>
-            <p className="mk-lede" style={{ marginBottom: 24 }}>Setup takes about ten minutes, most of it writing one page by hand. Your first planner is on the tablet tomorrow morning.</p>
+            <p className="mk-lede" style={{ marginBottom: 24 }}>This is what happens once you are in. Setup takes about ten minutes, most of it writing one page by hand, and your first planner is on the tablet the next morning.</p>
             <div className="mk-flow">
               {STEPS.map((s, i) => (
                 <div className="mk-flow-step" key={s.title}>
@@ -43,11 +44,13 @@ export default async function StartPage() {
             </div>
           </div>
           <div className="card" style={{ position: "sticky", top: 88 }}>
-            <p className="kicker">Step 01 · Your email</p>
-            <h2 style={{ marginBottom: 6 }}>Create your account.</h2>
-            <p className="muted" style={{ fontSize: 14 }}>Enter the address you want your meeting notes sent to. We email a sign-in link that works once.</p>
-            <LoginForm />
-            <p className="meta" style={{ marginTop: 16 }}>EARLY ACCESS · INVITED ACCOUNTS ONLY DURING THE PREVIEW</p>
+            <p className="kicker">Private preview</p>
+            <h2 style={{ marginBottom: 6 }}>Join the waiting list.</h2>
+            <p className="muted" style={{ fontSize: 14 }}>
+              dayMarkable is not open for registration yet. Every account is read by hand onto a real tablet each night, so we are
+              letting people in a few at a time. Leave your address and we will write when there is room.
+            </p>
+            <WaitlistForm />
             <p className="muted" style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>Already have an account? <Link href="/login">Login</Link>. By continuing you agree to the <Link href="/terms">terms</Link> and <Link href="/privacy">privacy promise</Link>.</p>
           </div>
         </div>

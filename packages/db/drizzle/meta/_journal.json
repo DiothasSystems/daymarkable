@@ -43,6 +43,13 @@
       "when": 1788728814106,
       "tag": "0005_soft_vengeance",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789225942941,
+      "tag": "0006_ambitious_sabretooth",
+      "breakpoints": true
     }
   ]
 }

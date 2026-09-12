@@ -7,6 +7,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { logout, requestMagicLink } from "./auth";
 import * as svc from "./services";
+import { joinWaitlist } from "./waitlist";
 import { protectedProcedure, publicProcedure, router } from "./trpc";
 
 export const appRouter = router({
@@ -17,6 +18,14 @@ export const appRouter = router({
       await logout();
       return { ok: true };
     }),
+  }),
+  /**
+   * Public, and deliberately incurious: it answers the same for an address that is new, already
+   * waiting, already invited, or already has an account. Anything else would let a stranger use
+   * the registration page to find out who has one.
+   */
+  waitlist: router({
+    join: publicProcedure.input(z.object({ email: z.string().max(320) })).mutation(({ input }) => joinWaitlist(input.email, "start")),
   }),
   account: router({
     get: protectedProcedure.query(({ ctx }) => svc.getAccount(ctx.user.id)),

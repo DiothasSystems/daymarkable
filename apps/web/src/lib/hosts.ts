@@ -44,7 +44,7 @@ export function sessionCookieDomain(): string | undefined {
 /** Paths that belong to the signed-in service host. */
 const SERVICE_PREFIXES = ["/today", "/documents", "/runs", "/account", "/setup", "/settings", "/admin", "/api/documents", "/api/compare"];
 /** Paths that belong to the public host. "/" is public too (exact match). */
-const PUBLIC_PREFIXES = ["/product", "/remarkable", "/pricing", "/start", "/privacy", "/terms", "/support", "/login"];
+const PUBLIC_PREFIXES = ["/product", "/remarkable", "/pricing", "/start", "/billing", "/privacy", "/terms", "/support", "/login"];
 
 const under = (path: string, prefixes: string[]) => prefixes.some((p) => path === p || path.startsWith(p + "/"));
 
