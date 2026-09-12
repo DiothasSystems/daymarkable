@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  accountBadge,
   accountStatusFor,
   isLiveStripeStatus,
   needsCheckout,
@@ -141,5 +142,34 @@ describe("a trial is once per account", () => {
   it("knows which Stripe states mean a customer must not be sold a second subscription", () => {
     for (const s of ["trialing", "active", "past_due", "unpaid"]) expect(isLiveStripeStatus(s)).toBe(true);
     for (const s of ["canceled", "incomplete_expired", "paused", ""]) expect(isLiveStripeStatus(s)).toBe(false);
+  });
+});
+
+describe("what the top bar says about an account", () => {
+  const now = new Date("2026-09-12T12:00:00Z");
+  const sub = { status: "trial" as const, stripeSubscriptionId: "sub_1", trialEndsAt: null as Date | null };
+
+  // A fresh row reads trial because that is the column default, not because one started.
+  it("says nothing until there is a subscription", () => {
+    expect(accountBadge({ ...sub, stripeSubscriptionId: null }, now)).toBeNull();
+  });
+
+  it("counts the trial down in whole days, rounding up", () => {
+    expect(accountBadge({ ...sub, trialEndsAt: new Date("2026-09-24T12:00:00Z") }, now)?.text).toBe("Trial, 12 days left");
+    expect(accountBadge({ ...sub, trialEndsAt: new Date("2026-09-13T00:00:00Z") }, now)?.text).toBe("Trial, 1 day left");
+    expect(accountBadge({ ...sub, trialEndsAt: new Date("2026-09-12T13:00:00Z") }, now)?.text).toBe("Trial, 1 day left");
+  });
+
+  it("warns over the last three days, which is when the reminder goes out", () => {
+    expect(accountBadge({ ...sub, trialEndsAt: new Date("2026-09-16T12:00:00Z") }, now)?.tone).toBe("ok");
+    expect(accountBadge({ ...sub, trialEndsAt: new Date("2026-09-15T12:00:00Z") }, now)?.tone).toBe("warn");
+    expect(accountBadge({ ...sub, trialEndsAt: new Date("2026-09-12T01:00:00Z") }, now)).toEqual({ text: "Trial ends today", tone: "warn" });
+  });
+
+  it("names the states a customer needs to act on", () => {
+    expect(accountBadge({ ...sub, status: "active" }, now)).toEqual({ text: "Active", tone: "ok" });
+    expect(accountBadge({ ...sub, status: "past_due" }, now)).toEqual({ text: "Payment failed", tone: "bad" });
+    expect(accountBadge({ ...sub, status: "canceled" }, now)).toEqual({ text: "Canceled", tone: "bad" });
+    expect(accountBadge({ ...sub, status: "deleted" }, now)).toBeNull();
   });
 });

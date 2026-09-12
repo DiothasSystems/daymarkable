@@ -94,6 +94,46 @@ export function trialDaysFor(user: { trialUsedAt: Date | null }): number | null 
   return user.trialUsedAt ? null : TRIAL_DAYS;
 }
 
+export interface AccountBadge {
+  text: string;
+  /** Maps onto the badge classes already in globals.css. */
+  tone: "ok" | "warn" | "bad";
+}
+
+/**
+ * What the top bar says about this account beside the address, or null to say nothing.
+ *
+ * Null until there is a subscription, because a fresh row reads "trial" from the column default
+ * rather than because anybody started one, and a Phase 0 account that will never be billed should
+ * not wear a badge implying a clock is running.
+ *
+ * Days are counted up, so a trial ending in twelve hours reads "1 day left" rather than "0", and
+ * the last three days are toned as a warning: that is when the reminder mail goes out and when
+ * somebody who has changed their mind still has time to act on it.
+ */
+export function accountBadge(
+  user: { status: AccountStatus | "deleted"; trialEndsAt: Date | null; stripeSubscriptionId: string | null },
+  now: Date = new Date(),
+): AccountBadge | null {
+  if (!user.stripeSubscriptionId) return null;
+  switch (user.status) {
+    case "trial": {
+      if (!user.trialEndsAt) return { text: "Trial", tone: "ok" };
+      const days = Math.ceil((user.trialEndsAt.getTime() - now.getTime()) / 86_400_000);
+      if (days <= 0) return { text: "Trial ends today", tone: "warn" };
+      return { text: days === 1 ? "Trial, 1 day left" : `Trial, ${days} days left`, tone: days <= 3 ? "warn" : "ok" };
+    }
+    case "active":
+      return { text: "Active", tone: "ok" };
+    case "past_due":
+      return { text: "Payment failed", tone: "bad" };
+    case "canceled":
+      return { text: "Canceled", tone: "bad" };
+    default:
+      return null;
+  }
+}
+
 /** The subscription states that mean an account is live and must not buy a second one. */
 export function isLiveStripeStatus(status: string): boolean {
   return status === "trialing" || status === "active" || status === "past_due" || status === "unpaid";

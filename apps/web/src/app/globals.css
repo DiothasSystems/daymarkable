@@ -63,6 +63,16 @@ code, .mono { font-family: var(--font-mono); font-size: 0.85em; }
 .nav a:hover { color: var(--midnight); }
 .nav a.active { color: var(--gold-text); border-bottom-color: var(--gold); }
 .synced { font-family: var(--font-mono); font-size: 11px; color: var(--meta); letter-spacing: 0.06em; white-space: nowrap; }
+/* Who is signed in, what their subscription is doing, and the way out. Truncates rather than
+   wraps: a long address must not be allowed to push the nav around. */
+.acct { display: flex; align-items: center; gap: 12px; flex: none; max-width: 360px; }
+.acct-who { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; color: var(--muted); text-decoration: none; }
+.acct-who:hover { color: var(--midnight); }
+.acct-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct .badge { white-space: nowrap; flex: none; }
+/* A plain text control, not one of the app's buttons, which are sized for a page not a bar. */
+.acct-out { background: none; border: 0; padding: 0; min-height: 0; flex: none; font-family: var(--font-ui); font-size: 13px; font-weight: 600; color: var(--meta); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
+.acct-out:hover { background: none; color: var(--gold-hover); }
 main { flex: 1; width: 100%; max-width: 1080px; margin: 0 auto; padding: 28px 48px 72px; }
 @media (max-width: 799px) { .topbar { padding: 12px 16px; gap: 14px; } main { padding: 20px 16px 56px; } .synced { display: none; } }
 .footer { padding: 24px 16px 32px; text-align: center; color: var(--meta); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; border-top: 1px solid var(--border-strong); }

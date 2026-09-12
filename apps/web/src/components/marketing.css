@@ -3,6 +3,9 @@
 .mk-emblem { width: 40px; height: 40px; border-radius: 50%; }
 .mk-nav { margin-left: 8px; }
 .mk-actions { margin-left: auto; display: flex; align-items: center; gap: 18px; flex: none; }
+/* Which account is signed in. Truncates rather than wraps, so a long address cannot push the
+   buttons off the bar. */
+.mk-who { font-size: 13px; color: var(--muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mk-main { max-width: none; padding: 0; }
 .mk-wrap { max-width: 1080px; margin: 0 auto; padding: 0 48px; }
 .mk-section { padding-block: 80px; }
@@ -99,6 +102,7 @@
   .mk-hero { padding-block: 28px 48px; }
   .mk-h1, .mk-h1.sm { font-size: 34px; }
   .mk-nav { display: none; }
+  .mk-who { display: none; }
   .mk-actions { gap: 12px; }
   .mk-topbar .wordmark { font-size: 18px !important; }
   .mk-emblem { width: 32px; height: 32px; }

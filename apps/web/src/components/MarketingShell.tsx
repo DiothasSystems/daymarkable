@@ -26,7 +26,13 @@ export async function MarketingShell({ children }: { children: React.ReactNode }
         </nav>
         <div className="mk-actions">
           {user ? (
-            <a href={`${serviceUrl()}/today`} className="btn small">Open dayMarkable</a>
+            <>
+              <span className="mk-who" title={`Signed in as ${user.email}`}>{user.email}</span>
+              <form action="/auth/logout" method="post">
+                <button type="submit" className="acct-out">Sign out</button>
+              </form>
+              <a href={`${serviceUrl()}/today`} className="btn small">Open dayMarkable</a>
+            </>
           ) : (
             <>
               <Link href="/start" className="btn secondary small mk-start">Start free</Link>
