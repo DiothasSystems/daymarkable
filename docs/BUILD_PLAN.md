@@ -81,6 +81,17 @@ exception to the purge).
   can be let in without a card. That means a trial length per account rather than the one
   constant in `billing-core.ts`, and Stripe's trial_end moved on the subscription rather
   than a flag of our own, so Stripe stays the record of who owes what.
+- **Two-factor sign-in: a password AND the emailed link**, both required, replacing the link
+  on its own. Today a mailbox is the whole of the credential, which means whoever reaches
+  that mailbox reaches the notes. Notes are the product and they are private, so the second
+  factor is worth the friction. Consequences to plan for rather than discover: existing
+  accounts need a path to set a first password; bcrypt at the same cost as the admin hash,
+  never the plaintext; reset is itself an emailed link, so it must not quietly become a way
+  round the password. `/login` keeps its neutral reply and gains rate limiting — with a
+  password field a distinguishing answer is an invitation to guess, and `loginLocked` in
+  `server/admin-core.ts` is already the shape to copy. Note the tension: `/start` now says
+  plainly whether an address has an account, which was the right call while the way in is a
+  waiting list, but should be revisited when that becomes a real signup form.
 - **Calendar read integration**: Google Calendar + Microsoft Graph OAuth behind
   `CalendarProvider`; overlay existing meetings on the calendar pages.
 - Canary account monitoring the unofficial cloud API; alerting (a silent 3AM failure is
