@@ -43,10 +43,14 @@ fi
 grep -E "^(APP_URL|SERVICE_URL|APP_DOMAIN)=" "$ENV_FILE" || true
 
 # --- build and roll --------------------------------------------------------------------------
-echo "== building app"
-docker compose build app
-echo "== restarting app"
-docker compose up -d app
+# Both images, always. The render service is its own container, and a change there is invisible
+# from the app: page rendering keeps working and whatever the change added silently does not
+# happen. Docker skips the build when nothing in that directory moved, so this costs nothing on
+# a deploy that only touched the web app.
+echo "== building app and render"
+docker compose build app render
+echo "== restarting app and render"
+docker compose up -d app render
 if [ "$EDGE" = 1 ]; then
   echo "== reloading caddy with the two-host Caddyfile (obtains certificates for $DOMAIN, www, app)"
   docker compose --profile edge up -d --force-recreate caddy
