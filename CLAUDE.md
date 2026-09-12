@@ -62,8 +62,8 @@ unchanged.
   - `apps/mobile` — Phase 1: React Native/Expo viewer + Sync now, reusing the tRPC types.
   - `services/render` — Python container (`rmscene`) exposing `POST /render` (.rm → PNG).
 - Postgres via Drizzle ORM; migrations in `packages/db`. Queue: pg-boss (Phase 2).
-- Env vars in `.env` locally, in Hostinger's environment config in production (never
-  committed): `RMAPI_DEVICE_TOKEN`, `ANTHROPIC_API_KEY`, `DATABASE_URL`,
+- Env vars in `.env` locally, and in `/root/daymarkable/.env` on the production VPS, beside the
+  compose file that reads it (never committed): `RMAPI_DEVICE_TOKEN`, `ANTHROPIC_API_KEY`, `DATABASE_URL`,
   `RENDER_SERVICE_URL`, `EMAIL_API_KEY`, `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` (bcrypt —
   never store the plaintext admin password), `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
   (Phase 2), `GOOGLE_OAUTH_CLIENT_ID/SECRET`, `MS_GRAPH_CLIENT_ID/SECRET` (calendar vars

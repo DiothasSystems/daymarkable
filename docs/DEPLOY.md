@@ -105,9 +105,17 @@ git clone <your repo> daymarkable && cd daymarkable
 
 ## 3. Host environment
 
-Create `/etc/daymarkable.env` (or use Hostinger's environment panel) with these variables.
-Compose reads them from the shell environment; the simplest way is `set -a; source
-/etc/daymarkable.env; set +a` before every `docker compose` command, or `--env-file`.
+Create `/root/daymarkable/.env` with these variables, beside the compose file. Compose loads
+a file of that name from the project directory on its own, so there is nothing to source and no
+`--env-file` to pass.
+
+A VPS has no environment panel in hPanel; that is a feature of their shared and app hosting. The
+variables live in this file and nowhere else. Reach it over SSH, or through hPanel under VPS,
+then your server, then Browser terminal.
+
+Editing the file does not change a running container. Compose recreates one when a value it
+interpolates has changed, so apply an edit with `docker compose up -d app`, and confirm it
+arrived with `docker compose exec app printenv <NAME>`.
 
 | Variable | Required | Notes |
 |---|---|---|
@@ -128,7 +136,7 @@ Compose reads them from the shell environment; the simplest way is `set -a; sour
 ## 4. Build and start
 
 ```bash
-set -a; source /etc/daymarkable.env; set +a
+cd /root/daymarkable
 docker compose build
 docker compose up -d db render app
 docker compose logs -f app        # expect: migrations applied, "3AM scheduler running inside the web server"
