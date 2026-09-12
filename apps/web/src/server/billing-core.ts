@@ -84,6 +84,22 @@ export interface BillingUser {
 }
 
 /**
+ * How many trial days this account gets, or null for none.
+ *
+ * A trial is once per account, ever. Without that, cancelling and subscribing again buys
+ * another fourteen free nights, and repeating it buys the product for nothing. So the second
+ * subscription starts billing immediately, which is also what the terms describe.
+ */
+export function trialDaysFor(user: { trialUsedAt: Date | null }): number | null {
+  return user.trialUsedAt ? null : TRIAL_DAYS;
+}
+
+/** The subscription states that mean an account is live and must not buy a second one. */
+export function isLiveStripeStatus(status: string): boolean {
+  return status === "trialing" || status === "active" || status === "past_due" || status === "unpaid";
+}
+
+/**
  * Whether this account still has to pass through checkout.
  *
  * The Phase 0 owner never does: that account predates billing, pays nothing, and would otherwise

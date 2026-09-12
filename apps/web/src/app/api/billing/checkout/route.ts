@@ -1,6 +1,6 @@
-import { publicUrl } from "@/lib/hosts";
+import { publicUrl, serviceUrl } from "@/lib/hosts";
 import { getSessionUser } from "@/server/auth";
-import { billingConfigured, createCheckoutSession, isPlan } from "@/server/billing";
+import { adoptSubscription, billingConfigured, createCheckoutSession, findLiveSubscription, isPlan } from "@/server/billing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,8 +23,20 @@ export async function POST(req: Request): Promise<Response> {
   if (!isPlan(plan)) return back("Choose a plan.");
 
   try {
-    const url = await createCheckoutSession(user, plan);
-    return Response.redirect(url, 303);
+    /*
+     * Before selling anything, ask Stripe whether this customer already bought it. That happens
+     * when a previous checkout succeeded but the return did not settle, leaving an account that
+     * looks unpaid here and is paying there. Without this check the next click charges them
+     * twice; with it, they get back what they already have.
+     */
+    if (user.stripeCustomerId) {
+      const live = await findLiveSubscription(user.stripeCustomerId);
+      if (live) {
+        await adoptSubscription(live);
+        return Response.redirect(new URL("/setup?checkout=done", serviceUrl()), 303);
+      }
+    }
+    return Response.redirect(await createCheckoutSession(user, plan), 303);
   } catch (err) {
     // The message names the Stripe failure, never the key and never anything the customer typed.
     console.error(`[billing] could not open checkout for ${user.id}: ${(err as Error).message}`);

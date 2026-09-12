@@ -102,6 +102,13 @@ export const users = pgTable("users", {
   /** "monthly" or "annual", from the price the customer chose. */
   plan: text("plan"),
   trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+  /**
+   * When this account first had a free trial. Set once and never cleared, because it is what
+   * stops someone cancelling and re-subscribing for another fourteen free nights forever.
+   * Distinct from trialEndsAt, which follows the current subscription and goes null when a
+   * later one carries no trial.
+   */
+  trialUsedAt: timestamp("trial_used_at", { withTimezone: true }),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

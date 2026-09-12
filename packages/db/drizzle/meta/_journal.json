@@ -50,6 +50,13 @@
       "when": 1789225942941,
       "tag": "0006_ambitious_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789230279780,
+      "tag": "0007_superb_queen_noir",
+      "breakpoints": true
     }
   ]
 }

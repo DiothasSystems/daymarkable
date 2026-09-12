@@ -1,6 +1,14 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { accountStatusFor, needsCheckout, serviceActive, stripeForm, verifyStripeSignature } from "./billing-core";
+import {
+  accountStatusFor,
+  isLiveStripeStatus,
+  needsCheckout,
+  serviceActive,
+  stripeForm,
+  trialDaysFor,
+  verifyStripeSignature,
+} from "./billing-core";
 
 const SECRET = "whsec_test_secret";
 
@@ -116,5 +124,22 @@ describe("webhook signatures", () => {
 
   it("refuses a signature that is not hex of the right length", () => {
     expect(verifyStripeSignature(body, `t=${nowSec},v1=zzzz`, SECRET, now).ok).toBe(false);
+  });
+});
+
+describe("a trial is once per account", () => {
+  it("offers one to an account that has never had it", () => {
+    expect(trialDaysFor({ trialUsedAt: null })).toBe(14);
+  });
+
+  // Otherwise cancelling and subscribing again buys another fourteen free nights, and
+  // repeating that buys the product for nothing.
+  it("offers none to an account that has, however long ago", () => {
+    expect(trialDaysFor({ trialUsedAt: new Date("2020-01-01") })).toBeNull();
+  });
+
+  it("knows which Stripe states mean a customer must not be sold a second subscription", () => {
+    for (const s of ["trialing", "active", "past_due", "unpaid"]) expect(isLiveStripeStatus(s)).toBe(true);
+    for (const s of ["canceled", "incomplete_expired", "paused", ""]) expect(isLiveStripeStatus(s)).toBe(false);
   });
 });

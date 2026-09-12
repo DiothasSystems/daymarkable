@@ -8,9 +8,10 @@ import {
   type Plan,
   PLAN_COPY,
   PRICE_LOOKUP,
+  isLiveStripeStatus,
   stripeDate,
   stripeForm,
-  TRIAL_DAYS,
+  trialDaysFor,
   verifyStripeSignature,
 } from "./billing-core";
 import { getRuntime } from "./runtime";
@@ -80,6 +81,7 @@ export interface CheckoutUser {
   id: string;
   email: string;
   stripeCustomerId: string | null;
+  trialUsedAt: Date | null;
 }
 
 /**
@@ -87,8 +89,9 @@ export interface CheckoutUser {
  * reach this server and the page the customer types into is not ours to get wrong.
  *
  * The trial is set here rather than on the price, so support can vary it for one person without
- * touching the catalogue. The card is collected up front and the subscription cancels if it is
- * somehow missing at trial end, which is what the terms promise.
+ * touching the catalogue, and it is offered only to an account that has never had one. The card
+ * is collected up front and the subscription cancels if it is somehow missing at trial end,
+ * which is what the terms promise.
  */
 export async function createCheckoutSession(user: CheckoutUser, plan: Plan): Promise<string> {
   const session = await stripeApi(
@@ -101,11 +104,15 @@ export async function createCheckoutSession(user: CheckoutUser, plan: Plan): Pro
       metadata: { user_id: user.id },
       payment_method_collection: "always",
       subscription_data: {
-        trial_period_days: TRIAL_DAYS,
+        // Null for an account that has already had its trial: that one starts paying at once.
+        trial_period_days: trialDaysFor(user),
         trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
         metadata: { user_id: user.id },
       },
-      success_url: `${serviceUrl()}/setup?checkout=done`,
+      // Not straight to /setup. The browser comes back the instant the card clears, which is
+      // usually before the webhook saying the subscription exists, and the guard on /setup would
+      // send them back to the offer they had just paid. The return route settles that first.
+      success_url: `${serviceUrl()}/api/billing/return?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${publicUrl()}/billing?checkout=cancelled`,
     },
     // One session per user per plan per minute: a double-clicked button cannot open two.
@@ -159,6 +166,7 @@ async function applySubscription(subscription: Json): Promise<void> {
   }
   const rt = await getRuntime();
   const plan = planOf(subscription);
+  const existing = await rt.db.query.users.findFirst({ where: eq(schema.users.id, userId) });
   await rt.db
     .update(schema.users)
     .set({
@@ -167,6 +175,9 @@ async function applySubscription(subscription: Json): Promise<void> {
       stripeCustomerId: idOf(subscription.customer),
       ...(plan ? { plan } : {}),
       trialEndsAt: stripeDate(subscription.trial_end),
+      // Set the first time a trial is seen and never cleared, so it survives a later
+      // subscription that has none. This is what makes a trial once per account.
+      ...(subscription.trial_end && !existing?.trialUsedAt ? { trialUsedAt: new Date() } : {}),
       currentPeriodEnd: stripeDate(subscription.current_period_end),
       updatedAt: new Date(),
     })
@@ -195,6 +206,43 @@ async function sendTrialReminder(subscription: Json): Promise<void> {
       timeZone: user.timezone,
     }),
   );
+}
+
+/**
+ * Settle the subscription on the way back from checkout, rather than waiting for the webhook.
+ *
+ * Stripe says to do both: the webhook is the reliable path and this is the immediate one, and
+ * since each writes the state Stripe describes rather than adjusting what is stored, whichever
+ * arrives second changes nothing. Without this the customer returns before the webhook and the
+ * guard sends them back to the offer they have just paid for.
+ */
+export async function applyCheckoutSession(sessionId: string, userId: string): Promise<boolean> {
+  const session = await stripeApi(`/checkout/sessions/${encodeURIComponent(sessionId)}?expand[0]=subscription`);
+  // A session id is guessable in principle, so it only counts if it says it belongs to this user.
+  if (session.client_reference_id !== userId) {
+    console.warn("[billing] a checkout session was returned for the wrong account");
+    return false;
+  }
+  const subscription = session.subscription;
+  if (!subscription || typeof subscription !== "object") return false;
+  await applySubscription(subscription as Json);
+  return true;
+}
+
+/**
+ * The subscription this customer already has, if any. Used before opening checkout, so that a
+ * customer who paid but whose return went wrong recovers what they bought instead of buying it
+ * a second time.
+ */
+export async function findLiveSubscription(customerId: string): Promise<Json | null> {
+  const res = await stripeApi(`/subscriptions?customer=${encodeURIComponent(customerId)}&status=all&limit=20`);
+  const list = (res.data as Json[] | undefined) ?? [];
+  return list.find((s) => isLiveStripeStatus(String(s.status ?? ""))) ?? null;
+}
+
+/** Write a subscription we fetched ourselves onto the account, as the webhook would. */
+export async function adoptSubscription(subscription: Json): Promise<void> {
+  await applySubscription(subscription);
 }
 
 export interface WebhookResult {

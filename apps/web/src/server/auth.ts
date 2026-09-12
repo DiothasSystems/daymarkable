@@ -22,6 +22,7 @@ export interface SessionUser {
   status: "trial" | "active" | "past_due" | "canceled" | "deleted";
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
+  trialUsedAt: Date | null;
   onboardedAt: Date | null;
   settings: typeof schema.users.$inferSelect.settings;
 }
@@ -97,6 +98,7 @@ function toSessionUser(u: typeof schema.users.$inferSelect): SessionUser {
     status: u.status,
     stripeCustomerId: u.stripeCustomerId,
     stripeSubscriptionId: u.stripeSubscriptionId,
+    trialUsedAt: u.trialUsedAt,
     onboardedAt: u.onboardedAt,
     settings: u.settings,
   };
