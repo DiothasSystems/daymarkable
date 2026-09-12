@@ -9,7 +9,9 @@
  */
 import type { ExtractedEvent, ExtractedMeetingRequest, ExtractedTask, PageExtraction } from "@daymarkable/decode";
 import { compareActions } from "./daily.js";
+import { drawingCaption, shouldReproduceInk, transcribedWordCount } from "./drawing.js";
 import type {
+  InkDrawing,
   Meeting,
   PrintedItem,
   StoredEvent,
@@ -26,6 +28,10 @@ export interface MergePage {
   notebook: string;
   pageIndex: number;
   extraction: PageExtraction;
+  /** The page's own strokes, when the renderer kept them. Reproduced if the page is a drawing. */
+  drawing?: InkDrawing | null;
+  /** Share of the page its strokes cover, from the same source. */
+  inkCoverage?: number;
 }
 
 export interface MergeOptions {
@@ -473,6 +479,42 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
         source,
       });
     }
+    /*
+     * A page of drawing is a page of notes.
+     *
+     * The loop above only makes a section when the decoder named a meeting, which is right for
+     * writing: a loose paragraph belongs in the transcription, not as a heading of its own. But
+     * a sketch with no meeting on it would then be decoded, judged a drawing, and dropped,
+     * which is the one page the customer will certainly go looking for. So when a page carries
+     * a drawing worth reproducing it always gets a section: the meeting's, if there is one, and
+     * otherwise its own, carrying whatever was written on it and the tasks it produced.
+     */
+    if (page.drawing && shouldReproduceInk({ hasDrawing: ex.has_drawing, words: transcribedWordCount(ex.transcription), coverage: page.inkCoverage ?? 0 })) {
+      const host = [...grouped.values()][0];
+      if (host) {
+        host.drawing = page.drawing;
+        host.drawingCaption = drawingCaption(ex.drawing_caption, page.notebook, page.pageIndex);
+      } else {
+        const date = ex.page_date ?? today;
+        grouped.set(`drawing:${date}`, {
+          id: stableId("meeting", `drawing ${date} ${page.notebook} ${page.pageIndex}`),
+          // The caption makes a better heading than the word "Drawing"; the reference below the
+          // figure then carries the page, so nothing is said twice.
+          topic: ex.drawing_caption?.trim() || "Drawing",
+          date,
+          time: null,
+          attendees: [],
+          text: repairNoteLines(ex.transcription),
+          decisions: [],
+          actions: pageTaskTexts,
+          confidence: ex.overall_confidence,
+          source,
+          drawing: page.drawing,
+          drawingCaption: drawingCaption(ex.drawing_caption?.trim() ? null : ex.drawing_caption, page.notebook, page.pageIndex),
+        });
+      }
+    }
+
     for (const m of grouped.values()) {
       if (state.meetings.some((x) => x.id === m.id)) continue;
       const dup = state.meetings.find((x) => x.date === m.date && similar(x.topic, m.topic) && x.source.notebook === m.source.notebook && x.source.pageIndex === m.source.pageIndex);

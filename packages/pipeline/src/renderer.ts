@@ -7,6 +7,8 @@ export interface PageImages {
   pageIndex: number;
   segments: Uint8Array[];
   renderer: string;
+  /** The page's strokes, when it was drawn rather than rasterised from a PDF. */
+  svg: string | null;
 }
 
 export interface Renderer {
@@ -49,7 +51,8 @@ export class HttpRenderer implements Renderer {
     const out: PageImages[] = [];
     for (const [pageId, segs] of grouped) {
       const p = byId.get(pageId)!;
-      out.push({ pageId, pageIndex: p.index, segments: segs.map((s) => s.png), renderer: segs[0]?.renderer ?? "?" });
+      // The strokes describe the whole page, so they ride on its first segment.
+      out.push({ pageId, pageIndex: p.index, segments: segs.map((s) => s.png), renderer: segs[0]?.renderer ?? "?", svg: segs[0]?.svg ?? null });
     }
     return { pages: out, failed };
   }

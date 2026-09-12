@@ -124,7 +124,7 @@ export class FixtureRenderer implements Renderer {
         failed.push({ pageId, reason: "no fixture png" });
         continue;
       }
-      pages.push({ pageId, pageIndex: p.index, segments: await Promise.all(segs.map(async (f) => new Uint8Array(await readFile(path.join(m.dir, "png", f))))), renderer: "fixture" });
+      pages.push({ pageId, pageIndex: p.index, segments: await Promise.all(segs.map(async (f) => new Uint8Array(await readFile(path.join(m.dir, "png", f))))), renderer: "fixture", svg: null });
     }
     return { pages, failed };
   }

@@ -615,3 +615,87 @@ describe("the Action List page is an input form", () => {
     expect(r.changes.tasksCreated).toBe(0);
   });
 });
+
+describe("a page of drawing", () => {
+  const sketch = {
+    strokes: [{ d: "M 0 0 L 300 400", width: 2, color: null, cap: null }],
+    x: 0,
+    y: 0,
+    width: 400,
+    height: 500,
+  };
+
+  // The page this whole feature exists for: a sketch with no meeting written on it. Before,
+  // it was decoded, judged a drawing, and then dropped, because only a named meeting made a
+  // section.
+  it("becomes a note of its own when no meeting was named on it", () => {
+    const r = mergeRun(
+      emptyWorkingSet(),
+      [
+        {
+          ...notesPage({ has_drawing: true, drawing_caption: "three boxes joined by arrows", transcription: "3am?" }),
+          drawing: sketch,
+          inkCoverage: 0.6,
+        },
+      ],
+      opts,
+    );
+    expect(r.newMeetings).toHaveLength(1);
+    expect(r.newMeetings[0]!.topic).toBe("three boxes joined by arrows");
+    expect(r.newMeetings[0]!.drawing).toBe(sketch);
+    expect(r.newMeetings[0]!.drawingCaption).toBe("WORK · p.1");
+  });
+
+  it("carries the words and the tasks from the same page", () => {
+    const r = mergeRun(
+      emptyWorkingSet(),
+      [
+        {
+          ...notesPage({ has_drawing: true, drawing_caption: null, transcription: "Registry is the only input", tasks: [task("Send Priya the deck")] }),
+          drawing: sketch,
+          inkCoverage: 0.6,
+        },
+      ],
+      opts,
+    );
+    expect(r.newMeetings[0]!.topic).toBe("Drawing");
+    expect(r.newMeetings[0]!.text).toContain("Registry is the only input");
+    expect(r.newMeetings[0]!.actions).toEqual(["Send Priya the deck"]);
+  });
+
+  it("attaches to the meeting when the page had one, rather than making a second section", () => {
+    const r = mergeRun(
+      emptyWorkingSet(),
+      [
+        {
+          ...notesPage({
+            has_drawing: true,
+            drawing_caption: "flow",
+            notes: [{ meeting_topic: "Roadmap sync", meeting_date: "2026-09-02", meeting_time: null, attendees: [], text: "Whiteboarded it.", decisions: [], confidence: 0.9 }],
+          }),
+          drawing: sketch,
+          inkCoverage: 0.6,
+        },
+      ],
+      opts,
+    );
+    expect(r.newMeetings).toHaveLength(1);
+    expect(r.newMeetings[0]!.topic).toBe("Roadmap sync");
+    expect(r.newMeetings[0]!.drawingCaption).toBe("WORK · p.1 · flow");
+  });
+
+  it("leaves a page of writing alone", () => {
+    const r = mergeRun(
+      emptyWorkingSet(),
+      [
+        {
+          ...notesPage({ transcription: "a".repeat(3).split("").join(" ") + " " + Array.from({ length: 40 }, (_, i) => `word${i}`).join(" ") }),
+          drawing: sketch,
+          inkCoverage: 0.6,
+        },
+      ],
+      opts,
+    );
+    expect(r.newMeetings).toHaveLength(0);
+  });
+});

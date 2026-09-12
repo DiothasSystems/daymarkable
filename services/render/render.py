@@ -44,6 +44,11 @@ class Rendered:
     renderer: str
     segment: int = 0
     segment_count: int = 1
+    # The strokes this page was drawn from, kept so a drawing can be reproduced in a composed
+    # notebook as ink rather than as a rasterised copy of ink. Carried on the first segment
+    # only: it describes the whole page, and a tall page is split for the decoder's benefit,
+    # not the drawing's. None for a page rendered from a PDF, which has no strokes.
+    svg: str | None = None
 
 
 class RenderError(Exception):
@@ -98,11 +103,11 @@ def _to_png(im: Image.Image) -> bytes:
     return buf.getvalue()
 
 
-def segment_image(im: Image.Image, long_edge: int, renderer: str) -> list[Rendered]:
+def segment_image(im: Image.Image, long_edge: int, renderer: str, svg: str | None = None) -> list[Rendered]:
     """Split a tall image into device-ratio segments, each fitting the long edge."""
     w, h = im.size
     if h / w <= DEVICE_RATIO * 1.15:
-        return [Rendered(_to_png(im), w, h, renderer)]
+        return [Rendered(_to_png(im), w, h, renderer, svg=svg)]
     seg_h = int(w * DEVICE_RATIO)
     step = seg_h - SEGMENT_OVERLAP_PX
     count = max(1, math.ceil((h - SEGMENT_OVERLAP_PX) / step))
@@ -110,7 +115,7 @@ def segment_image(im: Image.Image, long_edge: int, renderer: str) -> list[Render
     for i in range(count):
         top = min(i * step, max(0, h - seg_h))
         crop = im.crop((0, top, w, min(top + seg_h, h)))
-        out.append(Rendered(_to_png(crop), crop.width, crop.height, renderer, i, count))
+        out.append(Rendered(_to_png(crop), crop.width, crop.height, renderer, i, count, svg=svg if i == 0 else None))
     return out
 
 
@@ -141,7 +146,7 @@ def render_rm(
     scale = long_edge / max(w, min(h, seg_h_pt))
     if background is None:
         gray = _rasterize_strokes(svg, scale, transparent=False)
-        return segment_image(_crop_top(gray, crop_top), long_edge, "rmscene")
+        return segment_image(_crop_top(gray, crop_top), long_edge, "rmscene", svg)
     ink = _rasterize_strokes(svg, scale, transparent=True)
     bg = background.convert("RGBA").resize(ink.size)
     bg.alpha_composite(ink)

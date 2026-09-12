@@ -55,6 +55,9 @@ class SegmentOut(BaseModel):
     width: int
     height: int
     renderer: str
+    # The page's strokes, on the first segment of a .rm page only. The caller keeps this for a
+    # page that turns out to be a drawing and discards it with everything else within the day.
+    svg: str | None = None
 
 
 class PageError(BaseModel):
@@ -77,6 +80,7 @@ def _seg(page_id: str, r: Rendered) -> SegmentOut:
         width=r.width,
         height=r.height,
         renderer=r.renderer,
+        svg=r.svg,
     )
 
 

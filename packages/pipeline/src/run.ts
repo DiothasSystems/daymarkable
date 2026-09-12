@@ -6,7 +6,7 @@
  * (rule 2). Nothing here logs note content — counts, hashes, ids only (rule 5).
  */
 import { mergeRun, buildOutputSet, buildWeekNotes, notesWeekStart, type MergePage, type PrintedItem } from "@daymarkable/core";
-import { composeActionList, composeMeetingNotes, composePlanner } from "@daymarkable/compose";
+import { composeActionList, composeMeetingNotes, composePlanner, inkCoverage, parseInkSvg } from "@daymarkable/compose";
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
 import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
 import { buildDeliveryMail, buildMeetingMail, type MailProvider } from "@daymarkable/mail";
@@ -283,7 +283,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
 
     // ---- 2. render ------------------------------------------------------------------
     const decodeInputs: DecodePageInput[] = [];
-    const pageMeta = new Map<string, { doc: DownloadedDocument; pageId: string; pageIndex: number; hash: string | null }>();
+    const pageMeta = new Map<string, { doc: DownloadedDocument; pageId: string; pageIndex: number; hash: string | null; svg: string | null }>();
     const renderedByKey = new Map<string, Uint8Array[]>();
     /** Pages we could not render or decode: their hashes must NOT be snapshotted, so the next run retries them. */
     const unprocessed = new Set<string>();
@@ -298,7 +298,10 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         for (let i = 0; i < p.segments.length; i++) await deps.cache.put(run.id, `images/${doc.document.id}/${String(p.pageIndex).padStart(3, "0")}-s${i}.png`, p.segments[i]!);
         stats.pagesRendered++;
         const key = `${doc.document.id}/${p.pageId}`;
-        pageMeta.set(key, { doc, pageId: p.pageId, pageIndex: p.pageIndex, hash: doc.pages.find((x) => x.pageId === p.pageId)?.hash ?? null });
+        pageMeta.set(key, { doc, pageId: p.pageId, pageIndex: p.pageIndex, hash: doc.pages.find((x) => x.pageId === p.pageId)?.hash ?? null, svg: p.svg });
+        // Kept in the same one-day cache as the images, and deleted with them (rule 5). The
+        // drawing survives only inside the notebook that gets written back to the tablet.
+        if (p.svg) await deps.cache.put(run.id, `ink/${doc.document.id}/${String(p.pageIndex).padStart(3, "0")}.svg`, Buffer.from(p.svg));
         renderedByKey.set(key, p.segments);
         decodeInputs.push({
           key,
@@ -341,7 +344,16 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         stats.eventsFound += r.extraction.events.length;
         stats.meetingRequestsFound += r.extraction.meeting_requests.length;
         stats.checkboxUpdates += r.extraction.checkbox_updates.length;
-        mergePages.push({ notebook: meta.doc.document.name, pageIndex: meta.pageIndex, extraction: r.extraction });
+        // Strokes are parsed for every page but only reproduced for one the merge judges a
+        // drawing, which is the cheap order: parsing is a regex, reproducing is half a page.
+        const drawing = meta.svg ? parseInkSvg(meta.svg) : null;
+        mergePages.push({
+          notebook: meta.doc.document.name,
+          pageIndex: meta.pageIndex,
+          extraction: r.extraction,
+          drawing,
+          inkCoverage: drawing ? inkCoverage(drawing) : 0,
+        });
       }
       // Every page failing is a provider or configuration fault, not an empty night. Fail the
       // run loudly and before compose, so yesterday's notebooks stay on the tablet (rule: never

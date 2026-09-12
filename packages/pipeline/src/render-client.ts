@@ -8,6 +8,8 @@ export interface RenderedSegment {
   width: number;
   height: number;
   renderer: string;
+  /** The page's strokes, on its first segment only. Null for a page rendered from a PDF. */
+  svg: string | null;
 }
 
 export interface RenderFailure {
@@ -63,6 +65,7 @@ interface WireSegment {
   segment: number;
   segment_count: number;
   png_b64: string;
+  svg?: string | null;
   width: number;
   height: number;
   renderer: string;
@@ -74,6 +77,7 @@ function fromWire(s: WireSegment, pageId: string): RenderedSegment {
     segment: s.segment,
     segmentCount: s.segment_count,
     png: Buffer.from(s.png_b64, "base64"),
+    svg: s.svg ?? null,
     width: s.width,
     height: s.height,
     renderer: s.renderer,
