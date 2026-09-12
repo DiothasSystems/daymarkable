@@ -93,6 +93,14 @@ export const PageExtractionSchema = z.object({
    */
   page_date: IsoDate.nullable().default(null),
   transcription: z.string(),
+  /**
+   * The page carries a diagram or sketch rather than only writing. The page's ink is then
+   * reproduced in the Notes notebook, so this decides whether the reader sees the drawing at
+   * all. Defaulted, so an extraction stored before this field existed still parses.
+   */
+  has_drawing: z.boolean().default(false),
+  /** One short line saying what it shows. An index entry, never a substitute for the drawing. */
+  drawing_caption: z.string().nullable().default(null),
   tasks: z.array(TaskSchema),
   events: z.array(EventSchema),
   meeting_requests: z.array(MeetingRequestSchema),
@@ -111,6 +119,8 @@ export function emptyExtraction(kind: PageExtraction["page_kind"] = "blank"): Pa
     planner_page_code: null,
     page_date: null,
     transcription: "",
+    has_drawing: false,
+    drawing_caption: null,
     tasks: [],
     events: [],
     meeting_requests: [],
@@ -128,6 +138,8 @@ export const SCHEMA_DESCRIPTION = `{
   "planner_page_code": string | null,          // footer code on dayMarkable pages, else null
   "page_date": "YYYY-MM-DD" | null,            // the date the WRITER wrote on the page, else null
   "transcription": string,                     // faithful transcription, line breaks preserved
+  "has_drawing": boolean,                      // true if the page carries a diagram/sketch, not just writing
+  "drawing_caption": string | null,            // one short line: what it shows, e.g. "three boxes joined by arrows"
   "tasks": [{
     "text": string,
     "due": "YYYY-MM-DD" | null,                // ONLY if the entry itself states a deadline

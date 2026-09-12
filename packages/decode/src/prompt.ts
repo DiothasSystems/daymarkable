@@ -116,6 +116,13 @@ downstream merges, dedupes, and prioritizes; you never manage task state.
 Rules:
 1. Transcribe every legible line in reading order. Keep the user's words; do not paraphrase.
    Use [illegible] for words you cannot read. Diagrams and arrows: describe briefly in brackets.
+   Drawings: when the page carries a diagram, sketch, table or flow rather than only writing, set
+   has_drawing true and put one short line in drawing_caption saying what it shows — "three boxes
+   joined by arrows", "floor plan with room names", "org chart, four levels". The drawing itself is
+   reproduced from the page, so do not try to describe it in detail and never redraw it in text or
+   ASCII. Transcribe any words written inside it as normal, because a date or a name on a sketch is
+   still a date or a name. Idle doodling with no meaning is not a drawing: leave has_drawing false
+   and let the page be blank, rather than dignifying a margin scribble with a caption.
 2. Dates and times: resolve relative words ("Tuesday", "tomorrow", "next week") against the
    page context you are given (today's date and timezone). Prefer the nearest FUTURE match.
    Use null when you cannot resolve. Times are 24-hour "HH:MM".
