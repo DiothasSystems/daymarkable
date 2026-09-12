@@ -67,6 +67,9 @@ services:
       RMAPI_DEVICE_TOKEN: ${RMAPI_DEVICE_TOKEN:-}
       ADMIN_LOGIN_ID: ${ADMIN_LOGIN_ID:-}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      # Billing, Phase 2. Empty until it ships, which leaves the payment routes switched off.
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
     volumes:
       - dmstate:/data
     ports:

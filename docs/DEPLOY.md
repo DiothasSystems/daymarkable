@@ -123,6 +123,7 @@ Compose reads them from the shell environment; the simplest way is `set -a; sour
 | `EMAIL_API_KEY`, `EMAIL_FROM` | for real email | Resend key + verified sender |
 | `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` | for `/admin` | hash via `pnpm admin:hash "<password>"`; never store the plaintext |
 | `DECODE_MODEL`, `DECODE_ESCALATION_MODEL`, `DECODE_MODEL_ROTATION`, `DECODE_CONFIDENCE_THRESHOLD` | no | model is config, not a constant |
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Phase 2 billing | `sk_test_…` and `whsec_…` from a Stripe sandbox while testing; live keys only when charging real cards. Both empty leaves the payment routes off. The plans are looked up by key, `daymarkable_monthly_v1` and `daymarkable_annual_v1`, so there is no price id to set per environment |
 
 ## 4. Build and start
 

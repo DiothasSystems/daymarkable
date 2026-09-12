@@ -177,6 +177,8 @@ do nothing.
   USER_TIMEZONE=America/New_York
   ADMIN_LOGIN_ID=jim                      (your choice)
   ADMIN_PASSWORD_HASH=$2b$12$...          (C7, the whole line)
+  STRIPE_SECRET_KEY=                      (leave empty; billing is Phase 2)
+  STRIPE_WEBHOOK_SECRET=                  (leave empty; billing is Phase 2)
   DATABASE_URL=                           (leave EMPTY on the server; Docker fills it in)
   RENDER_SERVICE_URL=                     (leave EMPTY on the server)
   RMAPI_DEVICE_TOKEN=                     (leave empty; you will pair from the website)
