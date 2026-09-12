@@ -50,8 +50,11 @@ export default async function StartPage() {
               dayMarkable is not open for registration yet. Every account is read by hand onto a real tablet each night, so we are
               letting people in a few at a time. Leave your address and we will write when there is room.
             </p>
+            <p style={{ fontSize: 14, fontWeight: 600, margin: "0 0 16px" }}>
+              Already have an account? <Link href="/login">Sign in instead</Link>.
+            </p>
             <WaitlistForm />
-            <p className="muted" style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>Already have an account? <Link href="/login">Login</Link>. By continuing you agree to the <Link href="/terms">terms</Link> and <Link href="/privacy">privacy promise</Link>.</p>
+            <p className="muted" style={{ fontSize: 13, marginTop: 10, marginBottom: 0 }}>By joining you agree to the <Link href="/terms">terms</Link> and <Link href="/privacy">privacy promise</Link>.</p>
           </div>
         </div>
       </section>

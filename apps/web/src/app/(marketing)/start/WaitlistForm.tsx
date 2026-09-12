@@ -1,13 +1,18 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { errorMessage, trpc } from "@/lib/trpc";
 
 /**
  * The waiting list form.
  *
- * It sends no sign-in link and it answers the same way for every address, whether that address is
- * new, already waiting, already invited, or already has an account. Anything else would turn a
- * public page into a way of asking who has a dayMarkable account.
+ * It sends no mail and answers identically for every address, whether that address is new,
+ * already waiting, already invited, or already has an account. Anything else would turn a public
+ * page into a way of asking whether any given person is a customer.
+ *
+ * Which is why the reply carries both outcomes rather than the one that applies. Saying only
+ * "we will write when there is room" leaves somebody who already has an account waiting for a
+ * message that is never coming, so the reply names the other case and points at the sign-in page.
  */
 export function WaitlistForm() {
   const [email, setEmail] = useState("");
@@ -27,7 +32,11 @@ export function WaitlistForm() {
   if (state.status === "done") {
     return (
       <div className="notice ok">
-        You are on the list. We will email <strong>{email}</strong> when there is room, and that message will explain how to sign in.
+        <p style={{ margin: "0 0 8px" }}>Thanks. We have <strong>{email}</strong>.</p>
+        <p style={{ margin: 0 }}>
+          If that address already has a dayMarkable account, <Link href="/login">sign in</Link> instead and nothing further will be
+          sent to it. Otherwise you are on the list, and we will write when there is room.
+        </p>
       </div>
     );
   }
