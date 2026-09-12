@@ -3,6 +3,7 @@ import { eq, schema } from "@daymarkable/db";
 import { buildInviteMail } from "@daymarkable/mail";
 import { normalizeEmail } from "@/lib/email";
 import { publicUrl } from "@/lib/hosts";
+import { signInEligibility } from "./access";
 import { getRuntime } from "./runtime";
 
 /**
@@ -13,27 +14,44 @@ import { getRuntime } from "./runtime";
  * sign them up. An operator turns a row to invited when they want that person in, and the sign-in
  * guard reads this table, so the invitation is the whole of what admits them.
  *
- * Nothing here tells the caller whether an address is already known. A registration form that
- * answers differently for a known address is an account-existence oracle, and this one is public.
+ * All of this is temporary. It is how people are let in while registration is closed, and it goes
+ * when registration opens. What outlives it is server/access.ts, which answers who may sign in;
+ * this module supplies one of that answer's grounds and nothing else depends on it.
  */
+
+/** What the page should tell them. Only `waiting` is particular to the waiting list. */
+export type JoinState = "waiting" | "invited" | "has_account";
 
 export interface JoinResult {
   ok: true;
+  state: JoinState;
 }
 
 /**
- * Always the same answer, whether the address is new, already waiting, already invited, or
- * already has an account. The caller shows one message for all of them.
+ * An address that can already sign in is told to do that. It is not added to anything and no mail
+ * is sent, because promising one that never comes is how somebody ends up waiting forever for an
+ * account they already have.
+ *
+ * This does mean the page answers differently for an address that is known, so it can be used to
+ * ask whether a given address has an account. That was weighed and chosen: being turned away when
+ * you are already a customer is worse than the leak is dangerous. Rate-limiting this is what
+ * closes it if that ever changes.
  */
 export async function joinWaitlist(rawEmail: string, source = "start"): Promise<JoinResult> {
   const email = normalizeEmail(rawEmail);
-  if (!email) return { ok: true };
+  if (!email) return { ok: true, state: "waiting" };
+
+  const eligibility = await signInEligibility(email);
+  if (eligibility === "account") return { ok: true, state: "has_account" };
+  // Approved, or the operator, or a host with no accounts yet. Same advice: go and sign in.
+  if (eligibility !== "none") return { ok: true, state: "invited" };
+
   const rt = await getRuntime();
   await rt.db
     .insert(schema.waitlist)
     .values({ email, source: source.slice(0, 40) })
     .onConflictDoNothing({ target: schema.waitlist.email });
-  return { ok: true };
+  return { ok: true, state: "waiting" };
 }
 
 /** Whether this address has been let through. Read by the sign-in guard, so it must stay cheap. */

@@ -131,10 +131,13 @@ unchanged.
     plan change, cancel, refund) happens in `apps/web`. `apps/mobile` must contain no
     payment processing, purchase links, or price display — subscription management from a
     phone goes through the responsive web experience.
-15. **Registration is closed; an invitation is the whole of what opens it.** `/start` takes an
-    address onto the `waitlist` table and sends nothing. It answers identically for an address
-    that is new, waiting, invited, or already an account holder — a public form that replies
-    differently for a known address is an account-existence oracle. An operator invites from
+15. **Registration is closed; an invitation is the whole of what opens it.** `server/access.ts`
+    answers who may sign in and is the durable piece; the waiting list is a Phase 0 stopgap that
+    supplies one of its grounds and goes when registration opens. `/start` takes an address onto
+    the `waitlist` table and sends nothing, but an address that can already sign in is told so
+    and sent to `/login` rather than promised a mail that never comes. That does let the page be
+    used to ask whether an address has an account, which was weighed and accepted; rate-limiting
+    `waitlist.join` is what closes it if that changes. An operator invites from
     `/admin/waitlist` (audited), which is what makes `loginAllowed` accept the address; the
     invitation mail carries no token, so forwarding it grants nothing. Billing then gates
     onboarding: `requireUser` sends anyone who `needsCheckout` to `/billing` before `/setup`,

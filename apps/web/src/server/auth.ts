@@ -7,7 +7,8 @@ import { cookies } from "next/headers";
 import { normalizeEmail } from "@/lib/email";
 import { publicUrl, sessionCookieDomain } from "@/lib/hosts";
 import { getRuntime } from "./runtime";
-import { isInvited, markJoined } from "./waitlist";
+import { maySignIn } from "./access";
+import { markJoined } from "./waitlist";
 
 export const SESSION_COOKIE = "dm_session";
 const LINK_TTL_MS = 15 * 60_000;
@@ -28,24 +29,6 @@ export interface SessionUser {
   settings: typeof schema.users.$inferSelect.settings;
 }
 
-/**
- * Registration is not open, so a sign-in is accepted for an address that already has an account,
- * for the operator's own USER_EMAIL, for anyone invited off the waiting list, or for the very
- * first account when none exists. Everyone else gets the same neutral message, which is why the
- * public page offers the waiting list instead of a sign-in form: a registration form that answers
- * differently for a known address tells strangers who has an account.
- */
-async function loginAllowed(email: string): Promise<boolean> {
-  const rt = await getRuntime();
-  const existing = await rt.db.query.users.findFirst({ where: eq(schema.users.email, email) });
-  if (existing) return true;
-  const configured = (process.env.USER_EMAIL || "").trim().toLowerCase();
-  if (configured && configured === email) return true;
-  if (await isInvited(email)) return true;
-  const any = await rt.db.query.users.findFirst();
-  return !any;
-}
-
 export interface MagicLinkResult {
   ok: true;
   /** Only in development when no email provider is configured. */
@@ -55,7 +38,9 @@ export interface MagicLinkResult {
 export async function requestMagicLink(rawEmail: string): Promise<MagicLinkResult> {
   const email = normalizeEmail(rawEmail);
   if (!email) return { ok: true }; // never reveal validity
-  if (!(await loginAllowed(email))) return { ok: true };
+  // Who may sign in is decided in one place; this one only obeys it, and says nothing either
+  // way, because the reply here reaches whoever typed the address rather than its owner.
+  if (!(await maySignIn(email))) return { ok: true };
   const rt = await getRuntime();
   const token = randomBytes(32).toString("base64url");
   await rt.db.insert(schema.loginTokens).values({ tokenHash: sha256(token), email, expiresAt: new Date(Date.now() + LINK_TTL_MS) });

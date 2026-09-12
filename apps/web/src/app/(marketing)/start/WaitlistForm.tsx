@@ -2,41 +2,61 @@
 import Link from "next/link";
 import { useState } from "react";
 import { errorMessage, trpc } from "@/lib/trpc";
+import type { JoinState } from "@/server/waitlist";
 
 /**
- * The waiting list form.
+ * The public way in, which today is a waiting list.
  *
- * It sends no mail and answers identically for every address, whether that address is new,
- * already waiting, already invited, or already has an account. Anything else would turn a public
- * page into a way of asking whether any given person is a customer.
- *
- * Which is why the reply carries both outcomes rather than the one that applies. Saying only
- * "we will write when there is room" leaves somebody who already has an account waiting for a
- * message that is never coming, so the reply names the other case and points at the sign-in page.
+ * The part that outlasts the list: an address that already has an account is told so and sent to
+ * sign in. Only the third branch below is particular to registration being closed, and it is the
+ * one that changes when it opens.
  */
 export function WaitlistForm() {
   const [email, setEmail] = useState("");
-  const [state, setState] = useState<{ status: "idle" | "sending" | "done" | "error"; error?: string }>({ status: "idle" });
+  const [state, setState] = useState<{ status: "idle" | "sending" | "done" | "error"; joined?: JoinState; error?: string }>({
+    status: "idle",
+  });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setState({ status: "sending" });
     try {
-      await trpc.waitlist.join.mutate({ email });
-      setState({ status: "done" });
+      const r = await trpc.waitlist.join.mutate({ email });
+      setState({ status: "done", joined: r.state });
     } catch (err) {
       setState({ status: "error", error: errorMessage(err) });
     }
   }
 
   if (state.status === "done") {
+    if (state.joined === "has_account") {
+      return (
+        <div className="notice">
+          <p style={{ margin: "0 0 8px" }}>
+            <strong>{email}</strong> already has a dayMarkable account.
+          </p>
+          <p style={{ margin: 0 }}>
+            Nothing was added and no email is coming. <Link href="/login">Sign in</Link> to carry on where you left off.
+          </p>
+        </div>
+      );
+    }
+    if (state.joined === "invited") {
+      return (
+        <div className="notice ok">
+          <p style={{ margin: "0 0 8px" }}>
+            <strong>{email}</strong> is already approved.
+          </p>
+          <p style={{ margin: 0 }}>
+            There is nothing to wait for. <Link href="/login">Sign in</Link> to set up your account.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="notice ok">
-        <p style={{ margin: "0 0 8px" }}>Thanks. We have <strong>{email}</strong>.</p>
-        <p style={{ margin: 0 }}>
-          If that address already has a dayMarkable account, <Link href="/login">sign in</Link> instead and nothing further will be
-          sent to it. Otherwise you are on the list, and we will write when there is room.
-        </p>
+        You are on the list. We will email <strong>{email}</strong> when there is room, and that message will explain how to sign
+        in.
       </div>
     );
   }
