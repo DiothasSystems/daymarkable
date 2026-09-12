@@ -31,6 +31,7 @@ export async function composeMeetingNotes(input: MeetingNotesInput): Promise<Com
     s.y += 48;
     s.notesBlock(m.text || "(no notes captured)");
     s.y += 12;
+    if (m.drawing) s.figure(m.drawing, m.drawingCaption ?? null);
     if (m.decisions.length) {
       s.label("Decisions");
       for (const d of m.decisions) s.arrowRow(d);

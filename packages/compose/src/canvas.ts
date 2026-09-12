@@ -3,7 +3,8 @@
  * templates read like the tablet screen and like the ×3 handoff mocks. Every planner page is
  * an input form: this draws the standard header, footer code, checkboxes, chips, and rules.
  */
-import { PDFDocument, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
+import type { InkDrawing } from "@daymarkable/core";
+import { LineCapStyle, PDFDocument, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { INK, PAGE_HEIGHT_PT, PAGE_WIDTH_PT, PAPER, RULE, SECONDARY, TERTIARY, px } from "./brand.js";
 import { embedBrandFonts, type BrandFonts } from "./fonts.js";
 
@@ -119,6 +120,32 @@ export class Canvas {
       ...(opts.fill ? { color: opts.fill } : {}),
       ...(opts.stroke ? { borderColor: opts.stroke, borderWidth: px(opts.thickness ?? 3) } : {}),
     });
+  }
+
+  /**
+   * Lay a page's ink into a box, scaled to fit and centred, keeping its proportions.
+   *
+   * Drawn as vectors, so the result is as sharp as the page it is printed on rather than as
+   * sharp as the 1568px image the decoder was given. Stroke weights are scaled with the drawing
+   * so a shrunk diagram does not turn into a blot, and floored so it cannot vanish.
+   */
+  ink(drawing: InkDrawing, x: number, y: number, maxW: number, maxH: number, color: RGB = INK): { width: number; height: number } {
+    const fit = Math.min(maxW / drawing.width, maxH / drawing.height);
+    const w = drawing.width * fit;
+    const h = drawing.height * fit;
+    const originX = x + (maxW - w) / 2;
+    for (const s of drawing.strokes) {
+      this.page.drawSvgPath(s.d, {
+        // The path carries the renderer's own origin, so shift it back to the box.
+        x: px(originX - drawing.x * fit),
+        y: this.y(y - drawing.y * fit),
+        scale: px(fit),
+        borderColor: color,
+        borderWidth: px(Math.max(1.5, s.width * fit)),
+        borderLineCap: LineCapStyle.Round,
+      });
+    }
+    return { width: w, height: h };
   }
 
   /** A pen-checkable box (mock 12px ×3 = 36px, 1.5px ×3 border, 2px ×3 radius). */

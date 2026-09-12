@@ -27,6 +27,26 @@ export interface StoredInboxItem extends InboxItem {
   createdOn: string;
 }
 
+/** One pen stroke, as an SVG path in the drawing's own coordinate space. */
+export interface InkStroke {
+  d: string;
+  width: number;
+}
+
+/**
+ * A page's ink, kept as strokes so it can be reproduced at any size without blurring. This is
+ * the drawing itself, not a description of it: the ink is the authority, and a diagram redrawn
+ * by a model is not the customer's diagram.
+ */
+export interface InkDrawing {
+  strokes: InkStroke[];
+  /** The strokes' coordinate space, taken from the renderer's viewBox. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface Meeting {
   id: string;
   topic: string;
@@ -39,6 +59,10 @@ export interface Meeting {
   actions: string[];
   confidence: number;
   source: ItemSource;
+  /** The page's ink, when the page is a drawing rather than writing. Reproduced under the notes. */
+  drawing?: InkDrawing | null;
+  /** One line saying what the drawing is, for the reader and for search. Never the drawing itself. */
+  drawingCaption?: string | null;
 }
 
 export type PrintedItemType = "task" | "inbox" | "meeting_request";

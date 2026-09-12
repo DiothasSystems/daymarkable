@@ -6,6 +6,7 @@
  */
 import { repairNoteLines, type PrintedItem, type PrintedItemType } from "@daymarkable/core";
 import type { PDFDocument } from "pdf-lib";
+import type { InkDrawing } from "@daymarkable/core";
 import { CARRIED, CHECKBOX_PX, INK, RULE, SECONDARY, TERTIARY } from "./brand.js";
 import { BODY_BOTTOM, CONTENT_RIGHT, CONTENT_W, CONTENT_X, addPage, type Canvas } from "./canvas.js";
 import type { BrandFonts } from "./fonts.js";
@@ -187,6 +188,28 @@ export class Section {
     this.canvas.text(this.canvas.fit(text, f.displaySemi, 54, MAIN_W - (right ? 300 : 0)), MAIN_X, this.y + 48, { font: f.displaySemi, size: 54 });
     if (right) this.canvas.text(right, CONTENT_RIGHT, this.y + 48, { font: f.mono, size: 27, color: SECONDARY, align: "right" });
     this.y += 72;
+  }
+
+  /**
+   * The page's own ink, under the notes, with a caption saying where it came from.
+   *
+   * Given a whole page rather than squeezed into a column: a diagram that has been shrunk to
+   * fit beside text is a diagram nobody can read. If it will not fit in what is left of this
+   * page it starts a new one, for the same reason.
+   */
+  figure(drawing: InkDrawing, caption: string | null, maxH = 900): void {
+    const boxH = Math.min(maxH, Math.round(MAIN_W * (drawing.height / drawing.width)));
+    this.ensure(boxH + 96);
+    this.canvas.rect(MAIN_X, this.y, MAIN_W, boxH, { stroke: RULE, thickness: 2, radius: 8 });
+    this.canvas.ink(drawing, MAIN_X + 24, this.y + 24, MAIN_W - 48, boxH - 48);
+    this.y += boxH + 12;
+    this.canvas.text(caption ? `DRAWING · ${caption.toUpperCase()}` : "DRAWING · REPRODUCED FROM THE PAGE", MAIN_X, this.y + 22, {
+      font: this.canvas.fonts.mono,
+      size: 24,
+      color: TERTIARY,
+      tracking: 0.04,
+    });
+    this.y += 60;
   }
 
   note(text: string): void {
