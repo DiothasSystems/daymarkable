@@ -129,7 +129,7 @@ arrived with `docker compose exec app printenv <NAME>`.
 | `USER_TIMEZONE` | no | default `America/New_York` |
 | `RMAPI_DEVICE_TOKEN` | first boot only | from `pnpm spike pair`; it is moved into the DB encrypted on first run. You can also pair from `/setup`. |
 | `EMAIL_API_KEY`, `EMAIL_FROM` | for real email | Resend key + verified sender |
-| `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` | for `/admin` | hash via `pnpm admin:hash "<password>"`; never store the plaintext |
+| `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` | for `/admin` | hash via `docker compose exec app node apps/web/scripts/admin-hash.mjs '<password>'`; never store the plaintext. Quote the hash in the env file: it contains `$`, which Compose substitutes away unquoted, leaving a hash that rejects every password |
 | `DECODE_MODEL`, `DECODE_ESCALATION_MODEL`, `DECODE_MODEL_ROTATION`, `DECODE_CONFIDENCE_THRESHOLD` | no | model is config, not a constant |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Phase 2 billing | `sk_test_…` and `whsec_…` from a Stripe sandbox while testing; live keys only when charging real cards. Both empty leaves the payment routes off. The plans are looked up by key, `daymarkable_monthly_v1` and `daymarkable_annual_v1`, so there is no price id to set per environment |
 

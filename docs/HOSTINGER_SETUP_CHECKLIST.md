@@ -149,12 +149,18 @@ do nothing.
   manager too.
 - [ ] **C7. Create the admin password hash.** dayMarkable never stores the admin password
       itself, only a scrambled version. Choose a password (12+ characters), then run this on
-      the server, replacing the text in quotes:
+      the server, replacing the text between the quotes but keeping the quotes. This can only
+      be run once the app container exists, so if you are working straight down this list,
+      come back for it after D2:
 
   ```bash
-  docker run --rm node:22-slim sh -c "npm -s i bcryptjs@3 >/dev/null 2>&1 && node -e \"require('bcryptjs').hash(process.argv[1],12).then(h=>console.log(h))\" 'YOUR-ADMIN-PASSWORD'"
+  cd /root/daymarkable && docker compose exec app node apps/web/scripts/admin-hash.mjs 'YOUR-ADMIN-PASSWORD'
   ```
-  It prints one line starting with `$2b$12$`. Copy the whole line as `ADMIN_PASSWORD_HASH`.
+  It prints one line starting with `$2b$12$`. Copy the whole line as `ADMIN_PASSWORD_HASH`,
+  **wrapped in single quotes**. A bcrypt hash contains dollar signs, and Docker Compose reads
+  an unquoted `$something` as a variable to substitute, so without the quotes it silently
+  deletes part of your hash and every sign-in is then rejected. If you see a warning like
+  `The "xxxx" variable is not set. Defaulting to a blank string.`, that is this happening.
   (The password itself goes only in your password manager.)
 - [ ] **C8. Fill in the settings file.** Open it in the simple editor `nano`:
 
@@ -176,7 +182,7 @@ do nothing.
   USER_EMAIL=your.address@example.com     (the email you will sign in with; meeting notes go here)
   USER_TIMEZONE=America/New_York
   ADMIN_LOGIN_ID=jim                      (your choice)
-  ADMIN_PASSWORD_HASH=$2b$12$...          (C7, the whole line)
+  ADMIN_PASSWORD_HASH='$2b$12$...'        (C7, the whole line, inside single quotes)
   STRIPE_SECRET_KEY=                      (leave empty; billing is Phase 2)
   STRIPE_WEBHOOK_SECRET=                  (leave empty; billing is Phase 2)
   DATABASE_URL=                           (leave EMPTY on the server; Docker fills it in)
@@ -194,6 +200,15 @@ do nothing.
   grep -E "^(APP_URL|SERVICE_URL|APP_DOMAIN|USER_EMAIL|ADMIN_LOGIN_ID|DATABASE_URL|RENDER_SERVICE_URL)=" .env
   ```
   `DATABASE_URL=` and `RENDER_SERVICE_URL=` should show nothing after the `=`.
+
+  Once the app is running, check that what you wrote is what it received. Compose prints no
+  error when it eats part of a value, so this is the only way to know:
+
+  ```bash
+  docker compose exec app printenv ADMIN_PASSWORD_HASH
+  ```
+  It must match the line from C7 exactly, and be 60 characters long. If it is shorter, add the
+  single quotes and run `docker compose up -d app` again.
 
 **Check:** `ls /root/daymarkable/.env` exists; `ufw status` is active.
 
