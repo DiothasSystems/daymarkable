@@ -1,6 +1,6 @@
 /**
  * Published Anthropic API prices, USD per million tokens. Recheck before pricing is committed
- * (ECONOMICS.md). Cache reads are 0.1x input, cache writes 1.25x input; Batch API is 0.5x.
+ * (ECONOMICS.md). Cache reads are 0.1x input, cache writes 1.25x (5m) or 2x (1h); Batch is 0.5x.
  */
 export interface ModelPrice {
   inputPerM: number;
@@ -24,11 +24,16 @@ export interface TokenUsage {
   cache_creation_input_tokens: number;
 }
 
-export function costUsd(usage: TokenUsage, model: string, batch: boolean): number {
+/** A 5-minute cache write costs 1.25x input; a 1-hour one costs 2x. Reads are 0.1x either way. */
+export const CACHE_WRITE_MULTIPLIER: Record<CacheTtl, number> = { "5m": 1.25, "1h": 2 };
+
+export type CacheTtl = "5m" | "1h";
+
+export function costUsd(usage: TokenUsage, model: string, batch: boolean, cacheTtl: CacheTtl = "5m"): number {
   const price = MODEL_PRICES[model];
   if (!price) return 0;
   const cacheRead = price.cacheReadPerM ?? price.inputPerM * 0.1;
-  const cacheWrite = price.inputPerM * 1.25;
+  const cacheWrite = price.inputPerM * CACHE_WRITE_MULTIPLIER[cacheTtl];
   let usd =
     (usage.input_tokens * price.inputPerM +
       usage.output_tokens * price.outputPerM +

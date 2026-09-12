@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { AnthropicDecoder, parseExtraction, type DecodePageInput } from "./client.js";
+import { AnthropicDecoder, parseExtraction, totalUsage, type DecodePageInput, type DecodePageResult, type DecodeStageUsage } from "./client.js";
 import { STARTER_CONVENTIONS, describeConventions, validateConventions } from "./conventions.js";
 import { buildSystemPrompt } from "./prompt.js";
-import { costUsd } from "./pricing.js";
+import { costUsd, zeroUsage } from "./pricing.js";
 
 const good = {
   schema_version: 1,
@@ -73,6 +73,14 @@ describe("pricing", () => {
     expect(costUsd(u, "claude-haiku-4-5", true)).toBeCloseTo(0.55);
     expect(costUsd(u, "unknown-model", false)).toBe(0);
   });
+
+  // Metering has to price the TTL actually sent, or a 1h cache silently under-reports.
+  it("prices a 1h cache write at 2x input and a 5m one at 1.25x", () => {
+    const w = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 1_000_000 };
+    expect(costUsd(w, "claude-haiku-4-5", false, "5m")).toBeCloseTo(1.25);
+    expect(costUsd(w, "claude-haiku-4-5", false, "1h")).toBeCloseTo(2.0);
+    expect(costUsd(w, "claude-haiku-4-5", false)).toBeCloseTo(1.25);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -105,6 +113,26 @@ function decoderWith(client: unknown, batchTimeoutMinutes: number): AnthropicDec
     client as never,
   );
 }
+
+describe("totalUsage", () => {
+  it("counts pages per model, so an escalation over three pages does not look like fifty", () => {
+    const stage = (model: string, mode: "standard" | "batch"): DecodeStageUsage => ({
+      ...zeroUsage(),
+      model,
+      mode,
+      pages: 1,
+      cost_usd: 0.01,
+    });
+    const results: DecodePageResult[] = [
+      { key: "a", extraction: null, raw: "", error: null, escalated: true, usage: [stage("sonnet", "standard"), stage("opus", "standard")] },
+      { key: "b", extraction: null, raw: "", error: null, escalated: false, usage: [stage("sonnet", "standard")] },
+      { key: "c", extraction: null, raw: "", error: null, escalated: false, usage: [stage("sonnet", "standard")] },
+    ];
+    const byModel = totalUsage(results);
+    expect(byModel.get("sonnet|standard")?.pages).toBe(3);
+    expect(byModel.get("opus|standard")?.pages).toBe(1);
+  });
+});
 
 describe("batch decoding", () => {
   it("cancels a batch that outlives its deadline and finishes on the standard API", async () => {

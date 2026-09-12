@@ -161,7 +161,7 @@ export class FixtureDecoder implements Decoder {
         extraction: error ? null : extraction,
         raw: "",
         error,
-        usage: [{ ...zeroUsage(), input_tokens: tokens, output_tokens: 600, model: this.model, mode, cost_usd: 0 }],
+        usage: [{ ...zeroUsage(), input_tokens: tokens, output_tokens: 600, model: this.model, mode, pages: 1, cost_usd: 0 }],
         escalated: false,
       });
     }

@@ -101,7 +101,7 @@ describe("runPipeline (fixtures)", () => {
       ...deps,
       decoder: {
         decodePages: async (pages, mode) =>
-          pages.map((p) => ({ key: p.key, extraction: null, raw: "", error: "API 401: invalid x-api-key", usage: [{ ...zeroUsage(), model: "fixture-model", mode, cost_usd: 0 }], escalated: false })),
+          pages.map((p) => ({ key: p.key, extraction: null, raw: "", error: "API 401: invalid x-api-key", usage: [{ ...zeroUsage(), model: "fixture-model", mode, pages: 1, cost_usd: 0 }], escalated: false })),
       },
     };
     const bad = await runPipeline(failing, { userId: u.id, kind: "on_demand", requestedVia: "test", localDate: "2026-09-10", windowHours: 24 * 30 });

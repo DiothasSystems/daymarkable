@@ -181,7 +181,12 @@ export async function unpurgedPreviousRuns(db: Db, userId: string, currentRunId:
   });
 }
 
-export async function recordCosts(db: Db, runId: string, userId: string, stage: string, usages: Iterable<DecodeStageUsage>, pages: number): Promise<number> {
+/**
+ * One row per (model, mode). `pages` is that model's own page count, not the run's — stamping the
+ * run total on every row made the per-model figures in the admin cost view unreadable, because
+ * an escalation that touched three pages looked identical to one that touched fifty.
+ */
+export async function recordCosts(db: Db, runId: string, userId: string, stage: string, usages: Iterable<DecodeStageUsage>): Promise<number> {
   let total = 0;
   for (const u of usages) {
     total += u.cost_usd;
@@ -196,7 +201,7 @@ export async function recordCosts(db: Db, runId: string, userId: string, stage: 
       cacheReadTokens: u.cache_read_input_tokens,
       cacheWriteTokens: u.cache_creation_input_tokens,
       costUsd: u.cost_usd.toFixed(6),
-      pages,
+      pages: u.pages,
     });
   }
   return total;

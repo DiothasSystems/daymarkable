@@ -322,7 +322,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     if (decodeInputs.length) {
       log(`decode: ${decodeInputs.length} pages via ${mode} API (${deps.decodeModel})`);
       const results = await deps.decoder.decodePages(decodeInputs, mode);
-      stats.costUsd += await repo.recordCosts(db, run.id, user.id, "decode", totalUsage(results).values(), decodeInputs.length);
+      stats.costUsd += await repo.recordCosts(db, run.id, user.id, "decode", totalUsage(results).values());
       for (const r of results) {
         const meta = pageMeta.get(r.key)!;
         await deps.cache.put(run.id, `decode/${meta.doc.document.id}/${meta.pageId}.json`, Buffer.from(JSON.stringify(r)));

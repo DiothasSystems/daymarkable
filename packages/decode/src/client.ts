@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { UserInkConventions } from "./conventions.js";
 import { buildPageContextText, buildSystemPrompt, type PageContext } from "./prompt.js";
-import { addUsage, costUsd, zeroUsage, type TokenUsage } from "./pricing.js";
+import { addUsage, costUsd, zeroUsage, type CacheTtl, type TokenUsage } from "./pricing.js";
 import { PageExtractionSchema, type PageExtraction } from "./schema.js";
 
 /** Model is a CONFIG value, never a constant (CLAUDE.md "Model usage"). */
@@ -27,6 +27,16 @@ export interface DecodeConfig {
   batchTimeoutMinutes?: number;
   /** Progress line during long waits. Counts and ids only, never page content (rule 5). */
   log?: (message: string) => void;
+  /**
+   * Lifetime of the cached prefix (system prompt, conventions, lexicon, calibration sample).
+   *
+   * "1h" by default, and measured rather than guessed: on 2026-09-10 a day of standard-API runs
+   * wrote the ~8.5k-token prefix twelve times to serve fifty pages, because 5 minutes expires
+   * partway through a run. A 1h write costs 2x input instead of 1.25x, but it converts the
+   * repeat writes into 0.1x reads, which is cheaper from the second page onward. It also
+   * survives the Batch API's queue spread, where a 5m window is luck rather than a strategy.
+   */
+  cacheTtl?: CacheTtl;
 }
 
 export interface DecodePageInput {
@@ -41,6 +51,8 @@ export interface DecodeStageUsage extends TokenUsage {
   model: string;
   mode: DecodeMode;
   cost_usd: number;
+  /** Pages this model actually read. One per page here; summed by `totalUsage`. */
+  pages: number;
 }
 
 export interface DecodePageResult {
@@ -108,6 +120,7 @@ export class AnthropicDecoder implements Decoder {
   private readonly system: string;
   private readonly maxTokens: number;
   private readonly batchTimeoutMs: number;
+  private readonly cacheTtl: CacheTtl;
 
   constructor(
     private readonly config: DecodeConfig,
@@ -115,6 +128,7 @@ export class AnthropicDecoder implements Decoder {
   ) {
     this.client = client ?? new Anthropic();
     this.batchTimeoutMs = (config.batchTimeoutMinutes ?? DEFAULT_BATCH_TIMEOUT_MINUTES) * 60_000;
+    this.cacheTtl = config.cacheTtl ?? "1h";
     this.system = buildSystemPrompt({
       conventions: config.conventions,
       ...(config.lexicon ? { lexicon: config.lexicon } : {}),
@@ -127,7 +141,7 @@ export class AnthropicDecoder implements Decoder {
     return {
       model,
       max_tokens: this.maxTokens,
-      system: [{ type: "text", text: this.system, cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: this.system, cache_control: { type: "ephemeral", ttl: this.cacheTtl } }],
       messages: [
         {
           role: "user",
@@ -139,7 +153,7 @@ export class AnthropicDecoder implements Decoder {
                   {
                     type: "image" as const,
                     source: { type: "base64" as const, media_type: "image/png" as const, data: Buffer.from(this.config.calibration.image).toString("base64") },
-                    cache_control: { type: "ephemeral" as const },
+                    cache_control: { type: "ephemeral" as const, ttl: this.cacheTtl },
                   },
                 ]
               : []),
@@ -198,7 +212,7 @@ export class AnthropicDecoder implements Decoder {
   private finish(key: string, message: Anthropic.Messages.Message, model: string, mode: DecodeMode): DecodePageResult {
     const raw = textOf(message);
     const usage = toUsage(message.usage);
-    const stage: DecodeStageUsage = { ...usage, model, mode, cost_usd: costUsd(usage, model, mode === "batch") };
+    const stage: DecodeStageUsage = { ...usage, model, mode, pages: 1, cost_usd: costUsd(usage, model, mode === "batch", this.cacheTtl) };
     if (message.stop_reason === "refusal") {
       return { key, extraction: null, raw, error: "model refused", usage: [stage], escalated: false };
     }
@@ -211,7 +225,7 @@ export class AnthropicDecoder implements Decoder {
 
   private failed(key: string, model: string, mode: DecodeMode, err: unknown): DecodePageResult {
     const msg = err instanceof Anthropic.APIError ? `API ${err.status}: ${err.message}` : (err as Error).message;
-    const stage: DecodeStageUsage = { ...zeroUsage(), model, mode, cost_usd: 0 };
+    const stage: DecodeStageUsage = { ...zeroUsage(), model, mode, pages: 1, cost_usd: 0 };
     return { key, extraction: null, raw: "", error: msg, usage: [stage], escalated: false };
   }
 
@@ -301,8 +315,8 @@ export function totalUsage(results: readonly DecodePageResult[]): Map<string, De
   for (const r of results) {
     for (const s of r.usage) {
       const key = `${s.model}|${s.mode}`;
-      const prev = out.get(key) ?? { ...zeroUsage(), model: s.model, mode: s.mode, cost_usd: 0 };
-      out.set(key, { ...addUsage(prev, s), model: s.model, mode: s.mode, cost_usd: prev.cost_usd + s.cost_usd });
+      const prev = out.get(key) ?? { ...zeroUsage(), model: s.model, mode: s.mode, cost_usd: 0, pages: 0 };
+      out.set(key, { ...addUsage(prev, s), model: s.model, mode: s.mode, cost_usd: prev.cost_usd + s.cost_usd, pages: prev.pages + s.pages });
     }
   }
   return out;
