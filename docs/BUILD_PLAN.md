@@ -75,6 +75,12 @@ exception to the purge).
 - **Admin portal v2**: light up revenue (MRR/ARR from Stripe), customer counts, trial
   cohort + trial-cancellation tracking, and the per-user billing actions (cancel service,
   prorated refund via Stripe, delete account) — all audited with typed confirmation.
+  Access control grows here too: the waiting list and its invitations ship in Phase 0
+  (`/admin/waitlist`), and Phase 2 adds granting a trial — extending one that is running,
+  and comping an account past checkout entirely — so a reviewer, a friend or a refund case
+  can be let in without a card. That means a trial length per account rather than the one
+  constant in `billing-core.ts`, and Stripe's trial_end moved on the subscription rather
+  than a flag of our own, so Stripe stays the record of who owes what.
 - **Calendar read integration**: Google Calendar + Microsoft Graph OAuth behind
   `CalendarProvider`; overlay existing meetings on the calendar pages.
 - Canary account monitoring the unofficial cloud API; alerting (a silent 3AM failure is

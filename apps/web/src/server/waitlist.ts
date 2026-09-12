@@ -72,12 +72,23 @@ export async function listWaitlist(): Promise<WaitlistRow[]> {
   });
 }
 
-export type InviteResult = { ok: true; email: string } | { ok: false; message: string };
+export type InviteResult = { ok: true; email: string; mailed: boolean } | { ok: false; message: string };
 
 /**
- * Let someone in. The mail carries no token, only the address of the sign-in page: they still
- * have to ask for a link and prove they hold the mailbox, so a forwarded invitation is worthless.
+ * The mail carries no token, only the address of the sign-in page: they still have to ask for a
+ * link and prove they hold the mailbox, so a forwarded invitation is worthless.
+ *
+ * A host with no mail provider still invites the address; it just says so, because the operator
+ * then has to tell the person by hand rather than assuming a mail went out.
  */
+async function sendInvite(email: string): Promise<InviteResult> {
+  const rt = await getRuntime();
+  const res = await rt.mail.send(buildInviteMail(email, `${publicUrl()}/login`));
+  if (res.status === "failed") return { ok: false, message: `Marked invited, but the email failed: ${res.error}` };
+  return { ok: true, email, mailed: res.status === "sent" };
+}
+
+/** Let someone in who asked on the public page. */
 export async function inviteFromWaitlist(id: string): Promise<InviteResult> {
   const rt = await getRuntime();
   const row = await rt.db.query.waitlist.findFirst({ where: eq(schema.waitlist.id, id) });
@@ -87,9 +98,29 @@ export async function inviteFromWaitlist(id: string): Promise<InviteResult> {
   if (row.state !== "invited") {
     await rt.db.update(schema.waitlist).set({ state: "invited", invitedAt: new Date() }).where(eq(schema.waitlist.id, id));
   }
-  const res = await rt.mail.send(buildInviteMail(row.email, `${publicUrl()}/login`));
-  if (res.status === "failed") return { ok: false, message: `Invited, but the email failed: ${res.error}` };
-  return { ok: true, email: row.email };
+  return sendInvite(row.email);
+}
+
+/**
+ * Let in an address that never asked: someone who wrote to you directly, or one of your own for
+ * testing. It joins the list already invited, so the table stays the one answer to who may open
+ * an account and there is no second place to look.
+ */
+export async function inviteAddress(rawEmail: string): Promise<InviteResult> {
+  const email = normalizeEmail(rawEmail);
+  if (!email) return { ok: false, message: "That does not look like an email address." };
+  const rt = await getRuntime();
+  const existing = await rt.db.query.waitlist.findFirst({ where: eq(schema.waitlist.email, email) });
+  if (existing) return inviteFromWaitlist(existing.id);
+  await rt.db.insert(schema.waitlist).values({ email, source: "admin", state: "invited", invitedAt: new Date() });
+  return sendInvite(email);
+}
+
+/** Where to send the operator afterwards, including the case where no mail could go out. */
+export function inviteResultRedirect(r: InviteResult): string {
+  if (!r.ok) return `/admin/waitlist?error=${encodeURIComponent(r.message)}`;
+  const key = r.mailed ? "invited" : "unmailed";
+  return `/admin/waitlist?${key}=${encodeURIComponent(r.email)}`;
 }
 
 export interface WaitlistCounts {
