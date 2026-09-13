@@ -34,7 +34,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
       ) : (
         <div style={{ marginBottom: 18 }}><Republish /></div>
       )}
-      <DocumentsView documents={docs.documents} registry={reg} initialTab={tab ?? "files"} />
+      <DocumentsView documents={docs.documents} registry={reg} initialTab={tab} />
     </Shell>
   );
 }

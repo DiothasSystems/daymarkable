@@ -21,8 +21,11 @@ const TABS = [
   { id: "files", label: "Documents" },
 ];
 
-export function DocumentsView({ documents, registry, initialTab }: { documents: Docs; registry: Registry; initialTab: string }) {
-  const [tab, setTab] = useState(TABS.some((t) => t.id === initialTab) ? initialTab : "actions");
+/** The tab a visit lands on: first in the list, so the order above is the only thing to change. */
+const DEFAULT_TAB = TABS[0]!.id;
+
+export function DocumentsView({ documents, registry, initialTab }: { documents: Docs; registry: Registry; initialTab?: string }) {
+  const [tab, setTab] = useState(TABS.some((t) => t.id === initialTab) ? initialTab! : DEFAULT_TAB);
   const [open, setOpen] = useState<string | null>(documents.find((d) => d.cached)?.id ?? null);
 
   return (
