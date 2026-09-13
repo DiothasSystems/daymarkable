@@ -1,5 +1,6 @@
 import { getAdminSession } from "@/server/admin";
 import { recordBalance } from "@/server/ops";
+import { seeOther } from "@/server/redirect";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,5 @@ export async function POST(req: Request) {
   // different states, and only one of them should raise the alarm.
   const balance = raw === "" ? null : Number(raw);
   const r = await recordBalance(balance, Number(form.get("warnDays")));
-  const to = new URL(r.ok ? "/admin/tokens?saved=1" : `/admin/tokens?error=${encodeURIComponent(r.message)}`, req.url);
-  return Response.redirect(to, 303);
+  return seeOther(r.ok ? "/admin/tokens?saved=1" : `/admin/tokens?error=${encodeURIComponent(r.message)}`);
 }

@@ -108,3 +108,29 @@ export function validateTuning(patch: TuningPatch, isRetired: (model: string) =>
   }
   return { ok: true };
 }
+
+// ---------------------------------------------------------------- user search
+
+/** The fields an operator searches an account by. Anything typed is matched against all of them. */
+export interface SearchableUser {
+  email: string;
+  status: string;
+  plan: string | null;
+  role: string | null;
+  industry: string | null;
+}
+
+/**
+ * Match an account against a search box.
+ *
+ * Every whitespace-separated term must match somewhere (AND, not OR), because narrowing is what a
+ * second word is for: "student annual" should mean both, not either. Matching is case-insensitive
+ * substring across email, status, plan, role and industry — an operator looking for "physician"
+ * or "past_due" or a fragment of an address should not have to say which field they meant.
+ */
+export function matchesUserQuery(u: SearchableUser, query: string): boolean {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return true;
+  const haystack = [u.email, u.status, u.plan ?? "", u.role ?? "", u.industry ?? ""].join(" ").toLowerCase();
+  return terms.every((t) => haystack.includes(t));
+}

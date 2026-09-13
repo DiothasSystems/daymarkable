@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AdminShell } from "@/components/AdminShell";
 import { fmtDate, fmtDateTime, fmtUsd } from "@/lib/format";
 import { listUsers } from "@/server/admin";
+import { matchesUserQuery } from "@/server/admin-core";
 import { requireAdmin } from "@/server/admin-guard";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +23,14 @@ function calibration(status: string | null, accuracy: number | null): { label: s
   return { label: "never", bad: true };
 }
 
-export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ deleted?: string }> }) {
+export default async function AdminUsers({ searchParams }: { searchParams: Promise<{ deleted?: string; q?: string }> }) {
   const session = await requireAdmin();
-  const { deleted } = await searchParams;
-  const users = await listUsers();
+  const { deleted, q } = await searchParams;
+  const all = await listUsers();
+  const query = (q ?? "").trim();
+  const users = query ? all.filter((u) => matchesUserQuery(u, query)) : all;
   return (
-    <AdminShell session={session}>
+    <AdminShell session={session} wide>
       <p className="kicker">Users</p>
       <h1>Every registered account</h1>
       {deleted ? <div className="notice ok" style={{ marginBottom: 16 }}>Account deleted. The deletion is recorded in the audit log.</div> : null}
@@ -36,6 +39,17 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
         produced nothing and should not drag the average down. Confidence is the mean across every task, event and
         meeting decoded for that account; low confidence with no calibration sample is the pairing worth acting on.
       </p>
+      <form method="get" className="row" style={{ gap: 8, alignItems: "flex-end", marginBottom: 16 }}>
+        <div className="field" style={{ flex: 1, maxWidth: 420, marginBottom: 0 }}>
+          <label htmlFor="q">Find an account</label>
+          <input id="q" name="q" type="search" defaultValue={query} placeholder="email, role, industry, plan or status" autoComplete="off" />
+        </div>
+        <button type="submit">Search</button>
+        {query ? <Link href="/admin/users" className="tertiary">Clear</Link> : null}
+        <span className="meta">
+          {query ? `${users.length} of ${all.length} accounts` : `${all.length} account${all.length === 1 ? "" : "s"}`}
+        </span>
+      </form>
       <div className="card table-wrap" style={{ padding: 16 }}>
         <table>
           <thead>
@@ -76,7 +90,9 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
                 </tr>
               );
             })}
-            {users.length === 0 ? <tr><td colSpan={13} className="muted">No accounts yet.</td></tr> : null}
+            {users.length === 0 ? (
+              <tr><td colSpan={13} className="muted">{query ? `Nothing matches "${query}".` : "No accounts yet."}</td></tr>
+            ) : null}
           </tbody>
         </table>
       </div>

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CompassRose, Wordmark } from "./Brand";
 import { AdminNav } from "./AdminNav";
 
-export function AdminShell({ children, session }: { children: React.ReactNode; session: { loginId: string; expiresAt: Date } | null }) {
+export function AdminShell({ children, session, wide = false }: { children: React.ReactNode; session: { loginId: string; expiresAt: Date } | null; wide?: boolean }) {
   return (
     <div className="shell">
       <header className="topbar admin-bar on-dark">
@@ -18,7 +18,7 @@ export function AdminShell({ children, session }: { children: React.ReactNode; s
           </form>
         ) : null}
       </header>
-      <main>{children}</main>
+      <main className={wide ? "wide" : undefined}>{children}</main>
       <div className="footer">OPERATOR PORTAL · EVERY ACTION IS WRITTEN TO THE AUDIT LOG · SESSIONS EXPIRE AFTER 60 MINUTES</div>
     </div>
   );

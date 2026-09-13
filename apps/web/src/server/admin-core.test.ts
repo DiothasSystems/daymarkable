@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_SESSION_TTL_MS, TUNING_MAX, TUNING_MIN, adminConfigFromEnv, checkAdminCredentials, hashAdminPassword, issueAdminToken, loginLocked, validateTuning, verifyAdminToken } from "./admin-core.js";
+import { ADMIN_SESSION_TTL_MS, TUNING_MAX, TUNING_MIN, adminConfigFromEnv, checkAdminCredentials, hashAdminPassword, issueAdminToken, loginLocked, matchesUserQuery, validateTuning, verifyAdminToken } from "./admin-core.js";
 
 describe("admin config", () => {
   it("requires login id, a bcrypt hash (never plaintext), and the data key", async () => {
@@ -74,5 +74,31 @@ describe("validateTuning", () => {
 
   it("allows a model that is not retired", () => {
     expect(validateTuning({ ...ok, decodeModel: "claude-opus-5", escalationModel: "claude-opus-5" }, retired, "claude-sonnet-5").ok).toBe(true);
+  });
+});
+
+describe("matchesUserQuery", () => {
+  const u = { email: "jane@example.com", status: "active", plan: "annual", role: "Student", industry: "university — mechanical engineering" };
+
+  it("matches any field, case-insensitively", () => {
+    for (const q of ["jane", "EXAMPLE.COM", "active", "annual", "student", "mechanical"]) {
+      expect(matchesUserQuery(u, q)).toBe(true);
+    }
+  });
+
+  it("requires every term, so a second word narrows rather than widens", () => {
+    expect(matchesUserQuery(u, "student annual")).toBe(true);
+    expect(matchesUserQuery(u, "student monthly")).toBe(false);
+  });
+
+  it("matches everything on an empty or whitespace query", () => {
+    expect(matchesUserQuery(u, "")).toBe(true);
+    expect(matchesUserQuery(u, "   ")).toBe(true);
+  });
+
+  it("does not trip over an account with no role or plan recorded", () => {
+    const bare = { email: "a@b.co", status: "trial", plan: null, role: null, industry: null };
+    expect(matchesUserQuery(bare, "trial")).toBe(true);
+    expect(matchesUserQuery(bare, "student")).toBe(false);
   });
 });

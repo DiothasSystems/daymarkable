@@ -1,4 +1,5 @@
 import { getAdminSession, updateDecodeTuning } from "@/server/admin";
+import { seeOther } from "@/server/redirect";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     decodeModel: decode || null,
     escalationModel: escalation || null,
   });
-  const to = new URL(r.ok ? `/admin/users/${id}?tuned=1` : `/admin/users/${id}?error=${encodeURIComponent(r.message)}`, req.url);
-  return Response.redirect(to, 303);
+  return seeOther(r.ok ? `/admin/users/${id}?tuned=1` : `/admin/users/${id}?error=${encodeURIComponent(r.message)}`);
 }

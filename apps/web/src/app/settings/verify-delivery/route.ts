@@ -1,4 +1,5 @@
 import { verifyDeliveryEmail } from "@/server/services";
+import { seeOther } from "@/server/redirect";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,5 +12,5 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const token = new URL(req.url).searchParams.get("token");
   const ok = token ? await verifyDeliveryEmail(token) : false;
-  return Response.redirect(new URL(ok ? "/account?delivery=confirmed" : "/account?delivery=expired", req.url), 303);
+  return seeOther(ok ? "/account?delivery=confirmed" : "/account?delivery=expired");
 }

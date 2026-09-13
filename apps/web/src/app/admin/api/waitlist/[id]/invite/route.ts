@@ -1,4 +1,5 @@
 import { audit, getAdminSession } from "@/server/admin";
+import { seeOther } from "@/server/redirect";
 import { inviteFromWaitlist, inviteResultRedirect } from "@/server/waitlist";
 
 export const runtime = "nodejs";
@@ -12,5 +13,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const { id } = await ctx.params;
   const r = await inviteFromWaitlist(id);
   await audit(r.ok ? "waitlist.invite" : "waitlist.invite.failed", r.ok ? { email: r.email, mailed: r.mailed } : { id, message: r.message });
-  return Response.redirect(new URL(inviteResultRedirect(r), req.url), 303);
+  return seeOther(inviteResultRedirect(r));
 }

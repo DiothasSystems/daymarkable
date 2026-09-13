@@ -1,4 +1,5 @@
 import { cancelForUser, getAdminSession, refundProratedForUser } from "@/server/admin";
+import { seeOther } from "@/server/redirect";
 
 export const runtime = "nodejs";
 
@@ -16,6 +17,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
         : action === "refund"
           ? await refundProratedForUser(id, Number(form.get("amount")))
           : { ok: false as const, message: `unknown action "${action.slice(0, 40)}"` };
-  const to = new URL(r.ok ? `/admin/users/${id}?billed=${encodeURIComponent(r.message)}` : `/admin/users/${id}?error=${encodeURIComponent(r.message)}`, req.url);
-  return Response.redirect(to, 303);
+  return seeOther(r.ok ? `/admin/users/${id}?billed=${encodeURIComponent(r.message)}` : `/admin/users/${id}?error=${encodeURIComponent(r.message)}`);
 }
