@@ -180,15 +180,17 @@ export function dueTag(due: string | null, today: string): { label: string; soon
 // ------------------------------------------------------------------ runs + sync now
 export type RunLabel = "Automatic" | "On-demand";
 
+/**
+ * The customer's own run history. Deliberately carries no model name and no dollar cost: which
+ * model read a page and what it cost are our numbers, not theirs, and this list is served over
+ * tRPC — leaving them on the object would ship them to the browser whether or not a page drew
+ * them. Cost per account lives in the admin portal (`listUsers`, `getUserDetail`, /admin/expenses).
+ */
 export async function listRuns(userId: string, limit = 30) {
   const rt = await getRuntime();
   const runs = await rt.db.query.runs.findMany({ where: eq(schema.runs.userId, userId), orderBy: desc(schema.runs.createdAt), limit });
   const ids = runs.map((r) => r.id);
   const ratings = ids.length ? await rt.db.query.feedback.findMany({ where: inArray(schema.feedback.runId, ids) }) : [];
-  const costs = ids.length
-    ? await rt.db.select({ runId: schema.runCosts.runId, usd: sql<string>`sum(${schema.runCosts.costUsd})`, models: sql<string>`string_agg(distinct ${schema.runCosts.model}, ', ')` }).from(schema.runCosts).where(inArray(schema.runCosts.runId, ids)).groupBy(schema.runCosts.runId)
-    : [];
-  const costById = new Map(costs.map((c) => [c.runId, c]));
   return runs.map((r) => ({
     id: r.id,
     label: (r.kind === "nightly" ? "Automatic" : "On-demand") as RunLabel,
@@ -201,9 +203,6 @@ export async function listRuns(userId: string, limit = 30) {
     finishedAt: r.finishedAt,
     error: r.error,
     stats: r.stats,
-    decodeModel: r.decodeModel,
-    models: costById.get(r.id)?.models ?? r.decodeModel ?? "",
-    costUsd: Number(costById.get(r.id)?.usd ?? 0),
     rating: ratings.find((f) => f.runId === r.id) ?? null,
     cachePurgedAt: r.cachePurgedAt,
   }));

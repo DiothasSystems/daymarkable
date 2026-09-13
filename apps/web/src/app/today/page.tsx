@@ -2,7 +2,7 @@ import Link from "next/link";
 import { TickBox } from "@/components/ItemActions";
 import { Shell } from "@/components/Shell";
 import { SyncNow } from "@/components/SyncNow";
-import { fmtDate, fmtDateTime, fmtUsd } from "@/lib/format";
+import { fmtDate, fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
 import { dueTag, getRegistry, listDocuments, listRuns, quotaStatus } from "@/server/services";
 
@@ -107,7 +107,7 @@ export default async function TodayPage() {
                   <span className={`badge ${last.kind === "nightly" ? "auto" : "demand"}`}>{last.label}</span>
                   <span className={`badge ${last.status === "succeeded" ? "ok" : last.status === "failed" ? "bad" : "warn"}`}>{last.status}</span>
                 </div>
-                <div className="meta">{fmtDateTime(last.finishedAt ?? last.startedAt, user.timezone)}{last.stats ? ` · ${last.stats.pagesDecoded} pages · ${fmtUsd(last.costUsd)}` : ""}</div>
+                <div className="meta">{fmtDateTime(last.finishedAt ?? last.startedAt, user.timezone)}{last.stats ? ` · ${last.stats.pagesDecoded} pages` : ""}</div>
               </>
             ) : (
               <p className="muted" style={{ marginBottom: 0 }}>No runs yet. Press Sync now or wait for 03:00.</p>

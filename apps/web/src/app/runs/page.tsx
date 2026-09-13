@@ -1,6 +1,6 @@
 import { Shell } from "@/components/Shell";
 import { RateRun } from "@/components/RateRun";
-import { fmtDateTime, fmtUsd } from "@/lib/format";
+import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
 import { listRuns } from "@/server/services";
 
@@ -26,7 +26,6 @@ export default async function RunsPage() {
                 <strong>{r.localDate}</strong>
                 <span className="muted">{fmtDateTime(r.startedAt, user.timezone)}</span>
               </div>
-              <span className="mono muted">{r.models || "—"} · {fmtUsd(r.costUsd)}</span>
             </div>
             {r.stats ? (
               <p className="meta" style={{ margin: "8px 0" }}>
