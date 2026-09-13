@@ -7,7 +7,20 @@
  * `tokenPlan` for why there is no such figure to fetch.
  */
 import "server-only";
+import os from "node:os";
+import { statfs } from "node:fs/promises";
 import { and, desc, eq, gte, schema, sql } from "@daymarkable/db";
+import {
+  capacityUsers,
+  headroom,
+  perUserSecs,
+  runCost,
+  treeListings,
+  utilisation,
+  type Headroom,
+  type RunCost,
+  type RunSample,
+} from "./capacity-core";
 import { DateTime } from "luxon";
 import { isPlan, type Plan } from "./billing-core";
 import {
@@ -26,6 +39,14 @@ import { getRuntime } from "./runtime";
 import { audit } from "./audit";
 
 export const PERIODS: Period[] = ["week", "month", "quarter", "year"];
+
+/**
+ * Whether the scheduler serves more than one account. False in Phase 0: `ensureDefaultUser`
+ * resolves a single account from USER_EMAIL and `scheduler-boot` schedules for that one. Flip this
+ * when the Phase 2 multi-tenant scheduler lands — until then the capacity monitor should say so
+ * rather than imply a second customer would be served.
+ */
+export const MULTI_TENANT_SCHEDULER = false;
 
 // ---------------------------------------------------------------- operator settings
 
@@ -428,4 +449,127 @@ export async function tokensPerDayByUser(): Promise<Map<string, number>> {
     .from(schema.runCosts)
     .groupBy(schema.runCosts.userId);
   return new Map(rows.map((r) => [r.userId, Number(r.tokens) / Number(r.days)] as const));
+}
+
+// ---------------------------------------------------------------- capacity
+
+/**
+ * The planning window: 00:01 local, when the automatic run fires, to 06:00, by which time the
+ * notebooks want to be on the tablet. Runs may finish later without anything breaking; this is the
+ * budget capacity is measured against, not a deadline the code enforces.
+ */
+export const WINDOW_SECS = 6 * 3600;
+/** Runs overlapped when planning the concurrent figure. They are almost entirely network wait. */
+export const PLANNED_CONCURRENCY = 5;
+
+export interface CapacitySnapshot {
+  cost: RunCost;
+  /** Pages a night, median across accounts that wrote anything — what "a typical user" costs. */
+  medianPages: number;
+  perUserSecs: number;
+  accounts: number;
+  usersSerial: number;
+  usersConcurrent: number;
+  utilisation: number;
+  treeListings: number;
+  headroom: Headroom;
+  /** Nightly wall clock actually used, newest first, against the window. */
+  recentNights: { day: string; secs: number; runs: number; pages: number }[];
+  host: {
+    cores: number;
+    loadAvg: number;
+    memTotalBytes: number;
+    memFreeBytes: number;
+    memUsedPct: number;
+    diskTotalBytes: number;
+    diskFreeBytes: number;
+    diskUsedPct: number;
+    /** No swap on this host, so a memory spike is an OOM kill rather than a slowdown. */
+    swapKnown: false;
+  };
+  /** False while `ensureDefaultUser` serves one account; the cap is one regardless of resources. */
+  multiTenant: boolean;
+  windowSecs: number;
+  concurrency: number;
+}
+
+export async function capacitySnapshot(): Promise<CapacitySnapshot> {
+  const rt = await getRuntime();
+
+  const runs = await rt.db
+    .select({
+      // localDate, not a UTC calendar day: it is already the run's own notion of which night it
+      // belongs to, and a UTC day boundary would split one night for users in some zones.
+      day: schema.runs.localDate,
+      secs: sql<string>`extract(epoch from (${schema.runs.finishedAt} - ${schema.runs.startedAt}))`,
+      pages: sql<string>`coalesce((${schema.runs.stats}->>'pagesDecoded')::int, 0)`,
+    })
+    .from(schema.runs)
+    .where(and(eq(schema.runs.status, "succeeded"), sql`${schema.runs.startedAt} is not null and ${schema.runs.finishedAt} is not null`))
+    .orderBy(desc(schema.runs.createdAt))
+    .limit(200);
+  const samples: RunSample[] = runs.map((r) => ({ secs: Math.max(0, Math.round(Number(r.secs))), pages: Number(r.pages) }));
+  const cost = runCost(samples);
+
+  // Nights are the unit that matters: several runs can land on one date, and the window holds the
+  // sum of them, not the longest.
+  const byDay = new Map<string, { secs: number; runs: number; pages: number }>();
+  for (const r of runs) {
+    const prev = byDay.get(r.day) ?? { secs: 0, runs: 0, pages: 0 };
+    byDay.set(r.day, { secs: prev.secs + Math.round(Number(r.secs)), runs: prev.runs + 1, pages: prev.pages + Number(r.pages) });
+  }
+  const recentNights = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 14).map(([day, v]) => ({ day, ...v }));
+
+  const written = samples.filter((s) => s.pages > 0).map((s) => s.pages).sort((a, b) => a - b);
+  const medianPages = written.length ? written[Math.floor(written.length / 2)]! : 8;
+
+  const [active] = await rt.db
+    .select({ n: sql<string>`count(*)` })
+    .from(schema.users)
+    .where(sql`${schema.users.status} in ('trial','active','past_due')`);
+  const accounts = Number(active?.n ?? 0);
+
+  const per = perUserSecs(cost, medianPages);
+  const memTotal = os.totalmem();
+  const memFree = os.freemem();
+  const memUsedPct = memTotal > 0 ? ((memTotal - memFree) / memTotal) * 100 : 0;
+  let diskTotal = 0;
+  let diskFree = 0;
+  try {
+    // The container's root is the host's disk through the overlay, which is the number that fills.
+    const fs = await statfs("/");
+    diskTotal = Number(fs.blocks) * Number(fs.bsize);
+    diskFree = Number(fs.bavail) * Number(fs.bsize);
+  } catch {
+    /* not fatal: the page renders without disk figures rather than 500ing */
+  }
+  const diskUsedPct = diskTotal > 0 ? ((diskTotal - diskFree) / diskTotal) * 100 : 0;
+  const listings = treeListings(accounts);
+
+  return {
+    cost,
+    medianPages,
+    perUserSecs: per,
+    accounts,
+    usersSerial: capacityUsers(per, WINDOW_SECS),
+    usersConcurrent: capacityUsers(per, WINDOW_SECS, PLANNED_CONCURRENCY),
+    utilisation: utilisation(accounts, per, WINDOW_SECS, PLANNED_CONCURRENCY),
+    treeListings: listings,
+    headroom: headroom({ accounts, utilisation: utilisation(accounts, per, WINDOW_SECS, PLANNED_CONCURRENCY), treeListings: listings, diskUsedPct, memUsedPct, multiTenant: MULTI_TENANT_SCHEDULER }),
+    recentNights,
+    host: {
+      cores: os.cpus().length,
+      loadAvg: os.loadavg()[0] ?? 0,
+      memTotalBytes: memTotal,
+      memFreeBytes: memFree,
+      memUsedPct,
+      diskTotalBytes: diskTotal,
+      diskFreeBytes: diskFree,
+      diskUsedPct,
+      swapKnown: false,
+    },
+    multiTenant: MULTI_TENANT_SCHEDULER,
+    windowSecs: WINDOW_SECS,
+    concurrency: PLANNED_CONCURRENCY,
+  };
 }
