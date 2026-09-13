@@ -38,7 +38,7 @@ export async function bootScheduler(): Promise<void> {
       },
       log,
     });
-    log("3AM scheduler running inside the web server");
+    log("nightly scheduler running inside the web server (00:01 local)");
   } catch (err) {
     g.__dmSchedulerStarted = false;
     const cause = (err as { cause?: Error }).cause;

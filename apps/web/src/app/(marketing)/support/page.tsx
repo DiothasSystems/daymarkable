@@ -23,7 +23,7 @@ export default function SupportPage() {
         <ul>
           <li>The pairing code comes from my.remarkable.com/device/browser/connect and is valid for a few minutes. Generate a fresh one if it is rejected.</li>
           <li>If a night is skipped with a sync error, the reMarkable cloud format has usually changed. We track this closely; the planner is never written half-broken.</li>
-          <li>Pages written before midnight but after 03:00 are read the next night. Use Sync now on the Today page if you need them sooner.</li>
+          <li>Everything you write during the day is read once the date turns over, a minute after midnight. A page written after that run waits for the next one — use Sync now on the Today page if you need it sooner.</li>
         </ul>
 
         <h2>Accuracy</h2>

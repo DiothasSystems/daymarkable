@@ -14,7 +14,7 @@ export default async function RunsPage() {
     <Shell>
       <p className="kicker">History</p>
       <h1>Runs</h1>
-      <p className="muted">Automatic runs happen at 03:00 in your timezone on the Batch API. On-demand runs come from Sync now (web or mobile) and use the standard API. Rate how well each run read your handwriting.</p>
+      <p className="muted">Automatic runs happen at 00:01 in your timezone on the Batch API. On-demand runs come from Sync now (web or mobile) and use the standard API. Rate how well each run read your handwriting.</p>
       {runs.length === 0 ? <div className="card">No runs yet.</div> : null}
       <div className="stack">
         {runs.map((r) => (

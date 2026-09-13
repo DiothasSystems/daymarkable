@@ -83,7 +83,7 @@ export default function RemarkablePage() {
             </div>
             <div>
               <div className="mk-step-label">03 · WI-FI OVERNIGHT</div>
-              <p>The tablet needs to sync before 03:00 and again in the morning to pick up the new planner pages. On the desk, on the charger, connected to Wi-Fi is the whole routine.</p>
+              <p>The tablet needs to sync before midnight and again in the morning to pick up the new planner pages. On the desk, on the charger, connected to Wi-Fi is the whole routine.</p>
             </div>
           </div>
         </div>

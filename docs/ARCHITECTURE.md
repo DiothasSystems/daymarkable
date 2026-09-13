@@ -9,7 +9,7 @@ then zero interaction beyond writing with a pen. Everything below follows from t
 ## The one-paragraph version
 
 A Next.js web app handles signup, tablet pairing, and settings. A timezone-aware scheduler
-wakes each user's pipeline at 3AM local. A worker syncs the user's changed notebooks from the
+wakes each user's pipeline at 00:01 local. A worker syncs the user's changed notebooks from the
 reMarkable cloud, renders changed pages to images, sends them to Claude (Batch API) for
 transcription + structured extraction, merges the results into a per-user task/event store in
 Postgres, composes planner PDFs typeset for e-ink, and uploads them back to a "dayMarkable" folder
@@ -75,10 +75,10 @@ behind a `TabletProvider` interface so a future official API, USB/local-network 
 (the tablet has a local web interface), or other e-ink brands (Kindle Scribe, Supernote) slot
 in without touching business logic; review reMarkable's ToS with counsel before charging money.
 
-## 2. Scheduling — "3AM local, every user"
+## 2. Scheduling — "00:01 local, every user"
 
-Don't run one giant 3AM job — 3AM is a different UTC hour per user. The scheduler ticks
-**hourly** (a single cron), selects users whose `timezone` currently reads 03:00 local
+Don't run one giant midnight job — 00:01 is a different UTC hour per user. The scheduler ticks
+**every 15 minutes** (a single cron), selects users whose `timezone` currently reads 00:01 local
 (DST-safe via IANA tz math, e.g. Luxon), and enqueues one `nightly-run` job per user with
 jittered start times to smooth load. Every job is idempotent and keyed by `(user, local-date)`
 so retries never double-produce a planner. A catch-up sweep re-enqueues any user whose last
@@ -88,7 +88,7 @@ successful run is >26h old (tablet was offline, cloud hiccup, etc.).
 pipeline job immediately (standard API, not Batch, so results land in minutes). Rules,
 enforced server-side in one place: at most **3 on-demand syncs per rolling 24 hours** per
 user, counted across web and mobile together (HTTP 429 with the next-available time when
-exhausted); a completed on-demand sync **marks that user's next 3AM run as satisfied**, so
+exhausted); a completed on-demand sync **marks that user's next nightly run as satisfied**, so
 there is no overnight automatic sync that day — the scheduler's hourly tick simply skips any
 user whose latest successful run already covers the current local date. On-demand jobs get
 keys `(user, local-date, seq)` to stay idempotent alongside the nightly key. The run-history
@@ -120,7 +120,7 @@ for crashed runs.
 ## 4. Decode — Claude vision with structured output
 
 One Batch API request per user per night containing all changed pages (batch = 50% off, and a
-3AM service has zero latency pressure — results within an hour are fine).
+a midnight service has zero latency pressure — results within an hour are fine).
 
 - **Model:** Claude Sonnet 5 for transcription+extraction, escalating a page to Opus 5 only
   when the page self-reports low confidence. Measured on the founder's own handwriting in

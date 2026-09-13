@@ -110,7 +110,7 @@ export default async function TodayPage() {
                 <div className="meta">{fmtDateTime(last.finishedAt ?? last.startedAt, user.timezone)}{last.stats ? ` · ${last.stats.pagesDecoded} pages` : ""}</div>
               </>
             ) : (
-              <p className="muted" style={{ marginBottom: 0 }}>No runs yet. Press Sync now or wait for 03:00.</p>
+              <p className="muted" style={{ marginBottom: 0 }}>No runs yet. Press Sync now, or wait for the run just after midnight.</p>
             )}
             <div className="row" style={{ marginTop: 16 }}>
               {planner && planner.cached ? <a className="btn secondary small" href={`/api/documents/${planner.id}`} target="_blank" rel="noreferrer">Open today's planner</a> : null}

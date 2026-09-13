@@ -14,7 +14,7 @@ const STEPS = [
   { title: "Your email", body: "We send a one-time sign-in link — no password to invent. Meeting notes are emailed to this same address, and only this address." },
   { title: "Pair your tablet", body: "Enter the one-time code from my.remarkable.com/device/browser/connect. dayMarkable stores the device token encrypted and never asks for your reMarkable password." },
   { title: "Choose watch folders", body: "Pick which notebooks are read each night. Ebooks and PDFs are left alone unless you say otherwise." },
-  { title: "Set your timezone", body: "Runs happen at 03:00 where you are, daylight-saving safe." },
+  { title: "Set your timezone", body: "Runs happen a minute after midnight where you are, daylight-saving safe." },
   { title: "Register your ink conventions", body: "Tell us what an asterisk, an underline, a circled word, or a margin star means in your hand." },
   { title: "Write a calibration sample", body: "A short passage, tailored to your work, that shows the decoder your letterforms. Optional, but accuracy is measurably better with it." },
   { title: "Delivery email (optional)", body: "Want the night's PDFs mailed to a second address? Type it, then click the confirmation link that address receives. Nothing is ever mailed to an address read from a page." },

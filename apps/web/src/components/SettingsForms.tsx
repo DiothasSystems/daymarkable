@@ -168,7 +168,7 @@ export function TimezonePicker({ initial }: { initial: string }) {
   }, []);
   return (
     <div className="stack">
-      <p className="muted">Runs happen at 03:00 in this timezone. The date on every planner page follows it too.</p>
+      <p className="muted">Runs happen a minute after midnight in this timezone, and the date on every planner page follows it. Travelling does not change it — your run stays on the zone you set here, and Sync now covers you while you are away.</p>
       <div className="field">
         <label htmlFor="tz">Timezone</label>
         <select id="tz" value={tz} onChange={(e) => setTz(e.target.value)}>

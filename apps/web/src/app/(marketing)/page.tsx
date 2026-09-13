@@ -35,7 +35,7 @@ export default function LandingPage() {
               <p>Take notes the way you always have — meetings, ideas, to-dos, margins and all. No tags, no syntax, no changing your habits.</p>
             </div>
             <div>
-              <div className="mk-step-label">02 · WE READ · 03:00</div>
+              <div className="mk-step-label">02 · WE READ · 00:01</div>
               <p>Overnight, dayMarkable reads only the pages you changed, finds the decisions, commitments, and follow-ups, and links every one back to the page it came from.</p>
             </div>
             <div>
@@ -97,7 +97,7 @@ export default function LandingPage() {
         <h2 className="mk-h2">Tonight's notes could be tomorrow's plan.</h2>
         <p className="mk-sub" style={{ marginBottom: 28 }}>$10/month or $100/year after a 14-day free trial. One tablet, unlimited notebooks. Cancel anytime.</p>
         <Link href="/start" className="btn" style={{ padding: "15px 34px", fontSize: 16 }}>Start free — connect your tablet</Link>
-        <div className="mk-foot">FIRST SUMMARY IN YOUR INBOX TOMORROW · 03:00 · <Link href="/pricing">Plan details</Link></div>
+        <div className="mk-foot">FIRST SUMMARY IN YOUR INBOX TONIGHT · 00:01 · <Link href="/pricing">Plan details</Link></div>
       </section>
     </MarketingShell>
   );

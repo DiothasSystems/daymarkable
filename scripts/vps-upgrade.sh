@@ -56,6 +56,16 @@ if [ "$EDGE" = 1 ]; then
   docker compose --profile edge up -d --force-recreate caddy
 fi
 
+# --- reclaim build cache ---------------------------------------------------------------------
+# BuildKit keeps every intermediate layer, and this script is run often. On 2026-09-13 that was
+# 39.9 GB of cache against 88 MB of actual application state, at 43% of the disk. A week is long
+# enough to keep a rollback fast and short enough that it never becomes the biggest thing on the
+# box. Runs after the build, so nothing this deploy needs is thrown away.
+echo "== pruning build cache older than a week"
+docker builder prune -f --filter until=168h >/dev/null 2>&1 || echo "!! build cache prune failed; check 'docker system df'"
+docker system df --format '{{.Type}}	{{.Size}}	{{.Reclaimable}}' 2>/dev/null || true
+df -h /
+
 echo "== waiting for the app"
 for _ in $(seq 1 30); do
   if curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/login | grep -q '^200$'; then echo "app answers on :3000"; break; fi

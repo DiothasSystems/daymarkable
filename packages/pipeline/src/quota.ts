@@ -1,7 +1,7 @@
 /**
  * On-demand sync quota (CLAUDE.md rule 11): 3 per rolling 24h per user, counted across web
  * and mobile together, enforced HERE and nowhere else. A completed on-demand sync satisfies
- * (user, local-date) so the 3AM scheduler skips that user.
+ * (user, local-date) so the nightly scheduler skips that user.
  */
 import { and, eq, schema, type Db } from "@daymarkable/db";
 import { DateTime } from "luxon";

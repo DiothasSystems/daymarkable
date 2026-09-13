@@ -6,7 +6,7 @@
  *   --force        run even if the date is already satisfied
  *   --no-upload    compose but do not touch the tablet
  *   --window H     look back H hours instead of "previous local day" (bootstrap)
- *   --serve        start the 3AM scheduler loop and keep running
+ *   --serve        start the nightly scheduler loop and keep running
  */
 import { ensureDefaultUser, openRuntime, pipelineDepsFor, repo, runPipeline, startScheduler } from "@daymarkable/pipeline";
 import { desc, eq, and, schema } from "@daymarkable/db";
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     if (flag("serve")) {
       const stale = await repo.failStaleRuns(rt.db, 0);
       if (stale) log(`marked ${stale} interrupted run(s) as failed`);
-      log("scheduler started (15-minute ticks, 03:00 local)");
+      log("scheduler started (15-minute ticks, 00:01 local)");
       startScheduler({
         timezone: async () => (await repo.getUser(rt.db, user.id)).timezone,
         lastSatisfied: async () => {

@@ -1,7 +1,7 @@
 # CLAUDE.md — dayMarkable
 
-dayMarkable reads a reMarkable user's handwritten notes nightly at 3AM local time (only files
-modified during the previous day), decodes them with Claude vision using the user's
+dayMarkable reads a reMarkable user's handwritten notes nightly at 00:01 local time (only files
+modified during the day that just ended), decodes them with Claude vision using the user's
 registered ink conventions, and writes back to the tablet: a planner
 (day/week/month/quarter/year calendar templates, with the user's Outlook/Google calendar
 overlaid when connected), a living Action List checkbox notebook (append-only, ordered by
@@ -9,7 +9,7 @@ date then priority), and a Meeting Notes notebook. Each decoded meeting is also 
 the user's registered address — one email per meeting, subject = topic, date, time. Decoded
 meeting-setup actions become draft calendar invites in the user's selected calendar system.
 Planner pages are hand-checkable; ticks and margin notes are read the next night (closed
-loop). See README.md, ARCHITECTURE.md, ECONOMICS.md, BUILD_PLAN.md in /docs.
+loop). See README.md, ARCHITECTURE.md, ECONOMICS.md, CAPACITY.md, BUILD_PLAN.md in /docs.
 
 ## Current phase
 
@@ -116,7 +116,7 @@ unchanged.
 11. **On-demand sync: 3 per rolling 24h, and it replaces the night's run.** The quota is
     enforced server-side in one module, counted across web and mobile together (429 with
     next-available time when exhausted). A completed on-demand sync satisfies
-    (user, local-date), so the 3AM scheduler skips that user. On-demand jobs are keyed
+    (user, local-date), so the nightly scheduler skips that user. On-demand jobs are keyed
     (user, local-date, seq) and run on the standard API (minutes matter); nightly runs stay
     on Batch. Never enforce the quota client-side only.
 12. **Viewers read, they never regenerate.** Web and mobile serve documents from the 1-day
@@ -161,7 +161,7 @@ unchanged.
 **Claude Sonnet 5 is the baseline decoder**, escalating to **Opus 5** only on low-confidence
 pages. (Measured on the founder's own handwriting in September 2026: Sonnet read most
 accurately, Opus was close behind, Haiku 4.5 was clearly worst and is no longer used.)
-Nightly runs go through the **Batch API** (50% discount; 3AM has no latency pressure);
+Nightly runs go through the **Batch API** (50% discount; midnight has no latency pressure);
 on-demand syncs use the standard API. Prompt caching carries the system prompt, the user's
 ink conventions, their lexicon, and their handwriting calibration sample. Images are rendered
 at 1568px long edge. Keep the extraction schema in one place (`packages/decode/schema.ts`) —
@@ -228,5 +228,6 @@ handoff in `design/design_handoff_daymarkable/` (style guide, tablet page + emai
   skip the night's run gracefully (never write a broken planner).
 - .rm lines format is currently v6; a device firmware update can bump it. The render
   service's PDF-rasterize fallback exists for exactly this window.
-- 3AM local ≠ one cron: hourly tick, select users at 03:00 local via IANA tz (Luxon),
-  DST-safe. Test the DST transition days explicitly.
+- 00:01 local ≠ one cron: 15-minute tick, select users at or after 00:01 local via IANA tz
+  (Luxon), DST-safe. Test the DST transition days explicitly. A user's zone is the one on their
+  account, not where they happen to be — travelling is covered by Sync now, not by geolocation.

@@ -20,7 +20,7 @@ export interface DecodeConfig {
   concurrency?: number;
   /**
    * How long to wait on a batch before giving up on the 50% discount. The Batch API is
-   * allowed 24h, but a 3AM run has to land before the user wakes up — past this deadline the
+   * allowed 24h, but the night's run has to land before the user wakes up — past this deadline the
    * batch is cancelled and its pages are re-sent on the standard API at full price. Better a
    * night that costs a few cents more than a night with no notebooks on the tablet.
    */

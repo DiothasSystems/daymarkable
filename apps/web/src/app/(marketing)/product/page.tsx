@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 const FEATURES: { title: string; body: string }[] = [
-  { title: "Nightly decode, changed pages only", body: "At 03:00 in your timezone, only the pages you wrote on that day are downloaded and read. Claude vision turns each page into structured items — tasks, events with dates and times, meeting requests, people, projects, and notes — each with a confidence score." },
+  { title: "Nightly decode, changed pages only", body: "A minute after midnight in your timezone, only the pages you wrote that day are downloaded and read. Claude vision turns each page into structured items — tasks, events with dates and times, meeting requests, people, projects, and notes — each with a confidence score." },
   { title: "Your ink conventions", body: "Tell dayMarkable which markup means action, follow-up, priority, or schedule this: an asterisk, an underline, a highlighter stroke, circled or boxed text, an exclamation mark, a margin star, or keywords like TODO and F/U. Pick the ones you actually use." },
   { title: "The Daily Sheet", body: "One page: today's date, the calendar block, and a prioritized action list with checkboxes big enough for a pen. Items that have rolled over carry a subtle dot count so you can see how long they've waited." },
   { title: "Day · Week · Month · Quarter · Year", body: "A typeset planner notebook at every horizon, written back to the tablet each night. Every page keeps ruled space for handwriting, because every planner page is also an input form." },
@@ -19,7 +19,7 @@ const FEATURES: { title: string; body: string }[] = [
   { title: "The closed loop", body: "Ticks, strike-throughs, and margin notes on dayMarkable's own pages are read the next night. Completed tasks roll off; new margin notes roll in. No app, no keyboard, no sync button." },
   { title: "Low confidence goes to the Inbox", body: "Anything the decoder is unsure about lands in the planner's \"Inbox — confirm these\" section, never silently on your action list. Correct a misread on the web and the correction is remembered." },
   { title: "Watch folders", body: "Choose which reMarkable folders dayMarkable reads. By default that's all your notebooks, excluding ebooks and PDFs." },
-  { title: "Sync now", body: "Need it before 03:00? Run a sync on demand from the web, up to three times in a rolling 24 hours. An on-demand sync replaces that night's automatic run, so nothing is processed twice." },
+  { title: "Sync now", body: "Need it before tonight? Run a sync on demand from the web, up to three times in a rolling 24 hours. An on-demand sync replaces that night's automatic run, so nothing is processed twice." },
   { title: "A viewer, not a regenerator", body: "The web app shows the same documents the tablet has — planner pages, meeting notes, the action list — plus run history and cost. Viewing never triggers decoding; the tablet stays the primary surface." },
   { title: "Accuracy that learns your hand", body: "During setup you write a short calibration passage tailored to your work. That sample, your lexicon of names and project words, and your past corrections travel with every page the decoder reads." },
 ];
