@@ -21,7 +21,7 @@ export default async function AdminUserDetail({ params, searchParams }: { params
   if (!detail) notFound();
   const u = detail.user;
   return (
-    <AdminShell session={session}>
+    <AdminShell session={session} wide>
       <p className="kicker"><Link href="/admin/users">Users</Link> · {u.status}</p>
       <h1>{u.email}</h1>
       {error ? <div className="notice bad" style={{ marginBottom: 16 }}>{error}</div> : null}
@@ -49,16 +49,54 @@ export default async function AdminUserDetail({ params, searchParams }: { params
           </div>
         </div>
         <div className="card">
-          <p className="kicker">Recent runs</p>
-          <ul className="list">
-            {detail.runs.slice(0, 10).map((r) => (
-              <li key={r.id}>
-                <span className={`badge ${r.kind === "nightly" ? "auto" : "demand"}`}>{r.kind === "nightly" ? "auto" : `on-demand #${r.seq}`}</span>
-                <span>{r.localDate} <span className="meta">· {r.status} · {r.stats ? `${r.stats.pagesDecoded} pages · $${r.stats.costUsd.toFixed(4)}` : ""}{r.error ? ` · ${r.error}` : ""}</span></span>
-              </li>
-            ))}
-          </ul>
+          <p className="kicker">Totals</p>
+          <div className="meta">
+            {detail.runs.length} run{detail.runs.length === 1 ? "" : "s"} on record
+            <br />{detail.runs.filter((r) => r.status === "succeeded").length} succeeded · {detail.runs.filter((r) => r.status === "failed").length} failed
+            <br />{fmtUsd(detail.runs.reduce((n, r) => n + (r.cost?.usd ?? 0), 0))} of decode cost across them
+            <br />Every run is listed below with the model that read it.
+          </div>
         </div>
+      </div>
+
+      <div className="card table-wrap" style={{ marginBottom: 24, padding: 16 }}>
+        <p className="kicker">Every run · model and cost</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Model and cost come from <code>run_costs</code>, so a night that escalated shows both models rather than one
+          averaged figure. Two rows for one date means a failed attempt and its retry. The customer never sees these
+          columns — their own run history carries pages and findings only.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Kind</th><th>Status</th><th>Started</th><th>Took</th>
+              <th>Pages</th><th>Model</th><th>Mode</th><th>Tokens</th><th>Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {detail.runs.map((r) => {
+              const secs = r.startedAt && r.finishedAt ? Math.round((r.finishedAt.getTime() - r.startedAt.getTime()) / 1000) : null;
+              return (
+                <tr key={r.id}>
+                  <td className="mono">{r.localDate}</td>
+                  <td><span className={`badge ${r.kind === "nightly" ? "auto" : "demand"}`}>{r.kind === "nightly" ? "auto" : `#${r.seq}`}</span></td>
+                  <td>
+                    <span className={`badge ${r.status === "succeeded" ? "ok" : r.status === "failed" ? "bad" : "warn"}`}>{r.status}</span>
+                    {r.error ? <div className="meta" style={{ maxWidth: 320 }}>{r.error}</div> : null}
+                  </td>
+                  <td className="meta">{fmtDateTime(r.startedAt)}</td>
+                  <td className="mono">{secs === null ? "—" : secs >= 60 ? `${Math.floor(secs / 60)}m ${secs % 60}s` : `${secs}s`}</td>
+                  <td className="mono">{r.stats ? r.stats.pagesDecoded : "—"}</td>
+                  <td className="mono">{r.cost?.models ?? <span className="meta">none</span>}</td>
+                  <td className="mono">{r.cost?.modes ?? <span className="meta">—</span>}</td>
+                  <td className="mono">{r.cost ? Math.round(r.cost.tokens).toLocaleString() : "—"}</td>
+                  <td>{r.cost ? fmtUsd(r.cost.usd) : <span className="meta">$0.00</span>}</td>
+                </tr>
+              );
+            })}
+            {detail.runs.length === 0 ? <tr><td colSpan={10} className="muted">This account has never run.</td></tr> : null}
+          </tbody>
+        </table>
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>

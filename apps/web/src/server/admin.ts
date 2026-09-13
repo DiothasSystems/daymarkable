@@ -183,7 +183,23 @@ export async function getUserDetail(userId: string) {
   const row = rows.find((r) => r.id === userId);
   if (!row) return null;
   const rt = await getRuntime();
-  const runs = await rt.db.query.runs.findMany({ where: eq(schema.runs.userId, userId), orderBy: desc(schema.runs.createdAt), limit: 30 });
+  // Every run, not a window: an operator looking at one account wants the whole history, and one
+  // account produces roughly one run a night.
+  const runs = await rt.db.query.runs.findMany({ where: eq(schema.runs.userId, userId), orderBy: desc(schema.runs.createdAt) });
+  // Per-run model and cost from run_costs rather than the run's own stats blob, so an escalation
+  // to a second model on one night is visible instead of being folded into a single number.
+  const perRun = await rt.db
+    .select({
+      runId: schema.runCosts.runId,
+      models: sql<string>`string_agg(distinct ${schema.runCosts.model}, ', ')`,
+      modes: sql<string>`string_agg(distinct ${schema.runCosts.mode}, ' + ')`,
+      usd: sql<string>`sum(${schema.runCosts.costUsd})`,
+      tokens: sql<string>`sum(${schema.runCosts.inputTokens} + ${schema.runCosts.outputTokens} + ${schema.runCosts.cacheReadTokens} + ${schema.runCosts.cacheWriteTokens})`,
+    })
+    .from(schema.runCosts)
+    .where(eq(schema.runCosts.userId, userId))
+    .groupBy(schema.runCosts.runId);
+  const costByRun = new Map(perRun.map((c) => [c.runId, { models: c.models, modes: c.modes, usd: Number(c.usd), tokens: Number(c.tokens) }] as const));
   const costs = await rt.db
     .select({ model: schema.runCosts.model, mode: schema.runCosts.mode, usd: sql<string>`sum(${schema.runCosts.costUsd})`, pages: sql<number>`sum(${schema.runCosts.pages})`, inTok: sql<number>`sum(${schema.runCosts.inputTokens})`, outTok: sql<number>`sum(${schema.runCosts.outputTokens})` })
     .from(schema.runCosts)
@@ -196,7 +212,13 @@ export async function getUserDetail(userId: string) {
     decodeModel: settings.decodeModel,
     escalationModel: settings.escalationModel,
   };
-  return { user: row, runs, costs: costs.map((c) => ({ ...c, usd: Number(c.usd) })), audit: auditRows, tuning };
+  return {
+    user: row,
+    runs: runs.map((r) => ({ ...r, cost: costByRun.get(r.id) ?? null })),
+    costs: costs.map((c) => ({ ...c, usd: Number(c.usd) })),
+    audit: auditRows,
+    tuning,
+  };
 }
 
 /**
