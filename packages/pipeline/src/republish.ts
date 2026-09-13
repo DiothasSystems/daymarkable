@@ -21,7 +21,12 @@ export interface RepublishDeps {
   db: Db;
   sealer: Sealer;
   cache: CacheStore;
-  tablet: TabletProvider;
+  /**
+   * Only needed to deliver. Opening a provider costs a reMarkable auth round-trip, so a rebuild
+   * that is not sending anywhere must not ask for one — every tick would otherwise hit the cloud
+   * for nothing, and an unpaired account could not rebuild its documents at all.
+   */
+  tablet?: TabletProvider;
   log: (msg: string) => void;
 }
 
@@ -46,6 +51,7 @@ export interface RepublishResult {
 
 export async function republishNotebooks(deps: RepublishDeps, userId: string, options: RepublishOptions = {}): Promise<RepublishResult> {
   const deliver = options.deliver ?? true;
+  if (deliver && !deps.tablet) throw new Error("republish needs a tablet provider to deliver");
   const { db, log } = deps;
   const user = await repo.getUser(db, userId);
   const tz = user.timezone;
@@ -76,15 +82,16 @@ export async function republishNotebooks(deps: RepublishDeps, userId: string, op
   const latest = await repo.lastSuccessfulRun(db, userId);
   const printed: PrintedItem[] = [];
   const target = outputFolderFor(user.settings);
-  const folder = deliver ? await deps.tablet.ensureFolder(target) : null;
-  if (deliver && folder) await cleanStaleOutputs(deps.tablet, (await deps.tablet.listTree()).documents, folder.id, log);
+  const tablet = deps.tablet;
+  const folder = deliver && tablet ? await tablet.ensureFolder(target) : null;
+  if (folder && tablet) await cleanStaleOutputs(tablet, (await tablet.listTree()).documents, folder.id, log);
   const uploaded: string[] = [];
   const composed: string[] = [];
   const pageCounts: Record<string, number> = {};
 
   for (const o of outputs) {
     if (latest) await deps.cache.put(latest.id, `outputs/${o.name}.pdf`, o.composed.pdf);
-    const res = folder ? await deps.tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true }) : null;
+    const res = folder && tablet ? await tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true }) : null;
     composed.push(o.name);
     if (res) uploaded.push(o.name);
     pageCounts[o.name] = o.composed.pageCount;

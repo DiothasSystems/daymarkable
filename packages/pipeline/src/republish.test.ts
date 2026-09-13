@@ -74,7 +74,8 @@ describe("republishNotebooks", () => {
     const task = (await handle.db.query.tasks.findMany({ where: eq(schema.tasks.userId, userId) }))[0]!;
     await handle.db.update(schema.tasks).set({ text: "Ring Warburton about the Streambow quote" }).where(eq(schema.tasks.id, task.id));
 
-    const r = await republishNotebooks({ db: handle.db, sealer, cache, tablet, log: () => {} }, userId, { deliver: false });
+    // No tablet in deps at all: a rebuild must not need a cloud session to happen.
+    const r = await republishNotebooks({ db: handle.db, sealer, cache, log: () => {} }, userId, { deliver: false });
 
     expect(r.delivered).toBe(false);
     expect(r.uploaded).toEqual([]);
@@ -91,5 +92,9 @@ describe("republishNotebooks", () => {
     expect(await handle.db.query.runCosts.findMany()).toHaveLength(1);
     const printed = await handle.db.query.printedItems.findMany({ where: eq(schema.printedItems.userId, userId) });
     expect(printed.filter((p) => p.itemId === task.id).length).toBeGreaterThan(0);
+  });
+
+  it("refuses to deliver with no tablet provider rather than silently composing", async () => {
+    await expect(republishNotebooks({ db: handle.db, sealer, cache, log: () => {} }, userId)).rejects.toThrow(/tablet provider/);
   });
 });

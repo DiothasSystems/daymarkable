@@ -268,8 +268,9 @@ export async function republish(userId: string) {
 async function rebuildAfterEdit(userId: string): Promise<void> {
   const rt = await getRuntime();
   try {
-    const tablet = await tabletFor(rt, userId);
-    await republishNotebooks({ db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet, log: rt.log }, userId, { deliver: false });
+    // No tablet provider: opening one is an auth round-trip to the reMarkable cloud, and this
+    // rebuild sends nothing. It also means an unpaired account still gets fresh documents.
+    await republishNotebooks({ db: rt.db, sealer: rt.sealer, cache: rt.cache, log: rt.log }, userId, { deliver: false });
     await setPendingDelivery(userId, new Date().toISOString());
   } catch (err) {
     rt.log(`documents not rebuilt after an edit: ${(err as Error).message}`);
