@@ -116,13 +116,19 @@ export function listTimezones(): string[] {
 export async function listDocuments(userId: string) {
   const rt = await getRuntime();
   const latest = await repo.lastSuccessfulRun(rt.db, userId);
-  if (!latest) return { run: null, documents: [] };
+  if (!latest) return { run: null, documents: [], pendingDelivery: null };
   const docs = await rt.db.query.documents.findMany({ where: and(eq(schema.documents.userId, userId), eq(schema.documents.runId, latest.id)) });
   const available = [];
   for (const d of docs) {
     available.push({ id: d.id, kind: d.kind, name: d.name, pageCount: d.pageCount, bytes: d.bytes, createdAt: d.createdAt, cached: await rt.cache.exists(latest.id, d.cachePath) });
   }
-  return { run: { id: latest.id, kind: latest.kind, localDate: latest.localDate, finishedAt: latest.finishedAt }, documents: available };
+  const user = await repo.getUser(rt.db, userId);
+  return {
+    run: { id: latest.id, kind: latest.kind, localDate: latest.localDate, finishedAt: latest.finishedAt },
+    documents: available,
+    /** Set when an edit rebuilt these and the tablet has not had them yet. */
+    pendingDelivery: user.settings.pendingDelivery,
+  };
 }
 
 export async function readDocument(userId: string, documentId: string): Promise<{ name: string; bytes: Uint8Array } | null> {
@@ -244,7 +250,38 @@ export async function quotaStatus(userId: string): Promise<QuotaStatus> {
 export async function republish(userId: string) {
   const rt = await getRuntime();
   const tablet = await tabletFor(rt, userId);
-  return republishNotebooks({ db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet, log: rt.log }, userId);
+  const r = await republishNotebooks({ db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet, log: rt.log }, userId);
+  await setPendingDelivery(userId, null);
+  return r;
+}
+
+/**
+ * An edit changed the canonical data, so rebuild what the Documents page serves and remember that
+ * the tablet has not had them yet.
+ *
+ * Composing is cheap and calls no model, so this runs on the edit rather than on the next view —
+ * a viewer must not do work (rule 12), and a customer who fixes a misread should see the corrected
+ * document immediately. Sending to the tablet stays theirs to ask for, which is what the prompt on
+ * the page is for. Failures here never fail the edit: the correction is already saved, and a
+ * rebuild that did not happen costs a stale PDF, not data.
+ */
+async function rebuildAfterEdit(userId: string): Promise<void> {
+  const rt = await getRuntime();
+  try {
+    const tablet = await tabletFor(rt, userId);
+    await republishNotebooks({ db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet, log: rt.log }, userId, { deliver: false });
+    await setPendingDelivery(userId, new Date().toISOString());
+  } catch (err) {
+    rt.log(`documents not rebuilt after an edit: ${(err as Error).message}`);
+  }
+}
+
+async function setPendingDelivery(userId: string, at: string | null): Promise<void> {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  if (user.settings.pendingDelivery === at) return;
+  const settings: UserSettings = { ...user.settings, pendingDelivery: at };
+  await rt.db.update(schema.users).set({ settings, updatedAt: new Date() }).where(eq(schema.users.id, userId));
 }
 
 // ------------------------------------------------------------------ feedback
@@ -438,6 +475,7 @@ export async function correctItem(userId: string, itemType: "task" | "event" | "
     await repo.decideItem(rt.db, rt.sealer, userId, { itemType: "inbox", itemId, action: "complete" }, today);
     promoted = true;
   }
+  await rebuildAfterEdit(userId);
   return { ok: true, learned: added, promoted };
 }
 
@@ -452,6 +490,7 @@ export async function decideItem(userId: string, itemType: DecisionItemType, ite
   const today = DateTime.now().setZone(user.timezone).toISODate()!;
   const res = await repo.decideItem(rt.db, rt.sealer, userId, { itemType, itemId, action }, today);
   const created = res.created.tasks.length + res.created.events.length + res.created.meetingRequests.length;
+  await rebuildAfterEdit(userId);
   return { label: res.label, status: res.status, created };
 }
 

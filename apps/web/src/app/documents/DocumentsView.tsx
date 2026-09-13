@@ -9,15 +9,20 @@ import { fmtDate } from "@/lib/format";
 type Docs = Awaited<ReturnType<typeof listDocuments>>["documents"];
 type Registry = Awaited<ReturnType<typeof getRegistry>>;
 
+/**
+ * Order matters: the editable lists come first and the generated files last, because the point of
+ * this page is to fix misreads before the PDFs are sent anywhere. "Notebooks" is what the tablet
+ * calls a document, so the decoded notes carry that name and the generated files are "Documents".
+ */
 const TABS = [
-  { id: "files", label: "Notebooks" },
+  { id: "actions", label: "Action items" },
   { id: "calendar", label: "Calendar" },
-  { id: "actions", label: "Action list" },
-  { id: "meetings", label: "Notes" },
+  { id: "meetings", label: "Notebooks" },
+  { id: "files", label: "Documents" },
 ];
 
 export function DocumentsView({ documents, registry, initialTab }: { documents: Docs; registry: Registry; initialTab: string }) {
-  const [tab, setTab] = useState(TABS.some((t) => t.id === initialTab) ? initialTab : "files");
+  const [tab, setTab] = useState(TABS.some((t) => t.id === initialTab) ? initialTab : "actions");
   const [open, setOpen] = useState<string | null>(documents.find((d) => d.cached)?.id ?? null);
 
   return (
@@ -33,7 +38,7 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
       {tab === "files" ? (
         <div className="stack">
           <div className="row">
-            {documents.length === 0 ? <span className="muted">No notebooks yet.</span> : null}
+            {documents.length === 0 ? <span className="muted">No documents yet.</span> : null}
             {documents.map((d) => (
               <button key={d.id} className={open === d.id ? "small" : "small secondary"} disabled={!d.cached} onClick={() => setOpen(d.id)} title={d.cached ? `${d.pageCount} pages` : "left the 1-day cache"}>
                 {d.name} <span className="mono">{d.pageCount}p</span>

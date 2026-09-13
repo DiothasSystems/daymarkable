@@ -63,4 +63,33 @@ describe("republishNotebooks", () => {
     const codes = printed.map((p) => `${p.pageCode}|${p.itemCode}`);
     expect(new Set(codes).size).toBe(codes.length);
   });
+
+  /**
+   * What an edit needs: the documents the viewer serves are rebuilt so they match the text that
+   * was just corrected, but nothing reaches the tablet until the customer asks. Sending on every
+   * keystroke would put a half-finished list on the device.
+   */
+  it("rebuilds the documents without sending anything to the tablet", async () => {
+    const uploadsBefore = tablet.uploads.length;
+    const task = (await handle.db.query.tasks.findMany({ where: eq(schema.tasks.userId, userId) }))[0]!;
+    await handle.db.update(schema.tasks).set({ text: "Ring Warburton about the Streambow quote" }).where(eq(schema.tasks.id, task.id));
+
+    const r = await republishNotebooks({ db: handle.db, sealer, cache, tablet, log: () => {} }, userId, { deliver: false });
+
+    expect(r.delivered).toBe(false);
+    expect(r.uploaded).toEqual([]);
+    expect(r.composed.sort()).toEqual(["Action List", "Notes", "Planner"]);
+    expect(tablet.uploads.length).toBe(uploadsBefore);
+
+    // The viewer reads the registry and the cache, so both must carry the rebuilt files.
+    const run = (await handle.db.query.runs.findMany({ where: eq(schema.runs.userId, userId) }))[0]!;
+    const docs = await handle.db.query.documents.findMany({ where: eq(schema.documents.runId, run.id) });
+    expect(docs.length).toBeGreaterThan(0);
+    for (const d of docs) expect(await cache.exists(run.id, d.cachePath)).toBe(true);
+
+    // Still no model call, and the checkbox codes were replaced so a pen tick still resolves.
+    expect(await handle.db.query.runCosts.findMany()).toHaveLength(1);
+    const printed = await handle.db.query.printedItems.findMany({ where: eq(schema.printedItems.userId, userId) });
+    expect(printed.filter((p) => p.itemId === task.id).length).toBeGreaterThan(0);
+  });
 });

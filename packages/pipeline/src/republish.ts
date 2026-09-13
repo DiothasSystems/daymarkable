@@ -25,14 +25,27 @@ export interface RepublishDeps {
   log: (msg: string) => void;
 }
 
+export interface RepublishOptions {
+  /**
+   * False composes the notebooks and refreshes what the viewer serves, without sending anything
+   * to the tablet. That is what an edit needs: the documents on screen should match the text the
+   * customer just fixed, but a tablet upload is theirs to ask for.
+   */
+  deliver?: boolean;
+}
+
 export interface RepublishResult {
   uploaded: string[];
+  /** Notebooks rebuilt, whether or not they were delivered. */
+  composed: string[];
+  delivered: boolean;
   pageCounts: Record<string, number>;
   openActions: number;
   meetings: number;
 }
 
-export async function republishNotebooks(deps: RepublishDeps, userId: string): Promise<RepublishResult> {
+export async function republishNotebooks(deps: RepublishDeps, userId: string, options: RepublishOptions = {}): Promise<RepublishResult> {
+  const deliver = options.deliver ?? true;
   const { db, log } = deps;
   const user = await repo.getUser(db, userId);
   const tz = user.timezone;
@@ -63,27 +76,33 @@ export async function republishNotebooks(deps: RepublishDeps, userId: string): P
   const latest = await repo.lastSuccessfulRun(db, userId);
   const printed: PrintedItem[] = [];
   const target = outputFolderFor(user.settings);
-  const folder = await deps.tablet.ensureFolder(target);
-  await cleanStaleOutputs(deps.tablet, (await deps.tablet.listTree()).documents, folder.id, log);
+  const folder = deliver ? await deps.tablet.ensureFolder(target) : null;
+  if (deliver && folder) await cleanStaleOutputs(deps.tablet, (await deps.tablet.listTree()).documents, folder.id, log);
   const uploaded: string[] = [];
+  const composed: string[] = [];
   const pageCounts: Record<string, number> = {};
 
   for (const o of outputs) {
     if (latest) await deps.cache.put(latest.id, `outputs/${o.name}.pdf`, o.composed.pdf);
-    const res = await deps.tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true });
-    uploaded.push(o.name);
+    const res = folder ? await deps.tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true }) : null;
+    composed.push(o.name);
+    if (res) uploaded.push(o.name);
     pageCounts[o.name] = o.composed.pageCount;
     printed.push(...o.composed.printed);
     if (latest) {
       await db
         .update(schema.documents)
-        .set({ bytes: o.composed.pdf.length, pageCount: o.composed.pageCount, tabletDocId: res.id, createdAt: new Date() })
+        .set({ bytes: o.composed.pdf.length, pageCount: o.composed.pageCount, ...(res ? { tabletDocId: res.id } : {}), createdAt: new Date() })
         .where(repo.documentMatch(userId, latest.id, o.kind));
     }
   }
 
   // The item codes on the reprinted pages replace the previous ones, so ticks still resolve.
   if (latest) await repo.replacePrintedItems(db, userId, latest.id, printed);
-  log(`republished ${uploaded.length} notebooks to ${target === ROOT_OUTPUT_FOLDER ? "the tablet root" : target} (${printed.length} checkbox rows)`);
-  return { uploaded, pageCounts, openActions: views.actionList.openCount, meetings: views.meetingNotes.meetings.length };
+  log(
+    deliver
+      ? `republished ${uploaded.length} notebooks to ${target === ROOT_OUTPUT_FOLDER ? "the tablet root" : target} (${printed.length} checkbox rows)`
+      : `rebuilt ${composed.length} notebooks from an edit; not delivered (${printed.length} checkbox rows)`,
+  );
+  return { uploaded, composed, delivered: deliver, pageCounts, openActions: views.actionList.openCount, meetings: views.meetingNotes.meetings.length };
 }

@@ -20,8 +20,20 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Pr
           <h1>Documents</h1>
         </div>
       </div>
-      <p className="muted">Served from the 1-day cache and the registry, never regenerated. Yesterday's files are gone by design; tonight's run replaces them. Click any decoded text to fix a misread. Tick an item to close it, or ✕ to drop one that is not relevant — the same as crossing it out on paper. Then push the updated notebooks to the tablet below.</p>
-      <div style={{ marginBottom: 18 }}><Republish /></div>
+      <p className="muted">
+        Click any decoded text to fix a misread. Tick an item to close it, or ✕ to drop one that is not relevant — the
+        same as crossing it out on paper. Every edit rebuilds the documents straight away, so the Documents tab always
+        shows what your lists actually say. Yesterday&apos;s files are gone by design; tonight&apos;s run replaces them.
+      </p>
+      {docs.pendingDelivery ? (
+        <div className="notice" style={{ marginBottom: 18 }}>
+          <strong>Your documents have changed since the tablet last had them.</strong> Rebuilt from your edits{" "}
+          {fmtDateTime(new Date(docs.pendingDelivery), user.timezone)}. Sending costs nothing and does not use a sync.
+          <div style={{ marginTop: 10 }}><Republish /></div>
+        </div>
+      ) : (
+        <div style={{ marginBottom: 18 }}><Republish /></div>
+      )}
       <DocumentsView documents={docs.documents} registry={reg} initialTab={tab ?? "files"} />
     </Shell>
   );

@@ -75,6 +75,12 @@ export interface UserSettings {
    * keeps every note in one ever-growing notebook.
    */
   weeklyNotesArchive: boolean;
+  /**
+   * Set when an edit rebuilt the notebooks but they have not been sent to the tablet yet, so the
+   * Documents page can ask. Cleared by a delivery. ISO string, or null when there is nothing
+   * waiting.
+   */
+  pendingDelivery: string | null;
   confidenceThreshold: number;
   autoSendInvites: boolean;
   /** Decode model config for this user (null = global default from env). */
