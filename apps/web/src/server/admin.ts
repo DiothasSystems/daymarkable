@@ -20,16 +20,17 @@ import {
 } from "./admin-core";
 export { TUNING_MAX, TUNING_MIN, type TuningPatch } from "./admin-core";
 import { getRuntime } from "./runtime";
+import { audit, clientIp } from "./audit";
+import { billingConfigured, cancelSubscription, refundAmount, subscriptionSnapshot } from "./billing";
+import { proratedRefund } from "./finance-core";
+import { calibrationByUser, confidenceByUser, tokensPerDayByUser } from "./ops";
+// Re-exported so the existing admin routes keep importing these from here.
+export { audit, clientIp } from "./audit";
 
 export const ADMIN_COOKIE = "dm_admin";
 
 export function adminEnabled(): boolean {
   return adminConfigFromEnv() !== null;
-}
-
-export async function clientIp(): Promise<string> {
-  const h = await headers();
-  return (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "local").trim();
 }
 
 export interface AdminSession {
@@ -46,12 +47,6 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 }
 
 /** Append-only: nothing in the codebase updates or deletes admin_audit rows. */
-export async function audit(action: string, detail: Record<string, unknown> = {}, targetUserId: string | null = null): Promise<void> {
-  const rt = await getRuntime();
-  const cfg = adminConfigFromEnv();
-  await rt.db.insert(schema.adminAudit).values({ adminLoginId: cfg?.loginId ?? "unknown", action, targetUserId, detail, ip: await clientIp() });
-}
-
 export type LoginResult = { ok: true; token: string; maxAgeSec: number } | { ok: false; status: 401 | 429 | 503; message: string };
 
 export async function adminLogin(loginId: string, password: string): Promise<LoginResult> {
@@ -99,12 +94,35 @@ export interface AdminUserRow {
   costMonthUsd: number;
   ratingAvg: number | null;
   ratingCount: number;
+  /** Paying since, or in trial since — the first of trialUsedAt, onboardedAt, createdAt. */
+  serviceStartedAt: Date;
+  /** "monthly" | "annual", or null on an account that has never checked out. */
+  plan: string | null;
+  currentPeriodEnd: Date | null;
+  /** Tokens a day (input + output + cache) averaged over days this account actually ran. */
+  tokensPerDay: number;
+  /** Pages per night that ran, rather than per calendar day — a skipped night is not a zero. */
+  pagesPerNight: number;
+  nights: number;
+  /** Mean confidence of every task, event and meeting decoded for this account. */
+  confidenceAvg: number | null;
+  confidenceItems: number;
+  /** Calibration state and the score it achieved, the two things that predict accuracy. */
+  calibrationStatus: string | null;
+  calibrationAccuracy: number | null;
+  /** What they said they do, which is what the calibration passage was written from. */
+  role: string | null;
+  industry: string | null;
+  lexiconTerms: number;
 }
 
 export async function listUsers(): Promise<AdminUserRow[]> {
   const rt = await getRuntime();
   const users = await rt.db.query.users.findMany({ orderBy: desc(schema.users.createdAt) });
   const monthStart = DateTime.utc().startOf("month").toJSDate();
+  // Three whole-table rollups rather than three queries per account: this list is the operator's
+  // front page and it gets slower with every customer.
+  const [calibration, confidence, tokens] = await Promise.all([calibrationByUser(), confidenceByUser(), tokensPerDayByUser()]);
   const out: AdminUserRow[] = [];
   for (const u of users) {
     const runs = await rt.db.query.runs.findMany({ where: eq(schema.runs.userId, u.id) });
@@ -118,6 +136,9 @@ export async function listUsers(): Promise<AdminUserRow[]> {
     const last = runs.length ? new Date(Math.max(...runs.map((r) => r.createdAt.getTime()))) : null;
     const days = first ? Math.max(1, Math.ceil((Date.now() - first.getTime()) / 86_400_000)) : 1;
     const onDemand = runs.filter((r) => r.kind === "on_demand" && r.status !== "skipped").length;
+    // Nights, not calendar days: a night the tablet was untouched produced no pages and should
+    // not drag the average down as though the decoder had read an empty page.
+    const nights = new Set(succeeded.map((r) => r.localDate)).size;
     out.push({
       id: u.id,
       email: u.email,
@@ -139,6 +160,19 @@ export async function listUsers(): Promise<AdminUserRow[]> {
       costMonthUsd: Number(month?.usd ?? 0),
       ratingAvg: rating?.avg ? Number(rating.avg) : null,
       ratingCount: Number(rating?.n ?? 0),
+      serviceStartedAt: u.trialUsedAt ?? u.onboardedAt ?? u.createdAt,
+      plan: u.plan,
+      currentPeriodEnd: u.currentPeriodEnd,
+      tokensPerDay: tokens.get(u.id) ?? 0,
+      pagesPerNight: nights > 0 ? pages / nights : 0,
+      nights,
+      confidenceAvg: confidence.get(u.id)?.avg ?? null,
+      confidenceItems: confidence.get(u.id)?.items ?? 0,
+      calibrationStatus: calibration.get(u.id)?.status ?? null,
+      calibrationAccuracy: calibration.get(u.id)?.accuracy ?? null,
+      role: u.settings.profile?.role ?? null,
+      industry: u.settings.profile?.industry ?? null,
+      lexiconTerms: u.settings.lexicon.length,
     });
   }
   return out;
@@ -265,3 +299,88 @@ export async function deleteAccount(userId: string, typedEmail: string): Promise
 }
 
 export { repo };
+
+// ---------------------------------------------------------------- subscription operations
+
+export interface BillingView {
+  configured: boolean;
+  subscriptionId: string | null;
+  snapshot: Awaited<ReturnType<typeof subscriptionSnapshot>> | null;
+  /** What a prorated refund would come to right now, so the operator sees it before committing. */
+  refundPreview: { usd: number; unusedDays: number; totalDays: number } | null;
+  error: string | null;
+}
+
+/** Read-only view for the account page. Stripe failures are shown, never thrown at the operator. */
+export async function billingView(userId: string): Promise<BillingView> {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  const configured = billingConfigured();
+  if (!configured || !user.stripeSubscriptionId) {
+    return { configured, subscriptionId: user.stripeSubscriptionId, snapshot: null, refundPreview: null, error: null };
+  }
+  try {
+    const snapshot = await subscriptionSnapshot(user.stripeSubscriptionId);
+    const preview =
+      snapshot.lastPaid && snapshot.periodStart && snapshot.periodEnd
+        ? proratedRefund({ paidUsd: snapshot.lastPaid.amountUsd - snapshot.lastPaid.refundedUsd, periodStart: snapshot.periodStart, periodEnd: snapshot.periodEnd, now: new Date() })
+        : null;
+    return { configured, subscriptionId: user.stripeSubscriptionId, snapshot, refundPreview: preview, error: null };
+  } catch (err) {
+    return { configured, subscriptionId: user.stripeSubscriptionId, snapshot: null, refundPreview: null, error: (err as Error).message };
+  }
+}
+
+/**
+ * Cancel this account's subscription (rule 13: audited). Not destructive in the delete-account
+ * sense — Stripe's webhook moves the account status, so nothing here writes it by hand.
+ */
+export async function cancelForUser(userId: string, when: "period_end" | "now"): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  if (!billingConfigured()) return { ok: false, message: "Stripe is not configured on this host" };
+  if (!user.stripeSubscriptionId) return { ok: false, message: "This account has no Stripe subscription" };
+  try {
+    const r = await cancelSubscription(user.stripeSubscriptionId, when);
+    await audit("admin.subscription.cancel", { email: user.email, when, status: r.status, endsAt: r.endsAt }, userId);
+    return {
+      ok: true,
+      message: when === "now" ? "Subscription canceled immediately." : `Subscription ends ${r.endsAt ? r.endsAt.toISOString().slice(0, 10) : "at period end"}.`,
+    };
+  } catch (err) {
+    await audit("admin.subscription.cancel.failed", { email: user.email, when, message: (err as Error).message }, userId);
+    return { ok: false, message: (err as Error).message };
+  }
+}
+
+/**
+ * Refund the unused part of the current period and cancel immediately, which is what "refund
+ * prorated service" means: they stop being charged and get back what they had not used.
+ * `typedAmount` must match the computed figure, so a stale page cannot refund an old number.
+ */
+export async function refundProratedForUser(userId: string, typedAmount: number): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  if (!billingConfigured()) return { ok: false, message: "Stripe is not configured on this host" };
+  if (!user.stripeSubscriptionId) return { ok: false, message: "This account has no Stripe subscription" };
+  const view = await billingView(userId);
+  if (view.error) return { ok: false, message: view.error };
+  if (!view.refundPreview) return { ok: false, message: "No paid invoice on this subscription to refund against" };
+  const expected = view.refundPreview.usd;
+  if (Math.abs(expected - typedAmount) > 0.005) {
+    return { ok: false, message: `The refund is now $${expected.toFixed(2)}, not $${typedAmount.toFixed(2)}. Reload and confirm the current figure.` };
+  }
+  try {
+    const refund = await refundAmount(user.stripeSubscriptionId, expected, `prorated refund, ${view.refundPreview.unusedDays} of ${view.refundPreview.totalDays} days unused`);
+    const canceled = await cancelSubscription(user.stripeSubscriptionId, "now");
+    await audit(
+      "admin.subscription.refund",
+      { email: user.email, refundedUsd: refund.refundedUsd, refundId: refund.refundId, unusedDays: view.refundPreview.unusedDays, totalDays: view.refundPreview.totalDays, status: canceled.status },
+      userId,
+    );
+    return { ok: true, message: `Refunded $${refund.refundedUsd.toFixed(2)} and canceled the subscription.` };
+  } catch (err) {
+    await audit("admin.subscription.refund.failed", { email: user.email, attemptedUsd: expected, message: (err as Error).message }, userId);
+    return { ok: false, message: (err as Error).message };
+  }
+}

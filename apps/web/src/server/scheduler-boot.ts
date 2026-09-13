@@ -3,6 +3,7 @@ import { and, desc, eq, schema } from "@daymarkable/db";
 import { ensureDefaultUser, pipelineDepsFor, repo, runPipeline, startScheduler } from "@daymarkable/pipeline";
 import { DateTime } from "luxon";
 import { getRuntime } from "./runtime";
+import { checkBalanceWarning } from "./ops";
 
 const g = globalThis as unknown as { __dmSchedulerStarted?: boolean };
 
@@ -24,6 +25,16 @@ export async function bootScheduler(): Promise<void> {
       runNightly: async (localDate) => {
         const deps = await pipelineDepsFor(rt, user.id, log);
         await runPipeline(deps, { userId: user.id, kind: "nightly", requestedVia: "scheduler", localDate });
+      },
+      // Checked on every tick, mailed at most daily. It rides the scheduler because that is the
+      // one loop guaranteed to be running, and a credit warning that needs someone to open a
+      // page is not a warning.
+      onTick: async () => {
+        try {
+          await checkBalanceWarning(log);
+        } catch (err) {
+          log(`credit check failed: ${(err as Error).message}`);
+        }
       },
       log,
     });

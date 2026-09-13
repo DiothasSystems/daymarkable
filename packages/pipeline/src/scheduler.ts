@@ -40,6 +40,8 @@ export interface SchedulerHooks {
   timezone: () => Promise<string>;
   lastSatisfied: () => Promise<{ localDate: string | null; finishedAt: DateTime | null }>;
   runNightly: (localDate: string) => Promise<void>;
+  /** Housekeeping to run on every tick, whether or not a run is due (e.g. the credit warning). */
+  onTick?: () => Promise<void>;
   log: (msg: string) => void;
 }
 
@@ -54,6 +56,7 @@ export function startScheduler(hooks: SchedulerHooks, intervalMs = 15 * 60_000):
       const last = await hooks.lastSatisfied();
       const d = decideRun({ nowUtc: DateTime.utc(), timezone: tz, lastSatisfiedLocalDate: last.localDate, lastSuccessAt: last.finishedAt });
       hooks.log(`tick tz=${tz} localDate=${d.localDate} run=${d.run} (${d.reason})`);
+      if (hooks.onTick) await hooks.onTick();
       if (d.run) await hooks.runNightly(d.localDate);
     } catch (err) {
       hooks.log(`tick failed: ${(err as Error).message}`);

@@ -521,3 +521,27 @@ export const waitlist = pgTable("waitlist", {
   invitedAt: timestamp("invited_at", { withTimezone: true }),
   joinedAt: timestamp("joined_at", { withTimezone: true }),
 });
+
+/**
+ * Operator settings that are not per-user and not env: one row, edited from the admin portal.
+ *
+ * The Anthropic balance lives here because there is no API that reports it. The Usage and Cost
+ * Admin API returns historical usage and spend only, and it is unavailable to individual
+ * accounts at all — so the remaining credit is a figure an operator reads off the Console and
+ * records, and everything derived from it (burn rate, runway, the low-credit alarm) comes from
+ * our own run_costs, which has the advantage of being per-user.
+ */
+export const opsSettings = pgTable("ops_settings", {
+  /** Single row; the id is a constant so an upsert has something to conflict on. */
+  id: text("id").primaryKey().default("singleton"),
+  /** Anthropic credit remaining in USD when it was last read off the Console. Null = unknown. */
+  anthropicBalanceUsd: numeric("anthropic_balance_usd", { precision: 12, scale: 2 }),
+  balanceAsOf: timestamp("balance_as_of", { withTimezone: true }),
+  /** Warn when the runway falls to this many days. */
+  warnDays: integer("warn_days").notNull().default(14),
+  /** Where the low-credit warning goes. An operator address, never a customer's. */
+  warnEmail: text("warn_email").notNull().default("diothassystems@gmail.com"),
+  /** Last time the warning was mailed, so a low balance alerts daily rather than every tick. */
+  lastWarnedAt: timestamp("last_warned_at", { withTimezone: true }),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

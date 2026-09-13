@@ -2,18 +2,22 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/AdminShell";
 import { fmtDateTime, fmtUsd } from "@/lib/format";
-import { TUNING_MAX, TUNING_MIN, getUserDetail } from "@/server/admin";
+import { TUNING_MAX, TUNING_MIN, billingView, getUserDetail } from "@/server/admin";
+import { userOpsFacts } from "@/server/ops";
 import { requireAdmin } from "@/server/admin-guard";
+import { BillingActions } from "./BillingActions";
 import { DeleteAccountForm } from "./DeleteAccountForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin · User" };
 
-export default async function AdminUserDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; tuned?: string }> }) {
+export default async function AdminUserDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; tuned?: string; billed?: string }> }) {
   const session = await requireAdmin();
   const { id } = await params;
-  const { error, tuned } = await searchParams;
+  const { error, tuned, billed } = await searchParams;
   const detail = await getUserDetail(id);
+  const billing = await billingView(id);
+  const facts = await userOpsFacts(id);
   if (!detail) notFound();
   const u = detail.user;
   return (
@@ -22,6 +26,7 @@ export default async function AdminUserDetail({ params, searchParams }: { params
       <h1>{u.email}</h1>
       {error ? <div className="notice bad" style={{ marginBottom: 16 }}>{error}</div> : null}
       {tuned ? <div className="notice ok" style={{ marginBottom: 16 }}>Decode tuning saved.</div> : null}
+      {billed ? <div className="notice ok" style={{ marginBottom: 16 }}>{billed}</div> : null}
       <div className="grid three" style={{ marginBottom: 24 }}>
         <div className="card"><p className="kicker">Usage</p><div className="stat">{u.avgPagesPerDay.toFixed(1)}</div><div className="meta" style={{ marginTop: 8 }}>pages / day · {u.runs} runs ({u.onDemandRuns} on-demand, {u.failedRuns} failed) · {u.pagesDecoded} pages decoded</div></div>
         <div className="card"><p className="kicker">Token cost</p><div className="stat">{fmtUsd(u.costMonthUsd)}</div><div className="meta" style={{ marginTop: 8 }}>this month · {fmtUsd(u.costTotalUsd)} to date</div></div>
@@ -54,6 +59,33 @@ export default async function AdminUserDetail({ params, searchParams }: { params
             ))}
           </ul>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <p className="kicker">Accuracy and calibration</p>
+        <table>
+          <tbody>
+            <tr><td>Role</td><td>{facts.role ?? <span className="meta">not given</span>}</td></tr>
+            <tr><td>Industry</td><td>{facts.industry ?? <span className="meta">not given</span>}</td></tr>
+            <tr><td>Vocabulary terms</td><td className="mono">{facts.lexiconTerms}</td></tr>
+            <tr>
+              <td>Calibration</td>
+              <td>
+                {facts.calibration
+                  ? `${facts.calibration.status}${facts.calibration.accuracy === null ? "" : ` · ${(facts.calibration.accuracy * 100).toFixed(0)}% accuracy`}${facts.calibration.capturedAt ? ` · ${fmtDateTime(facts.calibration.capturedAt)}` : ""}`
+                  : "never started"}
+              </td>
+            </tr>
+            <tr>
+              <td>Mean decoded confidence</td>
+              <td className="mono">
+                {facts.confidenceAvg === null ? "—" : `${(facts.confidenceAvg * 100).toFixed(1)}% over ${facts.confidenceItems} items`}
+              </td>
+            </tr>
+            <tr><td>Nights read</td><td className="mono">{facts.nights}</td></tr>
+            <tr><td>Tokens / day</td><td className="mono">{Math.round(facts.tokensPerDay).toLocaleString()}</td></tr>
+          </tbody>
+        </table>
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
@@ -93,8 +125,27 @@ export default async function AdminUserDetail({ params, searchParams }: { params
       </div>
 
       <div className="grid three" style={{ marginBottom: 24 }}>
-        <div className="dark-panel"><p className="kicker">Cancel service</p><div className="soon">STRIPE SUBSCRIPTION · PHASE 2</div></div>
-        <div className="dark-panel"><p className="kicker">Refund prorated</p><div className="soon">UNUSED DAYS VIA STRIPE · PHASE 2</div></div>
+        {billing.snapshot ? (
+          <BillingActions
+            userId={u.id}
+            email={u.email}
+            status={billing.snapshot.status}
+            plan={billing.snapshot.plan}
+            periodEnd={billing.snapshot.periodEnd ? billing.snapshot.periodEnd.toISOString().slice(0, 10) : null}
+            cancelAtPeriodEnd={billing.snapshot.cancelAtPeriodEnd}
+            refund={billing.refundPreview}
+          />
+        ) : (
+          <>
+            <div className="dark-panel">
+              <p className="kicker">Cancel service</p>
+              <div className="soon">
+                {!billing.configured ? "STRIPE NOT CONFIGURED" : billing.error ? `STRIPE: ${billing.error}` : "NO SUBSCRIPTION ON THIS ACCOUNT"}
+              </div>
+            </div>
+            <div className="dark-panel"><p className="kicker">Refund prorated</p><div className="soon">NEEDS A LIVE SUBSCRIPTION</div></div>
+          </>
+        )}
         <div className="card danger">
           <p className="kicker">Delete account</p>
           <p className="muted" style={{ fontSize: 13 }}>Full deletion: account, tokens, working set, run history, costs, feedback, and every cached file. Irreversible and audited.</p>

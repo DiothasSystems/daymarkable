@@ -6,6 +6,9 @@ const LINKS = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/waitlist", label: "Waiting list" },
+  { href: "/admin/tokens", label: "Tokens" },
+  { href: "/admin/revenue", label: "Revenue" },
+  { href: "/admin/expenses", label: "Expenses" },
   { href: "/admin/feedback", label: "Feedback" },
   { href: "/admin/audit", label: "Audit log" },
 ];

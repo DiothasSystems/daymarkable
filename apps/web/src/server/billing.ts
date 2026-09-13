@@ -303,3 +303,81 @@ export function readStripeEvent(payload: string, signature: string | null): { ok
 }
 
 export { isPlan };
+
+// ---------------------------------------------------------------- operator actions (admin only)
+
+export interface SubscriptionSnapshot {
+  id: string;
+  status: string;
+  plan: Plan | null;
+  periodStart: Date | null;
+  periodEnd: Date | null;
+  cancelAtPeriodEnd: boolean;
+  /** The most recent paid invoice, which is what a prorated refund is taken from. */
+  lastPaid: { paymentIntent: string | null; amountUsd: number; refundedUsd: number } | null;
+}
+
+/** What the operator screens need to show before offering cancel or refund. */
+export async function subscriptionSnapshot(subscriptionId: string): Promise<SubscriptionSnapshot> {
+  const sub = (await stripeApi(`/subscriptions/${subscriptionId}`)) as Json;
+  const item = ((sub.items as Json | undefined)?.data as Json[] | undefined)?.[0];
+  const invoices = (await stripeApi(`/invoices?subscription=${encodeURIComponent(subscriptionId)}&status=paid&limit=1`)) as Json;
+  const inv = ((invoices.data as Json[] | undefined) ?? [])[0];
+  const paidCents = Number(inv?.amount_paid ?? 0);
+  const refundedCents = Number(
+    (((inv?.payment_intent as Json | undefined)?.charges as Json | undefined)?.data as Json[] | undefined)?.[0]?.amount_refunded ?? 0,
+  );
+  return {
+    id: String(sub.id),
+    status: String(sub.status),
+    plan: planOf(sub),
+    periodStart: stripeDate((item as Json | undefined)?.current_period_start ?? sub.current_period_start),
+    periodEnd: stripeDate((item as Json | undefined)?.current_period_end ?? sub.current_period_end),
+    cancelAtPeriodEnd: Boolean(sub.cancel_at_period_end),
+    lastPaid: inv
+      ? {
+          paymentIntent: typeof inv.payment_intent === "string" ? inv.payment_intent : ((inv.payment_intent as Json | undefined)?.id as string | undefined) ?? null,
+          amountUsd: paidCents / 100,
+          refundedUsd: refundedCents / 100,
+        }
+      : null,
+  };
+}
+
+/**
+ * Cancel. At period end by default, which is the honest option: they paid for the period, so they
+ * keep it. Immediate is for the case where they want out now and a refund is following.
+ */
+export async function cancelSubscription(subscriptionId: string, when: "period_end" | "now"): Promise<{ status: string; endsAt: Date | null }> {
+  const sub =
+    when === "now"
+      ? ((await stripeApi(`/subscriptions/${subscriptionId}`, { cancel_at_period_end: "false" }, `cancel-now:${subscriptionId}`)) as Json)
+      : ((await stripeApi(`/subscriptions/${subscriptionId}`, { cancel_at_period_end: "true" }, `cancel-end:${subscriptionId}`)) as Json);
+  if (when === "now") {
+    const gone = (await stripeApi(`/subscriptions/${subscriptionId}/cancel`, {}, `cancel-immediate:${subscriptionId}`)) as Json;
+    return { status: String(gone.status), endsAt: stripeDate(gone.canceled_at) };
+  }
+  const item = ((sub.items as Json | undefined)?.data as Json[] | undefined)?.[0];
+  return { status: String(sub.status), endsAt: stripeDate((item as Json | undefined)?.current_period_end ?? sub.current_period_end) };
+}
+
+/**
+ * Refund an amount against the subscription's most recent paid invoice. The caller computes the
+ * amount (finance-core `proratedRefund`) so the arithmetic is testable and the same number can be
+ * shown to the operator before they commit to it.
+ */
+export async function refundAmount(subscriptionId: string, usd: number, reason: string): Promise<{ refundedUsd: number; refundId: string }> {
+  const snap = await subscriptionSnapshot(subscriptionId);
+  if (!snap.lastPaid?.paymentIntent) throw new Error("no paid invoice on this subscription to refund against");
+  const cents = Math.round(usd * 100);
+  if (cents <= 0) throw new Error("nothing left to refund for this period");
+  const remaining = Math.round((snap.lastPaid.amountUsd - snap.lastPaid.refundedUsd) * 100);
+  if (cents > remaining) throw new Error(`refund exceeds what is left on the invoice ($${(remaining / 100).toFixed(2)})`);
+  const refund = (await stripeApi(
+    "/refunds",
+    { payment_intent: snap.lastPaid.paymentIntent, amount: String(cents), reason: "requested_by_customer", "metadata[note]": reason.slice(0, 200) },
+    // One refund per subscription per period per amount: a double-click must not pay twice.
+    `refund:${subscriptionId}:${snap.periodEnd?.toISOString() ?? "none"}:${cents}`,
+  )) as Json;
+  return { refundedUsd: Number(refund.amount ?? cents) / 100, refundId: String(refund.id) };
+}
