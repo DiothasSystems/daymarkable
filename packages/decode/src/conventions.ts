@@ -4,7 +4,7 @@
  * packages/core may hardcode a convention's meaning.
  */
 
-export type ConventionMeaning = "action" | "follow_up" | "priority" | "schedule";
+export type ConventionMeaning = "action" | "follow_up" | "priority" | "schedule" | "note";
 
 export type ConventionId =
   | "asterisk"
@@ -33,15 +33,24 @@ export const CONVENTION_CATALOG: readonly ConventionCatalogEntry[] = [
   { id: "box", label: "Boxed text", visual: "a rectangle drawn around a word or phrase", takesKeyword: false },
   { id: "exclamation", label: "Exclamation mark", visual: "an exclamation mark (!) written near a line, often in the margin", takesKeyword: false },
   { id: "margin_star", label: "Margin star", visual: "a star drawn in the left or right margin beside a line", takesKeyword: false },
-  { id: "keyword", label: "Keyword", visual: "a written keyword such as TODO or F/U at the start of a line", takesKeyword: true },
+  // Repeatable: a writer may register several of their own marks, each meaning something
+  // different. Identity is the keyword, not the id — see conventionKey.
+  { id: "keyword", label: "Your own mark or word", visual: "a symbol or word you write yourself, such as * , > , TODO or F/U", takesKeyword: true },
 ];
 
 export interface ActiveConvention {
   id: ConventionId;
   meaning: ConventionMeaning;
-  /** Required when id === "keyword". Matched case-insensitively. */
+  /**
+   * Required when id === "keyword". Matched case-insensitively, and may be a single symbol as
+   * readily as a word — ">" or "→" are marks like any other. Several keyword conventions may be
+   * active at once, each with its own meaning; they are told apart by this value, not by the id.
+   */
   keyword?: string;
 }
+
+/** A keyword may be one symbol or a short word; long enough for "FOLLOW UP", short enough to write. */
+export const MAX_KEYWORD_LENGTH = 24;
 
 export interface UserInkConventions {
   active: ActiveConvention[];
@@ -61,6 +70,7 @@ const MEANING_TEXT: Record<ConventionMeaning, string> = {
   follow_up: "a FOLLOW-UP the user must chase with someone (emit a task with kind \"follow_up\")",
   priority: "HIGH PRIORITY (set priority \"high\" on the task or event it marks)",
   schedule: "something to SCHEDULE (emit a meeting_request or event)",
+  note: "a NOTE worth keeping but not a task (include the marked text in notes[], and do NOT emit a task for it)",
 };
 
 /** Stable identifier for a convention inside prompts and extraction output. */
@@ -78,7 +88,7 @@ export function describeConventions(conventions: UserInkConventions): string {
     const entry = CONVENTION_CATALOG.find((e) => e.id === c.id);
     const visual =
       c.id === "keyword"
-        ? `the keyword "${(c.keyword ?? "").toUpperCase()}" written at the start of a line (case-insensitive)`
+        ? `the mark or word "${c.keyword ?? ""}" written at the start of a line, or immediately before the text it marks (matched case-insensitively)`
         : (entry?.visual ?? c.id);
     return `- id "${conventionKey(c)}": ${visual} => ${MEANING_TEXT[c.meaning]}.`;
   });
@@ -91,8 +101,9 @@ export function describeConventions(conventions: UserInkConventions): string {
 
 export function validateConventions(input: unknown): UserInkConventions {
   const ids = new Set(CONVENTION_CATALOG.map((c) => c.id));
-  const meanings = new Set<ConventionMeaning>(["action", "follow_up", "priority", "schedule"]);
+  const meanings = new Set<ConventionMeaning>(["action", "follow_up", "priority", "schedule", "note"]);
   const active: ActiveConvention[] = [];
+  const seen = new Set<string>();
   const raw = (input as { active?: unknown })?.active;
   if (!Array.isArray(raw)) throw new Error("conventions.active must be an array");
   for (const item of raw as Array<Record<string, unknown>>) {
@@ -100,13 +111,22 @@ export function validateConventions(input: unknown): UserInkConventions {
     const meaning = item.meaning as ConventionMeaning;
     if (!ids.has(id)) throw new Error(`unknown convention id ${String(item.id)}`);
     if (!meanings.has(meaning)) throw new Error(`unknown meaning ${String(item.meaning)}`);
+    let entry: ActiveConvention;
     if (id === "keyword") {
       const keyword = String(item.keyword ?? "").trim();
-      if (!keyword) throw new Error("keyword convention needs a keyword");
-      active.push({ id, meaning, keyword });
+      if (!keyword) throw new Error("a mark of your own needs a symbol or word");
+      if (keyword.length > MAX_KEYWORD_LENGTH) throw new Error(`"${keyword.slice(0, 30)}" is too long to write on a page`);
+      entry = { id, meaning, keyword };
     } else {
-      active.push({ id, meaning });
+      entry = { id, meaning };
     }
+    // Two rules for the same mark would make the prompt contradict itself, and the writer would
+    // have no way to tell which one won. Keyword conventions are told apart by their keyword, so
+    // several can be active at once — which is the whole point of them being repeatable.
+    const key = conventionKey(entry);
+    if (seen.has(key)) throw new Error(`"${id === "keyword" ? entry.keyword : id}" is listed twice with different meanings`);
+    seen.add(key);
+    active.push(entry);
   }
   return { active };
 }

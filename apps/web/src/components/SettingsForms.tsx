@@ -7,11 +7,15 @@ type Account = Awaited<ReturnType<typeof getAccount>>;
 type Conventions = Account["settings"]["conventions"];
 
 const MEANINGS = [
-  { id: "action", label: "Action" },
-  { id: "follow_up", label: "Follow-up" },
+  { id: "action", label: "An action for my list" },
+  { id: "follow_up", label: "A follow-up with someone" },
+  { id: "schedule", label: "Something to put on my calendar" },
+  { id: "note", label: "A note to keep, not a task" },
   { id: "priority", label: "High priority" },
-  { id: "schedule", label: "Schedule this" },
 ];
+
+/** Enough rows that a writer with several marks is not filling them in one at a time. */
+const STARTER_MARK_ROWS = 3;
 
 function useSaver<T>(fn: (v: T) => Promise<unknown>) {
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -184,8 +188,30 @@ export function TimezonePicker({ initial }: { initial: string }) {
 
 // ------------------------------------------------------------ ink conventions
 export function ConventionsPicker({ initial, catalog }: { initial: Conventions; catalog: Account["conventionCatalog"] }) {
-  const [active, setActive] = useState<Conventions["active"]>(initial.active);
-  const { state, error, save } = useSaver(async () => trpc.account.updateSettings.mutate({ conventions: { active } }));
+  // Catalogue marks are one-of-each, so keying them by id is fine. The writer's own marks are
+  // repeatable and are kept in their own list — keying those by id was the bug, because a second
+  // one replaced the first.
+  const [active, setActive] = useState<Conventions["active"]>(initial.active.filter((a) => a.id !== "keyword"));
+  const [marks, setMarks] = useState<{ keyword: string; meaning: string }[]>(() => {
+    const own = initial.active.filter((a) => a.id === "keyword").map((a) => ({ keyword: a.keyword ?? "", meaning: a.meaning }));
+    // Always leave a blank row or two to write in, so the list never looks finished when it is not.
+    while (own.length < STARTER_MARK_ROWS) own.push({ keyword: "", meaning: "action" });
+    return own;
+  });
+  const { state, error, save } = useSaver(async () => {
+    // Blank rows are not an error, they are an empty row: drop them rather than refusing the save.
+    const own = marks
+      .map((m) => ({ id: "keyword" as const, meaning: m.meaning, keyword: m.keyword.trim() }))
+      .filter((m) => m.keyword.length > 0);
+    return trpc.account.updateSettings.mutate({ conventions: { active: [...active, ...own] } });
+  });
+  const setMark = (i: number, patch: { keyword?: string; meaning?: string }) =>
+    setMarks((list) => list.map((m, j) => (j === i ? { ...m, ...patch } : m)));
+  const removeMark = (i: number) =>
+    setMarks((list) => {
+      const next = list.filter((_, j) => j !== i);
+      return next.length ? next : [{ keyword: "", meaning: "action" }];
+    });
   const find = (id: string) => active.find((a) => a.id === id);
   const set = (id: string, patch: Partial<Conventions["active"][number]> | null) =>
     setActive((list) => {
@@ -196,8 +222,12 @@ export function ConventionsPicker({ initial, catalog }: { initial: Conventions; 
     });
   return (
     <div className="stack">
-      <p className="muted">Tell dayMarkable which of your marks mean something. Only enabled marks carry meaning; an underline means nothing if you leave it off.</p>
-      {catalog.map((c) => {
+      <p className="muted">
+        Tell dayMarkable which of your marks mean something. Only the ones you turn on carry meaning — an underline
+        means nothing if you leave it off. This is the single biggest thing you control: the decoder trusts your own
+        markup over its guess at your wording.
+      </p>
+      {catalog.filter((c) => !c.takesKeyword).map((c) => {
         const on = find(c.id);
         return (
           <div key={c.id} className="check" style={{ flexWrap: "wrap" }}>
@@ -207,16 +237,54 @@ export function ConventionsPicker({ initial, catalog }: { initial: Conventions; 
               <div className="hint">{c.visual}</div>
             </span>
             {on ? (
-              <span className="row" style={{ flex: "1 1 220px" }}>
-                <select value={on.meaning} onChange={(e) => set(c.id, { meaning: e.target.value })} aria-label={`${c.label} meaning`}>
+              <span className="row" style={{ flex: "1 1 240px" }}>
+                <select value={on.meaning} onChange={(e) => set(c.id, { meaning: e.target.value })} aria-label={`${c.label} meaning`} style={{ width: "100%" }}>
                   {MEANINGS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                 </select>
-                {c.takesKeyword ? <input type="text" placeholder="keyword, e.g. TODO" value={on.keyword ?? ""} onChange={(e) => set(c.id, { keyword: e.target.value })} aria-label="keyword" /> : null}
               </span>
             ) : null}
           </div>
         );
       })}
+
+      <div className="field" style={{ marginTop: 8 }}>
+        <label>Marks and words of your own</label>
+        <div className="hint" style={{ marginBottom: 8 }}>
+          Anything you write yourself: a symbol like <span className="mono">&gt;</span> or{" "}
+          <span className="mono">#</span>, or a word like <span className="mono">TODO</span> or{" "}
+          <span className="mono">F/U</span>. One per row, and as many rows as you use — they can mean different
+          things. Case does not matter.
+        </div>
+        <div className="stack" style={{ gap: 8 }}>
+          {marks.map((m, i) => (
+            <div key={i} className="row" style={{ gap: 8, alignItems: "center" }}>
+              <input
+                type="text"
+                className="mono"
+                style={{ flex: "1 1 200px" }}
+                maxLength={24}
+                placeholder="e.g. TODO, &gt;, ?, F/U"
+                value={m.keyword}
+                onChange={(e) => setMark(i, { keyword: e.target.value })}
+                aria-label={`Mark ${i + 1}`}
+              />
+              <select
+                value={m.meaning}
+                onChange={(e) => setMark(i, { meaning: e.target.value })}
+                aria-label={`What mark ${i + 1} means`}
+                style={{ flex: "1 1 240px" }}
+              >
+                {MEANINGS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+              </select>
+              <button className="tertiary small" onClick={() => removeMark(i)} aria-label={`Remove mark ${i + 1}`} type="button">Remove</button>
+            </div>
+          ))}
+        </div>
+        <div className="row" style={{ marginTop: 8 }}>
+          <button className="secondary small" type="button" onClick={() => setMarks((v) => [...v, { keyword: "", meaning: "action" }])}>Add another mark</button>
+        </div>
+      </div>
+
       <div className="row"><button onClick={() => void save(undefined)} disabled={state === "saving"}>Save conventions</button><Status state={state} error={error} /></div>
     </div>
   );

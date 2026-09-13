@@ -66,6 +66,57 @@ describe("conventions", () => {
   });
 });
 
+describe("conventions: marks of your own", () => {
+  /**
+   * The reported bug. The settings UI keyed an active convention by its catalogue id, so a second
+   * custom mark replaced the first — one slot, however many marks the writer actually uses. They
+   * are told apart by the keyword, and several must survive a round trip.
+   */
+  it("keeps several custom marks, each with its own meaning", () => {
+    const v = validateConventions({
+      active: [
+        { id: "asterisk", meaning: "action" },
+        { id: "keyword", meaning: "action", keyword: "TODO" },
+        { id: "keyword", meaning: "schedule", keyword: ">" },
+        { id: "keyword", meaning: "note", keyword: "NB" },
+      ],
+    });
+    expect(v.active).toHaveLength(4);
+    const marks = v.active.filter((c) => c.id === "keyword").map((c) => c.keyword);
+    expect(marks.sort()).toEqual([">", "NB", "TODO"]);
+    // Each one reaches the prompt with its own instruction.
+    const prompt = describeConventions(v);
+    expect(prompt).toContain('"TODO"');
+    expect(prompt).toContain('">"');
+    expect(prompt).toContain('"NB"');
+    expect(prompt).toMatch(/notes\[\]/);
+  });
+
+  it("accepts a note meaning, which had no way to be expressed before", () => {
+    const v = validateConventions({ active: [{ id: "box", meaning: "note" }] });
+    expect(v.active[0]!.meaning).toBe("note");
+    expect(describeConventions(v)).toContain("do NOT emit a task");
+  });
+
+  it("refuses the same mark twice, which would make the prompt contradict itself", () => {
+    expect(() =>
+      validateConventions({ active: [{ id: "keyword", meaning: "action", keyword: "todo" }, { id: "keyword", meaning: "note", keyword: "TODO" }] }),
+    ).toThrow(/twice/);
+    expect(() => validateConventions({ active: [{ id: "asterisk", meaning: "action" }, { id: "asterisk", meaning: "note" }] })).toThrow(/twice/);
+  });
+
+  it("still requires a symbol or word, and refuses one too long to write", () => {
+    expect(() => validateConventions({ active: [{ id: "keyword", meaning: "action", keyword: "  " }] })).toThrow(/symbol or word/);
+    expect(() => validateConventions({ active: [{ id: "keyword", meaning: "action", keyword: "x".repeat(30) }] })).toThrow(/too long/);
+  });
+
+  it("keeps the prompt byte-stable regardless of the order they were entered", () => {
+    const a = validateConventions({ active: [{ id: "keyword", meaning: "action", keyword: "TODO" }, { id: "keyword", meaning: "note", keyword: "NB" }] });
+    const b = validateConventions({ active: [{ id: "keyword", meaning: "note", keyword: "NB" }, { id: "keyword", meaning: "action", keyword: "TODO" }] });
+    expect(describeConventions(a)).toBe(describeConventions(b));
+  });
+});
+
 describe("pricing", () => {
   it("halves for batch and discounts cache reads", () => {
     const u = { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 0 };
