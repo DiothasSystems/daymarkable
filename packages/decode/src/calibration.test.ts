@@ -73,5 +73,42 @@ describe("generateCalibrationPassage", () => {
     expect(r.text).toContain("~~");
     expect(r.text).toMatch(/\$\d/);
     expect(r.costUsd).toBe(0);
+    expect(r.fallbackReason).toBe("boom");
+  });
+
+  it("says so when the model answered, rather than leaving a fallback indistinguishable", async () => {
+    const fake = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "text", text: '{"lines":["a","b","c","d","e","f"],"terms":["X"]}' }],
+          usage: { input_tokens: 100, output_tokens: 50 },
+          stop_reason: "end_turn",
+        }),
+      },
+    } as never;
+    const r = await generateCalibrationPassage(profile, fake, "claude-sonnet-5");
+    expect(r.fallbackReason).toBeNull();
+    expect(r.stopReason).toBe("end_turn");
+  });
+
+  /**
+   * The real failure, and the reason it hid: a thinking model spends the output budget before it
+   * answers, so the reply carried a thinking block and no text at all. Every profile silently got
+   * the generic fallback. The old mock returned a text block, so no test could see it.
+   */
+  it("names max_tokens when the budget went on thinking and no text came back", async () => {
+    const thinkingOnly = {
+      messages: {
+        create: async () => ({
+          content: [{ type: "thinking", thinking: "", signature: "sig" }],
+          usage: { input_tokens: 900, output_tokens: 1500 },
+          stop_reason: "max_tokens",
+        }),
+      },
+    } as never;
+    const r = await generateCalibrationPassage(profile, thinkingOnly, "claude-sonnet-5");
+    expect(r.fallbackReason).toContain("max_tokens");
+    expect(r.fallbackReason).toContain("1500");
+    expect(r.text).toContain("PO 2291");
   });
 });

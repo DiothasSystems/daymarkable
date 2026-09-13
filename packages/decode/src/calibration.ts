@@ -25,7 +25,22 @@ export interface CalibrationPassage {
   terms: string[];
   usage: TokenUsage;
   costUsd: number;
+  /**
+   * Why this is the generic fallback rather than a passage in the writer's own vocabulary, or
+   * null when the model answered. A fallback is a silent failure otherwise: the page still
+   * prints, the user still copies it out, and nothing says the calibration was never tailored.
+   */
+  fallbackReason: string | null;
+  /** The model's stop reason, kept because "max_tokens" is the failure that hid for weeks. */
+  stopReason: string | null;
 }
+
+/**
+ * Thinking models spend output budget before they answer. At 1500 this call returned a single
+ * thinking block, no text at all, and `stop_reason: "max_tokens"` — so every passage for every
+ * user was the fallback. The passage itself is ~300 tokens; the rest is headroom for thinking.
+ */
+const GENERATE_MAX_TOKENS = 8000;
 
 const GENERATE_SYSTEM = `You write short handwriting-calibration passages for dayMarkable, a service that reads
 handwritten notes from a reMarkable tablet.
@@ -60,7 +75,7 @@ Rules for the passage:
 "terms" lists the proper nouns and acronyms you used, exactly as spelled, for the decoder's
 lexicon.`;
 
-function fallbackPassage(profile: WriterProfile): CalibrationPassage {
+function fallbackPassage(profile: WriterProfile, reason: string): CalibrationPassage {
   const who = profile.role || "the team";
   return {
     text: [
@@ -82,6 +97,8 @@ function fallbackPassage(profile: WriterProfile): CalibrationPassage {
     terms: ["Dana Okafor", "Priya Raman"],
     usage: zeroUsage(),
     costUsd: 0,
+    fallbackReason: reason,
+    stopReason: null,
   };
 }
 
@@ -98,7 +115,7 @@ export async function generateCalibrationPassage(profile: WriterProfile, client:
   try {
     const message = await client.messages.create({
       model,
-      max_tokens: 1500,
+      max_tokens: GENERATE_MAX_TOKENS,
       system: [{ type: "text", text: GENERATE_SYSTEM }],
       messages: [{ role: "user", content: ask }],
     });
@@ -108,7 +125,11 @@ export async function generateCalibrationPassage(profile: WriterProfile, client:
       .join("\n");
     const start = raw.indexOf("{");
     const end = raw.lastIndexOf("}");
-    if (start < 0 || end <= start) throw new Error("no JSON in reply");
+    if (start < 0 || end <= start) {
+      // A thinking-only reply lands here. Name the stop reason: "max_tokens" means the budget
+      // went on thinking, which is a configuration problem, not a misbehaving model.
+      throw new Error(`no JSON in reply (stop_reason ${message.stop_reason ?? "unknown"}, ${message.usage.output_tokens} output tokens)`);
+    }
     const parsed = JSON.parse(raw.slice(start, end + 1)) as { lines?: unknown; terms?: unknown };
     const lines = Array.isArray(parsed.lines) ? parsed.lines.filter((l): l is string => typeof l === "string" && l.trim().length > 0) : [];
     if (lines.length < 6) throw new Error("passage too short");
@@ -123,9 +144,11 @@ export async function generateCalibrationPassage(profile: WriterProfile, client:
       terms: Array.isArray(parsed.terms) ? parsed.terms.filter((t): t is string => typeof t === "string") : [],
       usage,
       costUsd: costUsd(usage, model, false),
+      fallbackReason: null,
+      stopReason: message.stop_reason ?? null,
     };
-  } catch {
-    return fallbackPassage(profile);
+  } catch (err) {
+    return fallbackPassage(profile, (err as Error).message);
   }
 }
 
