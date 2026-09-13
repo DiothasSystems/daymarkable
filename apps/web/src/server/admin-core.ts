@@ -78,3 +78,33 @@ export function loginLocked(attempts: readonly AttemptRow[], ip: string, now = D
   if (recent.length >= ADMIN_MAX_FAILURES_GLOBAL) return { locked: true, retryAfterMs: ADMIN_WINDOW_MS - (now - oldest(recent)) };
   return { locked: false, retryAfterMs: 0 };
 }
+
+// ---------------------------------------------------------------- decode tuning (operator only)
+/**
+ * The confidence threshold and the two model overrides are operator controls, not customer
+ * settings: the threshold decides how much of someone's handwriting is diverted to the Inbox
+ * rather than trusted onto the Action List, and the overrides decide what their pages cost to
+ * read. The decision lives here, pure and tested; `updateDecodeTuning` does the writing and the
+ * auditing (rule 13).
+ */
+export const TUNING_MIN = 0.3;
+export const TUNING_MAX = 0.95;
+
+export interface TuningPatch {
+  confidenceThreshold: number;
+  decodeModel: string | null;
+  escalationModel: string | null;
+}
+
+export function validateTuning(patch: TuningPatch, isRetired: (model: string) => boolean, baseline: string): { ok: true } | { ok: false; message: string } {
+  if (!Number.isFinite(patch.confidenceThreshold)) return { ok: false, message: "Confidence threshold must be a number" };
+  if (patch.confidenceThreshold < TUNING_MIN || patch.confidenceThreshold > TUNING_MAX) {
+    return { ok: false, message: `Confidence threshold must be between ${TUNING_MIN} and ${TUNING_MAX}` };
+  }
+  // Say so rather than accepting a retired model and quietly substituting a good one, so the
+  // stored value always means what it says.
+  for (const m of [patch.decodeModel, patch.escalationModel]) {
+    if (m && isRetired(m)) return { ok: false, message: `${m} is retired — it read handwriting materially worse than ${baseline}` };
+  }
+  return { ok: true };
+}

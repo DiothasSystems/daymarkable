@@ -2,17 +2,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/AdminShell";
 import { fmtDateTime, fmtUsd } from "@/lib/format";
-import { getUserDetail } from "@/server/admin";
+import { TUNING_MAX, TUNING_MIN, getUserDetail } from "@/server/admin";
 import { requireAdmin } from "@/server/admin-guard";
 import { DeleteAccountForm } from "./DeleteAccountForm";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin · User" };
 
-export default async function AdminUserDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string }> }) {
+export default async function AdminUserDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ error?: string; tuned?: string }> }) {
   const session = await requireAdmin();
   const { id } = await params;
-  const { error } = await searchParams;
+  const { error, tuned } = await searchParams;
   const detail = await getUserDetail(id);
   if (!detail) notFound();
   const u = detail.user;
@@ -21,6 +21,7 @@ export default async function AdminUserDetail({ params, searchParams }: { params
       <p className="kicker"><Link href="/admin/users">Users</Link> · {u.status}</p>
       <h1>{u.email}</h1>
       {error ? <div className="notice bad" style={{ marginBottom: 16 }}>{error}</div> : null}
+      {tuned ? <div className="notice ok" style={{ marginBottom: 16 }}>Decode tuning saved.</div> : null}
       <div className="grid three" style={{ marginBottom: 24 }}>
         <div className="card"><p className="kicker">Usage</p><div className="stat">{u.avgPagesPerDay.toFixed(1)}</div><div className="meta" style={{ marginTop: 8 }}>pages / day · {u.runs} runs ({u.onDemandRuns} on-demand, {u.failedRuns} failed) · {u.pagesDecoded} pages decoded</div></div>
         <div className="card"><p className="kicker">Token cost</p><div className="stat">{fmtUsd(u.costMonthUsd)}</div><div className="meta" style={{ marginTop: 8 }}>this month · {fmtUsd(u.costTotalUsd)} to date</div></div>
@@ -53,6 +54,42 @@ export default async function AdminUserDetail({ params, searchParams }: { params
             ))}
           </ul>
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <p className="kicker">Decode tuning · operator only</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          The customer cannot change these. Items read below the threshold go to the Inbox for confirmation instead of
+          onto the Action List, so raising it trades more confirmation work for fewer wrong items. Leave a model box
+          empty to use the host default. Every change here is audited below.
+        </p>
+        <form action={`/admin/api/users/${u.id}/tuning`} method="post" className="stack">
+          <div className="grid three">
+            <div className="field">
+              <label htmlFor="confidenceThreshold">Confidence threshold</label>
+              <input
+                id="confidenceThreshold"
+                name="confidenceThreshold"
+                type="number"
+                className="mono"
+                min={TUNING_MIN}
+                max={TUNING_MAX}
+                step={0.05}
+                defaultValue={detail.tuning.confidenceThreshold}
+              />
+              <div className="hint">{TUNING_MIN} to {TUNING_MAX}</div>
+            </div>
+            <div className="field">
+              <label htmlFor="decodeModel">Decode model override</label>
+              <input id="decodeModel" name="decodeModel" type="text" className="mono" placeholder="(host default)" defaultValue={detail.tuning.decodeModel ?? ""} />
+            </div>
+            <div className="field">
+              <label htmlFor="escalationModel">Escalation model override</label>
+              <input id="escalationModel" name="escalationModel" type="text" className="mono" placeholder="(host default)" defaultValue={detail.tuning.escalationModel ?? ""} />
+            </div>
+          </div>
+          <div className="row"><button type="submit">Save tuning</button></div>
+        </form>
       </div>
 
       <div className="grid three" style={{ marginBottom: 24 }}>

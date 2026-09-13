@@ -293,24 +293,3 @@ export function DeliveryEmail({
   );
 }
 
-// ------------------------------------------------------------ decode tuning (dogfood)
-export function DecodeTuning({ threshold, decodeModel, escalationModel }: { threshold: number; decodeModel: string | null; escalationModel: string | null }) {
-  const [t, setT] = useState(threshold);
-  const [m, setM] = useState(decodeModel ?? "");
-  const [e, setE] = useState(escalationModel ?? "");
-  const { state, error, save } = useSaver(async () => trpc.account.updateSettings.mutate({ confidenceThreshold: t, decodeModel: m.trim() || null, escalationModel: e.trim() || null }));
-  return (
-    <div className="stack">
-      <div className="field">
-        <label htmlFor="thr">Confidence threshold ({t.toFixed(2)})</label>
-        <input id="thr" type="range" min={0.3} max={0.95} step={0.05} value={t} onChange={(ev) => setT(Number(ev.target.value))} style={{ width: "100%" }} />
-        <div className="hint">Items read below this confidence go to the Inbox instead of the Action List.</div>
-      </div>
-      <div className="grid two">
-        <div className="field"><label htmlFor="m">Decode model override</label><input id="m" type="text" className="mono" placeholder="(use nightly rotation)" value={m} onChange={(ev) => setM(ev.target.value)} /></div>
-        <div className="field"><label htmlFor="e">Escalation model override</label><input id="e" type="text" className="mono" placeholder="(use DECODE_ESCALATION_MODEL)" value={e} onChange={(ev) => setE(ev.target.value)} /></div>
-      </div>
-      <div className="row"><button onClick={() => void save(undefined)} disabled={state === "saving"}>Save tuning</button><Status state={state} error={error} /></div>
-    </div>
-  );
-}

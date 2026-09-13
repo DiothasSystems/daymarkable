@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
 import { nextOccurrence, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
-import { BASELINE_DECODE_MODEL, CONVENTION_CATALOG, anthropicClient, isRetiredDecodeModel, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
+import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
@@ -20,10 +20,14 @@ export const settingsPatchSchema = z.object({
   email: z.object({ meetingNotes: z.boolean() }).optional(),
   deliveryDocuments: z.object({ planner: z.boolean(), actionList: z.boolean(), meetingNotes: z.boolean() }).optional(),
   weeklyNotesArchive: z.boolean().optional(),
-  confidenceThreshold: z.number().min(0.3).max(0.95).optional(),
-  decodeModel: z.string().min(1).nullable().optional(),
-  escalationModel: z.string().min(1).nullable().optional(),
 });
+
+/**
+ * Decode tuning -- confidence threshold and the two model overrides -- is deliberately absent.
+ * It is an operator control, set from the admin portal and audited there (rule 13). A customer
+ * choosing their own threshold is choosing how much of their handwriting gets silently dropped
+ * into the Inbox, which is not a decision to hand over with a slider.
+ */
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;
 
 export async function getAccount(userId: string) {
@@ -55,14 +59,6 @@ export async function updateSettings(userId: string, patch: SettingsPatch) {
   if (patch.email) next.email = patch.email;
   if (patch.deliveryDocuments) next.deliveryDocuments = patch.deliveryDocuments;
   if (patch.weeklyNotesArchive !== undefined) next.weeklyNotesArchive = patch.weeklyNotesArchive;
-  if (patch.confidenceThreshold !== undefined) next.confidenceThreshold = patch.confidenceThreshold;
-  // A retired model must not be selectable by hand either — say so instead of accepting it
-  // and quietly substituting, so the setting always means what it says.
-  for (const m of [patch.decodeModel, patch.escalationModel]) {
-    if (m && isRetiredDecodeModel(m)) throw new Error(`${m} is retired — it read handwriting materially worse than ${BASELINE_DECODE_MODEL}`);
-  }
-  if (patch.decodeModel !== undefined) next.decodeModel = patch.decodeModel;
-  if (patch.escalationModel !== undefined) next.escalationModel = patch.escalationModel;
   await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
   return next;
 }

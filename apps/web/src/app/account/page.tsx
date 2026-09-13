@@ -1,7 +1,7 @@
 import { Shell } from "@/components/Shell";
 import { CalibrationPanel, LexiconEditor } from "@/components/Calibration";
 import { RateRun } from "@/components/RateRun";
-import { ConventionsPicker, DecodeTuning, DeliveryEmail, OutputLocation, PairingWizard, TimezonePicker, WatchFolders, WeeklyNotesArchive } from "@/components/SettingsForms";
+import { ConventionsPicker, DeliveryEmail, OutputLocation, PairingWizard, TimezonePicker, WatchFolders, WeeklyNotesArchive } from "@/components/SettingsForms";
 import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
 import { feedbackSummary, getAccount, getCalibration, listRuns } from "@/server/services";
@@ -71,10 +71,6 @@ export default async function AccountPage() {
             perMeeting={account.settings.email.meetingNotes}
             loginEmail={account.email}
           />
-        </section>
-        <section className="card">
-          <h2>Decoding</h2>
-          <DecodeTuning threshold={account.settings.confidenceThreshold} decodeModel={account.settings.decodeModel} escalationModel={account.settings.escalationModel} />
         </section>
         <section className="card">
           <h2>Privacy</h2>

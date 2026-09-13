@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_SESSION_TTL_MS, adminConfigFromEnv, checkAdminCredentials, hashAdminPassword, issueAdminToken, loginLocked, verifyAdminToken } from "./admin-core.js";
+import { ADMIN_SESSION_TTL_MS, TUNING_MAX, TUNING_MIN, adminConfigFromEnv, checkAdminCredentials, hashAdminPassword, issueAdminToken, loginLocked, validateTuning, verifyAdminToken } from "./admin-core.js";
 
 describe("admin config", () => {
   it("requires login id, a bcrypt hash (never plaintext), and the data key", async () => {
@@ -40,5 +40,39 @@ describe("rate limiting", () => {
     const now = Date.now();
     const rows = Array.from({ length: 20 }, (_, i) => at(`10.0.0.${i}`, false, 1, now));
     expect(loginLocked(rows, "9.9.9.9", now).locked).toBe(true);
+  });
+});
+
+describe("validateTuning", () => {
+  const retired = (m: string) => m === "claude-haiku-4-5";
+  const ok = { confidenceThreshold: 0.7, decodeModel: null, escalationModel: null };
+
+  it("accepts a threshold inside the range and no overrides", () => {
+    expect(validateTuning(ok, retired, "claude-sonnet-5")).toEqual({ ok: true });
+    expect(validateTuning({ ...ok, confidenceThreshold: TUNING_MIN }, retired, "claude-sonnet-5").ok).toBe(true);
+    expect(validateTuning({ ...ok, confidenceThreshold: TUNING_MAX }, retired, "claude-sonnet-5").ok).toBe(true);
+  });
+
+  it("refuses a threshold outside the range, and a missing one", () => {
+    // An empty form field arrives as Number("") === 0, so the range check is what catches it.
+    for (const t of [0.29, 0.96, -1, 2, Number("")]) {
+      const r = validateTuning({ ...ok, confidenceThreshold: t }, retired, "claude-sonnet-5");
+      expect(r.ok).toBe(false);
+    }
+    // A field with junk in it arrives as NaN, which slips through every comparison silently.
+    const nan = validateTuning({ ...ok, confidenceThreshold: Number("high") }, retired, "claude-sonnet-5");
+    expect(nan).toEqual({ ok: false, message: "Confidence threshold must be a number" });
+  });
+
+  it("refuses a retired model in either slot rather than quietly substituting", () => {
+    const a = validateTuning({ ...ok, decodeModel: "claude-haiku-4-5" }, retired, "claude-sonnet-5");
+    const b = validateTuning({ ...ok, escalationModel: "claude-haiku-4-5" }, retired, "claude-sonnet-5");
+    expect(a.ok).toBe(false);
+    expect(b.ok).toBe(false);
+    if (!a.ok) expect(a.message).toContain("retired");
+  });
+
+  it("allows a model that is not retired", () => {
+    expect(validateTuning({ ...ok, decodeModel: "claude-opus-5", escalationModel: "claude-opus-5" }, retired, "claude-sonnet-5").ok).toBe(true);
   });
 });

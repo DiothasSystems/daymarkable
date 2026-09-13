@@ -1,6 +1,8 @@
 import "server-only";
 import { and, avg, count, desc, eq, gte, schema, sql } from "@daymarkable/db";
 import { repo } from "@daymarkable/pipeline";
+import { BASELINE_DECODE_MODEL, isRetiredDecodeModel } from "@daymarkable/decode";
+import type { UserSettings } from "@daymarkable/db";
 import { DateTime } from "luxon";
 import { cookies, headers } from "next/headers";
 import {
@@ -9,9 +11,14 @@ import {
   issueAdminToken,
   loginLocked,
   verifyAdminToken,
+  validateTuning,
   ADMIN_SESSION_TTL_MS,
   ADMIN_WINDOW_MS,
+  TUNING_MAX,
+  TUNING_MIN,
+  type TuningPatch,
 } from "./admin-core";
+export { TUNING_MAX, TUNING_MIN, type TuningPatch } from "./admin-core";
 import { getRuntime } from "./runtime";
 
 export const ADMIN_COOKIE = "dm_admin";
@@ -149,7 +156,36 @@ export async function getUserDetail(userId: string) {
     .where(eq(schema.runCosts.userId, userId))
     .groupBy(schema.runCosts.model, schema.runCosts.mode);
   const auditRows = await rt.db.query.adminAudit.findMany({ where: eq(schema.adminAudit.targetUserId, userId), orderBy: desc(schema.adminAudit.createdAt), limit: 20 });
-  return { user: row, runs, costs: costs.map((c) => ({ ...c, usd: Number(c.usd) })), audit: auditRows };
+  const settings = (await repo.getUser(rt.db, userId)).settings;
+  const tuning = {
+    confidenceThreshold: settings.confidenceThreshold,
+    decodeModel: settings.decodeModel,
+    escalationModel: settings.escalationModel,
+  };
+  return { user: row, runs, costs: costs.map((c) => ({ ...c, usd: Number(c.usd) })), audit: auditRows, tuning };
+}
+
+/**
+ * Decode tuning, operator-only (rule 13). The customer has no control over this: the threshold
+ * decides how much of their handwriting is diverted to the Inbox rather than trusted onto the
+ * Action List, and the model overrides decide what their pages cost to read. Both are our calls,
+ * both are audited, and the before/after is recorded so a change in accuracy can be traced to
+ * the day it was made.
+ */
+export async function updateDecodeTuning(userId: string, patch: TuningPatch): Promise<{ ok: true } | { ok: false; message: string }> {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  const valid = validateTuning(patch, isRetiredDecodeModel, BASELINE_DECODE_MODEL);
+  if (!valid.ok) return valid;
+  const before = {
+    confidenceThreshold: user.settings.confidenceThreshold,
+    decodeModel: user.settings.decodeModel,
+    escalationModel: user.settings.escalationModel,
+  };
+  const next: UserSettings = { ...user.settings, ...patch };
+  await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+  await audit("admin.tuning.update", { email: user.email, before, after: patch }, userId);
+  return { ok: true };
 }
 
 export async function customerCounts(): Promise<Record<string, number> & { total: number }> {
