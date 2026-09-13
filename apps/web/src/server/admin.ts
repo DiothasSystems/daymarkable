@@ -406,3 +406,42 @@ export async function refundProratedForUser(userId: string, typedAmount: number)
     return { ok: false, message: (err as Error).message };
   }
 }
+
+// ---------------------------------------------------------------- feature requests
+
+export async function listRequests(limit = 200) {
+  const rt = await getRuntime();
+  const rows = await rt.db
+    .select({
+      id: schema.featureRequests.id,
+      kind: schema.featureRequests.kind,
+      body: schema.featureRequests.body,
+      status: schema.featureRequests.status,
+      adminNote: schema.featureRequests.adminNote,
+      createdAt: schema.featureRequests.createdAt,
+      email: schema.users.email,
+      userId: schema.users.id,
+    })
+    .from(schema.featureRequests)
+    .innerJoin(schema.users, eq(schema.users.id, schema.featureRequests.userId))
+    .orderBy(desc(schema.featureRequests.createdAt))
+    .limit(limit);
+  return rows;
+}
+
+export const REQUEST_STATUSES = ["new", "planned", "shipped", "declined"] as const;
+export type RequestStatusValue = (typeof REQUEST_STATUSES)[number];
+
+/** Move a request along, with an optional note. Audited like every other operator action. */
+export async function setRequestStatus(id: string, status: RequestStatusValue, note: string | null): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (!REQUEST_STATUSES.includes(status)) return { ok: false, message: `unknown status "${String(status).slice(0, 30)}"` };
+  const rt = await getRuntime();
+  const row = await rt.db.query.featureRequests.findFirst({ where: eq(schema.featureRequests.id, id) });
+  if (!row) return { ok: false, message: "request not found" };
+  await rt.db
+    .update(schema.featureRequests)
+    .set({ status, adminNote: note?.trim() ? note.trim().slice(0, 1000) : null, reviewedAt: new Date() })
+    .where(eq(schema.featureRequests.id, id));
+  await audit("admin.request.status", { requestId: id, from: row.status, to: status }, row.userId);
+  return { ok: true };
+}

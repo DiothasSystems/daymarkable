@@ -1,17 +1,18 @@
+import { CancelSubscription } from "@/components/CancelSubscription";
 import { Shell } from "@/components/Shell";
 import { CalibrationPanel, LexiconEditor } from "@/components/Calibration";
 import { RateRun } from "@/components/RateRun";
 import { ConventionsPicker, DeliveryEmail, OutputLocation, PairingWizard, TimezonePicker, WatchFolders, WeeklyNotesArchive } from "@/components/SettingsForms";
 import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
-import { feedbackSummary, getAccount, getCalibration, listRuns } from "@/server/services";
+import { cancelView, feedbackSummary, getAccount, getCalibration, listRuns } from "@/server/services";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Account" };
 
 export default async function AccountPage() {
   const user = await requireUser();
-  const [account, feedback, runs, calibration] = await Promise.all([getAccount(user.id), feedbackSummary(user.id), listRuns(user.id, 1), getCalibration(user.id)]);
+  const [account, feedback, runs, calibration, cancel] = await Promise.all([getAccount(user.id), feedbackSummary(user.id), listRuns(user.id, 1), getCalibration(user.id), cancelView(user.id)]);
   const lastRun = runs.find((r) => r.status === "succeeded") ?? null;
   return (
     <Shell>
@@ -70,6 +71,15 @@ export default async function AccountPage() {
             documents={account.settings.deliveryDocuments}
             perMeeting={account.settings.email.meetingNotes}
             loginEmail={account.email}
+          />
+        </section>
+        <section className="card">
+          <h2>Cancel subscription</h2>
+          <CancelSubscription
+            subscriptionId={cancel.subscriptionId}
+            plan={cancel.plan}
+            endsAt={cancel.endsAt ? cancel.endsAt.toISOString().slice(0, 10) : null}
+            alreadyEnding={cancel.alreadyEnding}
           />
         </section>
         <section className="card">

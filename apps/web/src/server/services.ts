@@ -10,6 +10,7 @@ import { buildDeliveryVerificationMail } from "@daymarkable/mail";
 import { DateTime } from "luxon";
 import { z } from "zod";
 import { getRuntime } from "./runtime";
+import { billingConfigured, cancelSubscription } from "./billing";
 
 // ------------------------------------------------------------------ account
 export const settingsPatchSchema = z.object({
@@ -566,4 +567,85 @@ export async function verifyDeliveryEmail(token: string): Promise<boolean> {
 export async function correctionHistory(userId: string) {
   const rt = await getRuntime();
   return repo.recentCorrections(rt.db, userId, 40);
+}
+
+// ------------------------------------------------------------------ feature requests
+export const REQUEST_KINDS = ["feature", "document_format", "bug", "other"] as const;
+export type RequestKind = (typeof REQUEST_KINDS)[number];
+
+/** One request per submission, kept verbatim. Rate-limited so the form cannot be leant on. */
+export async function submitRequest(userId: string, kind: RequestKind, body: string) {
+  const text = body.trim();
+  if (text.length < 10) throw new Error("Tell us a little more than that — a sentence or two.");
+  if (text.length > 4000) throw new Error("That is longer than we can read carefully. Trim it to the essentials.");
+  const rt = await getRuntime();
+  const since = new Date(Date.now() - 60 * 60_000);
+  const recent = await rt.db.query.featureRequests.findMany({
+    where: and(eq(schema.featureRequests.userId, userId), sql`${schema.featureRequests.createdAt} >= ${since}`),
+  });
+  if (recent.length >= 5) throw new Error("That is five in an hour. Send the rest later — we read all of them.");
+  const [row] = await rt.db.insert(schema.featureRequests).values({ userId, kind, body: text }).returning();
+  rt.log(`feature request ${row!.id.slice(0, 8)} (${kind}, ${text.length} chars)`);
+  return { id: row!.id };
+}
+
+/** This user's own requests, so the page can show what they already sent and where it got to. */
+export async function myRequests(userId: string) {
+  const rt = await getRuntime();
+  const rows = await rt.db.query.featureRequests.findMany({
+    where: eq(schema.featureRequests.userId, userId),
+    orderBy: desc(schema.featureRequests.createdAt),
+    limit: 20,
+  });
+  return rows.map((r) => ({ id: r.id, kind: r.kind, body: r.body, status: r.status, createdAt: r.createdAt }));
+}
+
+// ------------------------------------------------------------------ cancelling (rule 14: web only)
+export interface CancelView {
+  /** Null when there is nothing to cancel: no Stripe, or an account that never checked out. */
+  subscriptionId: string | null;
+  plan: string | null;
+  status: string;
+  endsAt: Date | null;
+  alreadyEnding: boolean;
+}
+
+export async function cancelView(userId: string): Promise<CancelView> {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  const has = billingConfigured() && Boolean(user.stripeSubscriptionId);
+  return {
+    subscriptionId: has ? user.stripeSubscriptionId : null,
+    plan: user.plan,
+    status: user.status,
+    endsAt: user.currentPeriodEnd,
+    alreadyEnding: user.status === "canceled",
+  };
+}
+
+/**
+ * Cancel at the end of the paid period. Not immediately, and no partial refund without asking: they
+ * paid for the period, so they keep it, and cutting service off early would be taking something
+ * they had bought. A prorated refund is an operator action on request (admin portal).
+ *
+ * Nothing here writes the account status — Stripe's webhook is the only thing that moves it, so a
+ * cancellation that Stripe did not accept cannot leave the account looking cancelled.
+ */
+export async function cancelSubscriptionForUser(userId: string): Promise<{ ok: true; message: string } | { ok: false; message: string }> {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  if (!billingConfigured()) return { ok: false, message: "Billing is not set up on this installation — nothing to cancel." };
+  if (!user.stripeSubscriptionId) return { ok: false, message: "This account has no subscription." };
+  try {
+    const r = await cancelSubscription(user.stripeSubscriptionId, "period_end");
+    rt.log(`subscription cancelled at period end for user ${userId.slice(0, 8)}`);
+    return {
+      ok: true,
+      message: r.endsAt
+        ? `Cancelled. Everything keeps working until ${r.endsAt.toISOString().slice(0, 10)}, and you will not be charged again.`
+        : "Cancelled at the end of the current period. You will not be charged again.",
+    };
+  } catch (err) {
+    return { ok: false, message: (err as Error).message };
+  }
 }

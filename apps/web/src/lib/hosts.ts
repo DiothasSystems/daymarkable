@@ -44,7 +44,13 @@ export function sessionCookieDomain(): string | undefined {
 /** Paths that belong to the signed-in service host. */
 const SERVICE_PREFIXES = ["/today", "/documents", "/runs", "/account", "/setup", "/settings", "/admin", "/api/documents", "/api/compare"];
 /** Paths that belong to the public host. "/" is public too (exact match). */
-const PUBLIC_PREFIXES = ["/product", "/remarkable", "/pricing", "/start", "/billing", "/privacy", "/terms", "/support", "/login"];
+const PUBLIC_PREFIXES = ["/product", "/remarkable", "/pricing", "/start", "/billing", "/privacy", "/terms", "/login"];
+/**
+ * "/support" is claimed by neither host on purpose: the same answers are wanted by someone deciding
+ * whether to subscribe and by someone signed in with a problem. One page serves both and picks its
+ * frame from the session. Links in it are relative, and a link to a service path on the public host
+ * is redirected across by the rule below.
+ */
 
 const under = (path: string, prefixes: string[]) => prefixes.some((p) => path === p || path.startsWith(p + "/"));
 

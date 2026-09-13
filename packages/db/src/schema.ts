@@ -551,3 +551,29 @@ export const opsSettings = pgTable("ops_settings", {
   lastWarnedAt: timestamp("last_warned_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const requestKind = pgEnum("request_kind", ["feature", "document_format", "bug", "other"]);
+export const requestStatus = pgEnum("request_status", ["new", "planned", "shipped", "declined"]);
+
+/**
+ * What customers have asked for, in their own words.
+ *
+ * Separate from `feedback`, which rates how well a run read a page. This is the roadmap input: a
+ * page layout someone wants, a format they need, a thing that is missing. Kept verbatim — the
+ * point is to read what they actually wrote, not a summary of it.
+ */
+export const featureRequests = pgTable(
+  "feature_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    kind: requestKind("kind").notNull().default("feature"),
+    body: text("body").notNull(),
+    status: requestStatus("status").notNull().default("new"),
+    /** Operator's note on the decision, shown nowhere but the admin portal. */
+    adminNote: text("admin_note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  },
+  (t) => [index("feature_requests_status").on(t.status, t.createdAt)],
+);

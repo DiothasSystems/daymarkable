@@ -106,6 +106,26 @@ export const appRouter = router({
     skip: protectedProcedure.mutation(({ ctx }) => svc.skipCalibration(ctx.user.id)),
     setLexicon: protectedProcedure.input(z.object({ terms: z.array(z.string().max(80)).max(400) })).mutation(({ ctx, input }) => svc.updateLexicon(ctx.user.id, input.terms)),
   }),
+  subscription: router({
+    view: protectedProcedure.query(({ ctx }) => svc.cancelView(ctx.user.id)),
+    cancel: protectedProcedure.mutation(async ({ ctx }) => {
+      const r = await svc.cancelSubscriptionForUser(ctx.user.id);
+      if (!r.ok) throw new TRPCError({ code: "BAD_REQUEST", message: r.message });
+      return r;
+    }),
+  }),
+  requests: router({
+    mine: protectedProcedure.query(({ ctx }) => svc.myRequests(ctx.user.id)),
+    submit: protectedProcedure
+      .input(z.object({ kind: z.enum(svc.REQUEST_KINDS), body: z.string().min(1).max(4000) }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await svc.submitRequest(ctx.user.id, input.kind, input.body);
+        } catch (err) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        }
+      }),
+  }),
   corrections: router({
     fix: protectedProcedure
       .input(z.object({ itemType: z.enum(["task", "event", "meeting", "inbox"]), itemId: z.string().min(1), text: z.string().min(1).max(2000) }))

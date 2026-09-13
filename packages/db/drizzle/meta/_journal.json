@@ -64,6 +64,13 @@
       "when": 1789263405774,
       "tag": "0008_nifty_phantom_reporter",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789318498095,
+      "tag": "0009_burly_barracuda",
+      "breakpoints": true
     }
   ]
 }
