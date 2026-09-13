@@ -62,9 +62,6 @@ services:
       RMAPI_BACKOFF_MS: ${RMAPI_BACKOFF_MS:-3000}
       EMAIL_API_KEY: ${EMAIL_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-dayMarkable <notes@daymarkable.app>}
-      # TEMPORARY: set to 1 to expose /setup-preview, the calibration validation page.
-      # Remove this line together with apps/web/src/app/setup-preview/ once signed off.
-      SETUP_PREVIEW: ${SETUP_PREVIEW:-}
       USER_EMAIL: ${USER_EMAIL:?set USER_EMAIL (the registered login address)}
       USER_TIMEZONE: ${USER_TIMEZONE:-America/New_York}
       RMAPI_DEVICE_TOKEN: ${RMAPI_DEVICE_TOKEN:-}

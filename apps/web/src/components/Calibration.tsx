@@ -129,8 +129,8 @@ export function CalibrationPanel({ initial, onDone, compact = false }: { initial
         </div>
       </div>
       <div className="field">
-        <label htmlFor="cal-context">Anything else worth knowing (optional)</label>
-        <textarea id="cal-context" value={context} onChange={(e) => setContext(e.target.value)} placeholder="Customers, products and colleagues whose names come up often: Plume, Optum, TR-369, Priya…" />
+        <label htmlFor="cal-context">Key terms (optional)</label>
+        <textarea id="cal-context" value={context} onChange={(e) => setContext(e.target.value)} placeholder="People, companies, products and standards whose names come up often: Plume, Optum, TR-369, Priya Raman…" />
         <div className="hint">Names you list here go straight into your vocabulary list, which is the single biggest accuracy improvement available.</div>
       </div>
       {note ? <div className="notice ok">{note}</div> : null}
