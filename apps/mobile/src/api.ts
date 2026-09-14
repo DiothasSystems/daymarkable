@@ -13,8 +13,14 @@ import type { AppRouter } from "@daymarkable/api";
 import { readStoredSession } from "./session";
 
 /**
- * Where the service lives. `EXPO_PUBLIC_API_URL` is baked in at build time; the fallback is a
- * dev machine's `pnpm web:dev`, which on a phone must be the machine's LAN address, not localhost.
+ * Where the service lives.
+ *
+ * `EXPO_PUBLIC_API_URL` is baked in at build time and must be set for anything that runs on a
+ * real device: the fallback below is a dev machine's `pnpm web:dev`, and `localhost` on a phone
+ * is the phone. A build for the store points this at the service host.
+ *
+ * It is deliberately NOT defaulted to production. A forgotten variable that quietly talks to the
+ * live service with real data is a worse failure than one that cannot connect and says so.
  */
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
@@ -47,9 +53,20 @@ export async function authorizedFetch(path: string, init: RequestInit = {}): Pro
   return fetch(`${API_URL}${path}`, { ...init, headers });
 }
 
-/** What to put in front of the user when a call fails. Never a stack, never a tRPC shape. */
+/**
+ * What to put in front of the user when a call fails. Never a stack, never a tRPC shape.
+ *
+ * A transport failure gets the address it could not reach appended, because on a phone the usual
+ * cause is `EXPO_PUBLIC_API_URL` still pointing at a dev machine — `localhost` on a device is the
+ * device. Without the address the failure reads as "the sign-in email did not send", which sends
+ * you looking at the mail provider for a problem that is on this side of the wire.
+ */
 export function errorMessage(err: unknown): string {
-  if (err instanceof TRPCClientError) return err.message;
+  if (err instanceof TRPCClientError) {
+    // A transport failure has no server response behind it, so it carries no `data`.
+    if (!err.data) return `Could not reach ${API_URL} — ${err.message}`;
+    return err.message;
+  }
   if (err instanceof Error) return err.message;
   return "Something went wrong.";
 }
