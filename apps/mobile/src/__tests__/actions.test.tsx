@@ -4,6 +4,11 @@
  * Rendered against a mocked tRPC client rather than a server: `pnpm test` must pass with no
  * network and no keys, and what is worth asserting here is what the screen does with an answer,
  * not that the answer arrives.
+ *
+ * It lives here rather than beside the screen because expo-router builds its routes from a
+ * `require.context` over `app/`: a test file in there becomes a route AND drags the testing
+ * library into the app bundle, which is how it was found — the Metro build for the phone failed
+ * on it, having passed every typecheck.
  */
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 import { SafeAreaProvider, type Metrics } from "react-native-safe-area-context";
@@ -36,7 +41,7 @@ jest.mock("expo-router", () => ({
   Link: ({ children }: { children: React.ReactNode }) => children,
 }));
 
-import Actions from "./actions";
+import Actions from "../../app/(tabs)/actions";
 
 /**
  * The screens read safe-area insets, which come from a provider the real app mounts in
