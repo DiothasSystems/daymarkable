@@ -506,6 +506,10 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       log(`cache rotated: purged run ${prev.id.slice(0, 8)} (${purged.files} files, ${purged.bytes} bytes)`);
     }
 
+    // The run has put current notebooks on the tablet, so any edit still waiting to be sent has
+    // now been sent. Without this the "send to your tablet" prompt survives the night and offers
+    // a delivery that already happened.
+    await repo.clearPendingDelivery(db, user.id);
     await repo.finishRun(db, run.id, "succeeded", stats, null);
     log(`run ${run.id.slice(0, 8)} succeeded: ${stats.pagesDecoded} pages decoded, ${stats.tasksFound} tasks, ${stats.eventsFound} events, ${stats.meetingsFound} meetings, $${stats.costUsd.toFixed(4)}`);
     return { runId: run.id, status: "succeeded", localDate, stats, error: null };

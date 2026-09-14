@@ -61,7 +61,11 @@ exception to the purge).
 - **Sync now** from the phone, sharing the server-side 3-per-24h quota with web.
 - Push notification when a run completes ("Read 9 pages — 4 actions, 1 meeting, planner
   delivered").
-- Deliberately NOT a note-taking or editing surface — viewer + trigger only.
+- Editing: actions, calendar entries and note bodies, with a prompt to send the rebuilt
+  notebooks to the tablet afterwards. (This reverses the original "viewer + trigger only"
+  rule, 2026-09-13: checking items off and seeing the calendar are the app's main job, and a
+  list you cannot fix from your pocket sends you back to the tablet to fix it.) Still NOT a
+  note-taking surface — there is no page-capture path; see docs/MOBILE_PLAN.md §10.
 - Ship via TestFlight / internal track for personal use; store listings wait for Phase 3.
 
 ## Phase 2 — Multi-tenant SaaS (4–8 weeks)

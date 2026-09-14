@@ -59,7 +59,11 @@ unchanged.
     hero (layers sliced by `scripts/hero-slice.py` from the artwork in
     `design/design_handoff_daymarkable/assets/hero-scene.png`); it is not rendered anywhere
     at the moment.
-  - `apps/mobile` — Phase 1: React Native/Expo viewer + Sync now, reusing the tRPC types.
+  - `apps/mobile` — Phase 1: React Native/Expo, reusing the tRPC types. Viewer, editor and
+    trigger: the action list with its checkboxes and the calendar are the spine, and actions,
+    calendar entries and note bodies can all be edited (`items.update` / `items.create`),
+    after which the user is prompted to send the rebuilt notebooks to the tablet. Setup,
+    settings and payment are the web's own responsive pages in a WebView. See docs/MOBILE_PLAN.md.
   - `services/render` — Python container (`rmscene`) exposing `POST /render` (.rm → PNG).
 - Postgres via Drizzle ORM; migrations in `packages/db`. Queue: pg-boss (Phase 2).
 - Env vars in `.env` locally, and in `/root/daymarkable/.env` on the production VPS, beside the

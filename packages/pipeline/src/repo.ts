@@ -545,6 +545,21 @@ export async function addLexiconTerms(db: Db, userId: string, terms: readonly st
   return added;
 }
 
+/**
+ * The tablet now has the current notebooks, so stop asking whether to send them.
+ *
+ * `pendingDelivery` is set whenever an edit rebuilds the notebooks, and cleared by a republish —
+ * but a night's run delivers the same documents and nothing was clearing it. An edit at ten in
+ * the evening therefore left the banner up the next morning, offering to send a tablet what the
+ * run had already sent it. Found by driving the API over HTTP rather than by reading it.
+ */
+export async function clearPendingDelivery(db: Db, userId: string): Promise<void> {
+  const user = await getUser(db, userId);
+  if (user.settings.pendingDelivery === null) return;
+  const next: UserSettings = { ...user.settings, pendingDelivery: null };
+  await db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
+}
+
 export async function recordCorrection(db: Db, input: { userId: string; itemType: string; itemId: string; originalText: string; correctedText: string; learnedTerms: string[] }): Promise<void> {
   await db.insert(schema.corrections).values(input);
 }

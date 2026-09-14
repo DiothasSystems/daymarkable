@@ -242,6 +242,38 @@ Postgres — the cache is what makes the viewers free: nothing is re-generated t
 The tablet remains the product's primary surface; the apps exist to check your day and to
 pull the trigger early.
 
+**Editing, and why it is not correcting.** Both clients can change what the lists say —
+`items.update` for fields (a task's due date and priority, an event's date, time, location
+and recurrence, a meeting's topic and its encrypted body) and `items.create` for an action
+or event typed rather than written (`packages/pipeline/src/edits.ts`). This is deliberately
+a different call from `corrections.fix`, which means *"that is not what I wrote"*: a
+correction is evidence about this person's handwriting, so it records a correction row and
+promotes the changed words into their lexicon — the largest lever on per-user accuracy. An
+edit means *"that is not what I want any more"*, teaches nothing, and must not touch the
+lexicon, or an app whose purpose is editing would fill it with words that were never on a
+page. Creating obeys the same dedupe the nightly merge does (rule 8), carries
+`source: "app"` and no notebook or page so nothing downstream counts typing as decoding, and
+there is no delete: an item still leaves by tick or drop. Every edit rebuilds the notebooks
+locally and sets `pendingDelivery`, which is what puts "Send updated notebooks to tablet" in
+front of the user — composing calls no model, so it costs nothing and never touches the
+on-demand quota.
+
+**Mobile sessions.** A phone has no cookie jar we can reach, and the emailed link is very
+often opened on a *different* device from the one signing in — laptop mail, phone app — so a
+`daymarkable://` callback would fail in the ordinary case rather than the exotic one. Instead
+the app keeps a secret and waits (`apps/web/src/server/device-login.ts`): it asks for a link
+and holds a `pollSecret`; the user taps the link wherever it lands and `/auth/verify` runs
+exactly as it always has, additionally binding the session it created to the waiting row; the
+app then trades its secret for that session id, **once**, and keeps it in the device keychain.
+From then on it carries `Authorization: Bearer <session id>` — the same `sessions` row a
+browser holds in a cookie, labelled `client = "mobile"`. The bearer is read on the two API
+routes only (`/api/trpc`, `/api/documents/:id`) and never on a page render, so it can never
+stand in for a cookie on rendered HTML. The link itself is unchanged and carries no new
+authority: forwarding it grants what forwarding it always granted. And because `requestLink`
+must answer the same for an address that may sign in and one that may not (rule 15), a mobile
+caller always leaves with a secret — including one that will never become ready, which is what
+stops the app's sign-in from becoming an oracle for who has an account.
+
 ## 10. Admin portal
 
 An operator-only portal at `/admin` (or an `admin.` subdomain), **separate from user auth**:

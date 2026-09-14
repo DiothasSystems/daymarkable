@@ -4,8 +4,8 @@ import { readDocument } from "@/server/services";
 export const runtime = "nodejs";
 
 /** Streams a generated notebook from the 1-day cache. Never regenerates (rule 12). */
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getSessionUser();
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const user = await getSessionUser(req);
   if (!user) return new Response("unauthorized", { status: 401 });
   const { id } = await ctx.params;
   const doc = await readDocument(user.id, id);

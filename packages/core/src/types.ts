@@ -36,7 +36,8 @@ export interface CalendarItem {
   endTime: string | null;
   location: string | null;
   people: string[];
-  source: "ink" | "external";
+  /** "ink" off a page, "external" from a connected calendar, "app" typed by the user. */
+  source: "ink" | "external" | "app";
   confidence: number;
   /**
    * Set when the writer marked the entry as repeating ("weekly", "every Tuesday"). The event is

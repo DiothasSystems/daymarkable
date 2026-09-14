@@ -1,0 +1,20 @@
+{
+  "//": "Declarations only, for clients that need the API's types but not its code.",
+  "//2": "The mobile app types its tRPC client from `types-dist/server/router.d.ts`. Importing",
+  "//3": "router.ts directly instead would pull this app's whole server graph — next/headers,",
+  "//4": "drizzle, the `@/lib` alias — through React Native's compiler options, which is where",
+  "//5": "that experiment ended. A .d.ts is inert: skipLibCheck means a type the client cannot",
+  "//6": "resolve degrades to `any` rather than failing its build.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": false,
+    "incremental": false,
+    "rootDir": "./src",
+    "outDir": "./types-dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "src/**/*.test.ts"]
+}

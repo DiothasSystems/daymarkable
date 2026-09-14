@@ -71,6 +71,27 @@
       "when": 1789318498095,
       "tag": "0009_burly_barracuda",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789341032267,
+      "tag": "0010_fat_tiger_shark",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789384960923,
+      "tag": "0011_kind_ezekiel_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789390889374,
+      "tag": "0012_cute_psylocke",
+      "breakpoints": true
     }
   ]
 }

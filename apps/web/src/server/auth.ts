@@ -8,6 +8,8 @@ import { normalizeEmail } from "@/lib/email";
 import { publicUrl, sessionCookieDomain } from "@/lib/hosts";
 import { getRuntime } from "./runtime";
 import { maySignIn } from "./access";
+import { bearerFrom, bindSession, claimDeviceLogin, decoyPollSecret, isMobileLogin, startDeviceLogin, type ClaimResult } from "./device-login";
+import { createHandoff, type Pane } from "./handoff";
 import { markJoined } from "./waitlist";
 
 export const SESSION_COOKIE = "dm_session";
@@ -33,27 +35,40 @@ export interface MagicLinkResult {
   ok: true;
   /** Only in development when no email provider is configured. */
   devLink?: string;
+  /**
+   * Native clients only: what the app polls `auth.claim` with (device-login.ts). Always present
+   * for a mobile request, even when no link was sent — see `decoyPollSecret`.
+   */
+  pollSecret?: string;
 }
 
-export async function requestMagicLink(rawEmail: string): Promise<MagicLinkResult> {
+export type LoginClient = "web" | "mobile";
+
+export async function requestMagicLink(rawEmail: string, client: LoginClient = "web"): Promise<MagicLinkResult> {
+  const mobile = client === "mobile";
   const email = normalizeEmail(rawEmail);
-  if (!email) return { ok: true }; // never reveal validity
+  // The reply must not vary with whether an address may sign in — for the app either, which is
+  // why a mobile caller always leaves with a secret, even one that will never become ready.
+  const silent = (): MagicLinkResult => (mobile ? { ok: true, pollSecret: decoyPollSecret() } : { ok: true });
+  if (!email) return silent();
   // Who may sign in is decided in one place; this one only obeys it, and says nothing either
   // way, because the reply here reaches whoever typed the address rather than its owner.
-  if (!(await maySignIn(email))) return { ok: true };
+  if (!(await maySignIn(email))) return silent();
   const rt = await getRuntime();
   const token = randomBytes(32).toString("base64url");
-  await rt.db.insert(schema.loginTokens).values({ tokenHash: sha256(token), email, expiresAt: new Date(Date.now() + LINK_TTL_MS) });
+  const tokenHash = sha256(token);
+  await rt.db.insert(schema.loginTokens).values({ tokenHash, email, expiresAt: new Date(Date.now() + LINK_TTL_MS) });
+  const pollSecret = mobile ? await startDeviceLogin(rt.db, tokenHash) : undefined;
   const link = `${publicUrl()}/auth/verify?token=${token}`;
-  const res = await rt.mail.send(buildSignInMail(email, link, sha256(token), LINK_TTL_MS / 60_000));
+  const res = await rt.mail.send(buildSignInMail(email, link, tokenHash, LINK_TTL_MS / 60_000));
   if (res.status === "skipped") {
     // No email provider configured. The link goes to the server log so the operator can still
     // sign in (bootstrapping a fresh host); it is only returned to the browser outside production.
     console.log(`[web] magic link for ${email}: ${link}`);
-    return process.env.NODE_ENV === "production" ? { ok: true } : { ok: true, devLink: link };
+    return process.env.NODE_ENV === "production" ? { ok: true, pollSecret } : { ok: true, devLink: link, pollSecret };
   }
   if (res.status === "failed") console.error(`[web] sign-in email to ${email} failed: ${res.error}`);
-  return { ok: true };
+  return { ok: true, pollSecret };
 }
 
 export async function verifyMagicLink(token: string): Promise<SessionUser | null> {
@@ -70,7 +85,12 @@ export async function verifyMagicLink(token: string): Promise<SessionUser | null
   }
   const id = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  await rt.db.insert(schema.sessions).values({ id, userId: user!.id, expiresAt });
+  // A phone was waiting on this link, or it was not. Either way the browser that opened it gets
+  // its cookie as before — the link is single-use, so nothing is spent twice. The session must
+  // exist before it can be handed over: device_logins.session_id references it.
+  const mobile = await isMobileLogin(rt.db, row.tokenHash);
+  await rt.db.insert(schema.sessions).values({ id, userId: user!.id, expiresAt, client: mobile ? "mobile" : "web" });
+  await bindSession(rt.db, row.tokenHash, id);
   const jar = await cookies();
   jar.set(SESSION_COOKIE, id, { ...cookieScope(), expires: expiresAt });
   return toSessionUser(user!);
@@ -91,9 +111,34 @@ function toSessionUser(u: typeof schema.users.$inferSelect): SessionUser {
   };
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
-  const jar = await cookies();
-  const id = jar.get(SESSION_COOKIE)?.value;
+/**
+ * The app's half of the sign-in: trade the secret it kept for the session the link created.
+ *
+ * Deliberately says nothing about the address — an unknown secret is "pending", the same answer a
+ * genuine attempt gives before the link is tapped.
+ */
+export async function claimMobileSession(pollSecret: string): Promise<ClaimResult> {
+  const rt = await getRuntime();
+  return claimDeviceLogin(rt.db, pollSecret);
+}
+
+/** A one-time URL that opens a web page already signed in as this session (handoff.ts). */
+export async function handoffUrl(sessionId: string, pane: Pane): Promise<string> {
+  const rt = await getRuntime();
+  return createHandoff(rt.db, sessionId, pane);
+}
+
+export { bearerFrom } from "./device-login";
+
+/**
+ * Resolve the signed-in user.
+ *
+ * With a `req` the bearer header is considered first, then the cookie; without one only the
+ * cookie exists. Only the two API routes pass a request — a page render has no business reading
+ * the header, so a bearer can never stand in for a cookie on a rendered page.
+ */
+export async function getSessionUser(req?: Request): Promise<SessionUser | null> {
+  const id = (req ? bearerFrom(req) : null) ?? (await cookies()).get(SESSION_COOKIE)?.value;
   if (!id) return null;
   const rt = await getRuntime();
   const s = await rt.db.query.sessions.findFirst({ where: and(eq(schema.sessions.id, id), gt(schema.sessions.expiresAt, new Date())) });
@@ -102,7 +147,16 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   return u ? toSessionUser(u) : null;
 }
 
-export async function logout(): Promise<void> {
+/**
+ * End a session. `sessionId` is the bearer a native client signed in with; without it the cookie
+ * is the session, and clearing it is most of the job.
+ */
+export async function logout(sessionId?: string | null): Promise<void> {
+  if (sessionId) {
+    const rt = await getRuntime();
+    await rt.db.delete(schema.sessions).where(eq(schema.sessions.id, sessionId));
+    return;
+  }
   const jar = await cookies();
   const id = jar.get(SESSION_COOKIE)?.value;
   if (id) {
@@ -112,7 +166,14 @@ export async function logout(): Promise<void> {
   jar.set(SESSION_COOKIE, "", { ...cookieScope(), maxAge: 0 });
 }
 
-/** Host-only in dev; scoped to daymarkable.com in production so the sign-in carries from the public site to app. */
+/**
+ * Host-only in dev; scoped to daymarkable.com in production so the sign-in carries from the public
+ * site to app — and so a WebView handed a session on one host keeps it on the other.
+ */
+export function sessionCookieOptions() {
+  return { ...cookieScope(), expires: new Date(Date.now() + SESSION_TTL_MS) };
+}
+
 function cookieScope() {
   const domain = sessionCookieDomain();
   return { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/", ...(domain ? { domain } : {}) };

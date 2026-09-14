@@ -58,6 +58,13 @@ afterAll(async () => {
 
 describe("runPipeline (fixtures)", () => {
   it("first nightly run processes the changed notebook and produces the three notebooks", async () => {
+    // An edit made before the run left "send these to your tablet" waiting. The run delivers the
+    // same notebooks, so the prompt must not survive it — see repo.clearPendingDelivery.
+    const before = await repo.getUser(handle.db, userId);
+    await handle.db
+      .update(schema.users)
+      .set({ settings: { ...before.settings, pendingDelivery: "2026-09-01T22:00:00.000Z" } })
+      .where(eq(schema.users.id, userId));
     const out = await runPipeline(deps, { userId, kind: "nightly", requestedVia: "test" });
     expect(out.status).toBe("succeeded");
     expect(out.stats!.docsChanged).toBe(1);
@@ -68,6 +75,7 @@ describe("runPipeline (fixtures)", () => {
     expect(docs).toHaveLength(3);
     const costs = await handle.db.query.runCosts.findMany();
     expect(costs).toHaveLength(1);
+    expect((await repo.getUser(handle.db, userId)).settings.pendingDelivery).toBeNull();
     expect(costs[0]!.model).toBe("fixture-model");
     expect(costs[0]!.mode).toBe("batch");
     const cacheDirs = await readdir(path.join(tmp, "cache"));

@@ -1,8 +1,8 @@
 import "server-only";
 import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
-import { nextOccurrence, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
+import { nextOccurrence, occurrencesInRange, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
 import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
-import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type QuotaStatus } from "@daymarkable/pipeline";
+import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, createItem as addItem, getItem as readItem, updateItem as editItem, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type ItemEdit, type NewItem, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
 import { RemarkableCloudProvider, pairWithCode } from "@daymarkable/tablet";
 import { randomUUID } from "node:crypto";
@@ -158,6 +158,41 @@ export async function getRegistry(userId: string) {
   const inbox = state.inbox.filter((i) => i.status === "pending");
   const doneRecently = state.tasks.filter((t) => t.status === "done" && t.completedOn && t.completedOn >= DateTime.fromISO(today).minus({ days: 7 }).toISODate()!);
   return { today, actions, events, meetings, inbox, doneRecently, meetingRequests: state.meetingRequests.filter((m) => m.state !== "dropped") };
+}
+
+/** A calendar screen asks for a month; anything much wider is a client with a bug. */
+const MAX_CALENDAR_DAYS = 62;
+
+/**
+ * The calendar over a span of dates, with repeating series expanded to their occurrences.
+ *
+ * `getRegistry` above resolves a series to its *next* occurrence, which is what a list wants. A
+ * month grid wants every date it lands on, and that expansion is `packages/core/recurrence.ts` —
+ * deterministic, tested, and on this side of the wire because rule 1 puts it here rather than in
+ * whichever client happens to be drawing the grid.
+ */
+export async function getCalendar(userId: string, from: string, to: string) {
+  if (to < from) throw new Error("that range ends before it starts");
+  const days = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+  if (!Number.isFinite(days) || days > MAX_CALENDAR_DAYS) throw new Error(`ask for ${MAX_CALENDAR_DAYS} days or fewer`);
+
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  const today = DateTime.now().setZone(user.timezone).toISODate()!;
+  const state = await repo.loadWorkingSet(rt.db, rt.sealer, userId);
+  const active = state.events.filter((e) => e.status === "active");
+  return {
+    today,
+    from,
+    to,
+    /** One entry per event per day it falls on, each carrying that day rather than the anchor. */
+    events: occurrencesInRange(active, from, to),
+    meetings: state.meetings.filter((m) => m.date && m.date >= from && m.date <= to).sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "")),
+    /** What is due in the span, so a day shows the work as well as the appointments. */
+    due: state.tasks
+      .filter((t) => (t.status === "open" || t.status === "carried") && t.due && t.due >= from && t.due <= to)
+      .map((t) => ({ id: t.id, text: t.text, due: t.due!, dueTime: t.dueTime, priority: t.priority })),
+  };
 }
 
 /** Header status per the style guide: `SYNCED 02:14` (user's timezone), or null before the first run. */
@@ -425,6 +460,103 @@ export async function updateLexicon(userId: string, terms: string[]) {
   const settings: UserSettings = { ...user.settings, lexicon: cleaned };
   await rt.db.update(schema.users).set({ settings, updatedAt: new Date() }).where(eq(schema.users.id, userId));
   return cleaned;
+}
+
+// ------------------------------------------------------------------ editing (edits.ts)
+/**
+ * Editing is not correcting, and the API says so in two names.
+ *
+ * `correctItem` below means "that is not what I wrote": the decoder misread the page, and the
+ * change is evidence about this handwriting, so it teaches the lexicon. `updateItem` here means
+ * "that is not what I want any more" — a date moved, a priority changed — and teaches nothing.
+ * Folding the second into the first would fill the largest accuracy lever we have with words
+ * that were never on a page. See packages/pipeline/src/edits.ts.
+ */
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "expected YYYY-MM-DD").nullable();
+const clockTime = z.string().regex(/^\d{2}:\d{2}$/, "expected HH:MM").nullable();
+const recurrence = z.enum(["daily", "weekdays", "weekly", "biweekly", "monthly", "yearly"]).nullable();
+
+export const itemEditSchema = z.discriminatedUnion("itemType", [
+  z.object({
+    itemType: z.literal("task"),
+    itemId: z.string().min(1).max(64),
+    patch: z.object({
+      text: z.string().min(1).max(2000).optional(),
+      due: isoDate.optional(),
+      dueTime: clockTime.optional(),
+      priority: z.enum(["high", "normal", "low"]).optional(),
+      kind: z.enum(["action", "follow_up"]).optional(),
+      project: z.string().max(200).nullable().optional(),
+    }),
+  }),
+  z.object({
+    itemType: z.literal("event"),
+    itemId: z.string().min(1).max(64),
+    patch: z.object({
+      title: z.string().min(1).max(500).optional(),
+      date: isoDate.optional(),
+      startTime: clockTime.optional(),
+      endTime: clockTime.optional(),
+      location: z.string().max(300).nullable().optional(),
+      recurrence: recurrence.optional(),
+    }),
+  }),
+  z.object({
+    itemType: z.literal("meeting"),
+    itemId: z.string().min(1).max(64),
+    patch: z.object({
+      topic: z.string().min(1).max(500).optional(),
+      date: isoDate.optional(),
+      time: clockTime.optional(),
+      text: z.string().max(50_000).optional(),
+      decisions: z.array(z.string().max(2000)).max(200).optional(),
+      actions: z.array(z.string().max(2000)).max(200).optional(),
+    }),
+  }),
+]);
+
+export const newItemSchema = z.discriminatedUnion("itemType", [
+  z.object({
+    itemType: z.literal("task"),
+    text: z.string().min(1).max(2000),
+    due: isoDate.optional(),
+    dueTime: clockTime.optional(),
+    priority: z.enum(["high", "normal", "low"]).optional(),
+    kind: z.enum(["action", "follow_up"]).optional(),
+    project: z.string().max(200).nullable().optional(),
+  }),
+  z.object({
+    itemType: z.literal("event"),
+    title: z.string().min(1).max(500),
+    date: isoDate.optional(),
+    startTime: clockTime.optional(),
+    endTime: clockTime.optional(),
+    location: z.string().max(300).nullable().optional(),
+    recurrence: recurrence.optional(),
+  }),
+]);
+
+/** One item as stored, for an editor — never a view's projection of it. See edits.ts. */
+export async function getItemForEdit(userId: string, itemType: "task" | "event" | "meeting", itemId: string) {
+  const rt = await getRuntime();
+  return readItem(rt.db, rt.sealer, userId, itemType, itemId);
+}
+
+export async function updateItem(userId: string, edit: ItemEdit) {
+  const rt = await getRuntime();
+  const r = await editItem(rt.db, rt.sealer, userId, edit);
+  await rebuildAfterEdit(userId);
+  return r;
+}
+
+export async function createItem(userId: string, item: NewItem) {
+  const rt = await getRuntime();
+  const user = await repo.getUser(rt.db, userId);
+  const today = DateTime.now().setZone(user.timezone).toISODate()!;
+  const r = await addItem(rt.db, userId, item, today);
+  // A fold into an existing action changed nothing, so there is nothing to send to the tablet.
+  if (r.created) await rebuildAfterEdit(userId);
+  return r;
 }
 
 // ------------------------------------------------------------------ corrections
