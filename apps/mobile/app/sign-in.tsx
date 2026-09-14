@@ -88,10 +88,21 @@ export default function SignIn() {
     };
   }, [stage, router, signIn]);
 
-  const restart = () => {
+  /**
+   * Back to the form. The two ways of getting here want different things, so they are two calls
+   * rather than one:
+   *
+   *   "Use a different address" means this one was wrong — clear it. Leaving it put the next
+   *   thing typed on the end of the old one, which is how "a@b.testa@b.test" gets sent.
+   *   "Try again" after an expiry means the link ran out, not that the address was wrong — keep
+   *   it, so the user can send another without retyping, or fix a typo in place.
+   */
+  const backToForm = useCallback((keepAddress: boolean) => {
     secret.current = null;
+    if (!keepAddress) setEmail("");
+    setError(null);
     setStage("email");
-  };
+  }, []);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: color.parchment }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -167,7 +178,7 @@ export default function SignIn() {
               <ActivityIndicator color={color.gold} />
               <Text style={type.small}>Waiting for the link…</Text>
             </View>
-            <Pressable onPress={restart} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
+            <Pressable onPress={() => backToForm(false)} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center" }}>
               <Text style={{ fontFamily: font.sans, fontSize: 15, color: color.goldText, textDecorationLine: "underline" }}>
                 Use a different address
               </Text>
@@ -183,7 +194,7 @@ export default function SignIn() {
               your dayMarkable account uses.
             </Text>
             <Pressable
-              onPress={restart}
+              onPress={() => backToForm(true)}
               accessibilityRole="button"
               style={({ pressed }) => ({
                 minHeight: TOUCH_TARGET,

@@ -2,11 +2,11 @@
  * The small pieces every screen is made of, so the brand lives in one file rather than in every
  * `style={{}}` in the app.
  */
-import { ActivityIndicator, Pressable, Text, View, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { TOUCH_TARGET, card, color, font, radius, space, type } from "@/theme";
 
 /** Uppercase mono section label — SYNCED 07:12, OPEN ACTIONS, INBOX. */
-export function Label({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+export function Label({ children, style }: { children: React.ReactNode; style?: TextStyle }) {
   return <Text style={[type.label, style]}>{children}</Text>;
 }
 
