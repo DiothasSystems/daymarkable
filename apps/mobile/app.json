@@ -15,7 +15,7 @@
       "package": "com.diothas.daymarkable",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1E2A44"
+        "backgroundColor": "#F7F0E3"
       },
       "icon": "./assets/play-store-icon.png"
     },

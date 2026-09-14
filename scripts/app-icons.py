@@ -1,13 +1,11 @@
 """
 Generate the mobile app's icon and splash from the brand, not by hand.
 
-Two different jobs, so two different marks:
-
-  icon    the compass rose. The brand board says the rose stands in for the emblem below 48px,
-          and a launcher icon is rendered at 48dp on a home screen. The emblem is a detailed
-          scene — notebook, path, dawn, four small glyphs — and at that size it is mud.
-  splash  the full lockup. A splash is a held moment on a whole screen, which is the one place
-          the emblem's detail earns its keep and the wordmark has room to be read.
+  icon    the emblem, the circular part of the logo. Chosen by the founder over the compass
+          rose: the rose is what the brand board nominates below 48px, but the emblem is what
+          people recognise as this product, and a launcher icon is a recognition problem first.
+  splash  the full lockup — emblem, wordmark, tagline. A splash is a held moment on a whole
+          screen, so there is room for all three.
 
 The rose geometry is copied from `apps/web/src/components/Brand.tsx`; the lockup is composed from
 the transparent slices in `apps/web/public/brand/` using the measurements in
@@ -108,6 +106,29 @@ def geometry() -> dict[str, dict[str, float]]:
     }
 
 
+def emblem(size: int, scale: float = 1.0) -> Image.Image:
+    """
+    The circular emblem on a transparent square, occupying `scale` of it.
+
+    Two layers, because that is how hero-logo-slices.py cut them so the hero could move the
+    points independently. Stacked at the same size they register exactly as the original.
+    The gold points extend past the navy ring, so the pair is what defines the extent.
+    """
+    canvas = Image.new("RGBA", (size, size), CLEAR)
+    side = max(1, round(size * scale))
+    offset = (size - side) // 2
+    for piece in ("emblem-base.webp", "emblem-points.webp"):
+        img = Image.open(BRAND / piece).convert("RGBA").resize((side, side), Image.LANCZOS)
+        canvas.alpha_composite(img, (offset, offset))
+    return canvas
+
+
+def over(ground: tuple[int, int, int, int], size: int, art: Image.Image) -> Image.Image:
+    img = Image.new("RGBA", (size, size), ground)
+    img.alpha_composite(art)
+    return img
+
+
 def lockup(size: int) -> Image.Image:
     """
     The full logo — emblem, wordmark, tagline — on a transparent square.
@@ -150,24 +171,33 @@ def lockup(size: int) -> Image.Image:
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
-    # iOS and the generic icon: opaque, no transparency, gold on Midnight. Midnight rather than
-    # Parchment because a pale icon disappears into a pale wallpaper, and the email's brand bar
-    # already establishes gold-on-Midnight as the small-size pairing.
-    on(MIDNIGHT, 1024, GOLD, 0.62).save(OUT / "icon.png")
+    # iOS and the generic icon: opaque, no transparency. The emblem is drawn nearly full-bleed
+    # on Parchment, which is the ground the artwork was designed against; its own navy ring gives
+    # it the edge definition a pale icon would otherwise lack on a pale wallpaper.
+    over(PARCHMENT, 1024, emblem(1024, 0.96)).save(OUT / "icon.png")
 
     # Android adaptive icon: the launcher masks this to a circle, squircle or whatever the device
-    # prefers, and animates it, so only the middle ~66% is safe. The ground is a flat colour set
-    # in app.json rather than part of the image.
-    on(CLEAR, 1024, GOLD, 0.44).save(OUT / "adaptive-icon.png")
+    # prefers, and animates it, so only the middle ~66% is safe. The emblem is already a circle,
+    # so it sits inside that mask rather than being cropped by it.
+    emblem(1024, 0.66).save(OUT / "adaptive-icon.png")
 
-    # Splash. expo-splash-screen scales this WHOLE image to `imageWidth` and centres it on its own
-    # background colour, so the lockup nearly fills its canvas.
-    lockup(1024).save(OUT / "splash-icon.png")
+    # The NATIVE splash icon, and it has to be the emblem alone.
+    #
+    # Android 12 and later mask this to a circle - that is the platform's splash screen API, not a
+    # choice Expo makes - so a wide lockup here is cropped to a horizontal band through its middle.
+    # The emblem is already circular and survives the mask intact.
+    emblem(1024, 0.92).save(OUT / "splash-icon.png")
+
+    # The full lockup, shown by the app itself (app/_layout.tsx) over the same Parchment ground the
+    # native splash uses, so the handover is invisible. This is the only way to show the whole logo
+    # on Android 12+; the native layer cannot.
+    lockup(1024).save(OUT / "splash-lockup.png")
 
     # Play Store listing icon (512x512, opaque, no alpha) — the same mark at the size Play wants.
-    on(MIDNIGHT, 512, GOLD, 0.62).convert("RGB").save(OUT / "play-store-icon.png")
+    over(PARCHMENT, 512, emblem(512, 0.96)).convert("RGB").save(OUT / "play-store-icon.png")
 
-    # The web's favicon lineage, kept here so the app and the browser tab agree.
+    # The favicon stays the compass rose: at 16-48px in a browser tab the emblem's moon, pen and
+    # four little glyphs genuinely do collapse, and this is the case the rose exists for.
     on(MIDNIGHT, 48, GOLD, 0.66).save(OUT / "favicon.png")
 
     for f in sorted(OUT.iterdir()):

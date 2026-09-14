@@ -1,3 +1,19 @@
+# Flat node_modules, for one reason: Windows MAX_PATH.
+#
+# pnpm's default layout stores every package under
+# `node_modules/.pnpm/<name>@<version>_<32 hex>/node_modules/<name>`, adding ~80 characters to
+# every path inside it. React Native ships deep C++ sources — one reanimated filename is 99
+# characters on its own — and with this repo's prefix the total passes 260, at which point ninja
+# refuses with "Filename longer than 260 characters" and the Android build cannot run at all.
+#
+# It is the SOURCE path that overflows, so relocating build output does not help; that was tried
+# and only moved the failure. The alternatives are enabling LongPathsEnabled on every machine that
+# builds Android, or keeping the repo somewhere shorter than OneDrive/Documents.
+#
+# Hoisting is how npm and yarn have always laid node_modules out, so nothing here depends on the
+# strict layout. To revert: delete this line and run `pnpm install`.
+nodeLinker: hoisted
+
 packages:
   - "packages/*"
   - "apps/*"

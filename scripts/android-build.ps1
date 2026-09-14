@@ -1,0 +1,115 @@
+<#
+.SYNOPSIS
+  Build the Android app locally: prebuild, patch around Windows MAX_PATH, assemble, install.
+
+.DESCRIPTION
+  `expo prebuild` regenerates apps/mobile/android/ from app.json and discards anything already in
+  there, so the path workaround cannot live in a committed file. It is re-applied here on every
+  run, which is the whole reason this script exists rather than a line in the README.
+
+  What the workaround does, and why it needs both halves:
+
+    * Every native module's buildDir moves to C:\dmb\b\<name>. Codegen writes C++ sources under
+      that directory, and CMake mangles a source's FULL path into its object filename, so a
+      generated source at a long path produces an object path far longer still.
+    * Every module's CMake staging directory (.cxx) moves to C:\dmb\c\<name>, which shortens the
+      other half of that same object path.
+
+  Neither alone is enough; the failure simply moves to the next module. Together they bring the
+  longest object path under Windows' 260-character limit.
+
+  NOTE: this file is deliberately plain ASCII. PowerShell 5.1 reads .ps1 as ANSI unless the file
+  carries a BOM, so a stray em dash becomes mojibake and the script fails to parse.
+
+  The durable fixes, if local Android builds become routine here, are to enable LongPathsEnabled
+  and reboot, or to keep the repo somewhere shorter than OneDrive\Documents. See
+  docs/MOBILE_PLAN.md section 13a.
+
+.PARAMETER ApiUrl
+  Baked into the build as EXPO_PUBLIC_API_URL. Defaults to production.
+
+.PARAMETER Abi
+  Which ABI to build. One is much faster than four, and arm64-v8a covers every modern phone.
+
+.PARAMETER Install
+  Install onto the connected device with adb when the build succeeds.
+
+.EXAMPLE
+  powershell -ExecutionPolicy Bypass -File scripts\android-build.ps1 -Install
+#>
+[CmdletBinding()]
+param(
+  [string]$ApiUrl = "https://app.daymarkable.com",
+  [string]$Abi = "arm64-v8a",
+  [switch]$Install
+)
+
+$ErrorActionPreference = "Stop"
+$repo = Split-Path -Parent $PSScriptRoot
+$mobile = Join-Path $repo "apps\mobile"
+$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "$env:LOCALAPPDATA\Android\Sdk" }
+$jdk = if ($env:JAVA_HOME) { $env:JAVA_HOME } else { "C:\Program Files\Android\Android Studio\jbr" }
+
+if (-not (Test-Path $sdk)) { throw "No Android SDK at $sdk. Set ANDROID_HOME." }
+if (-not (Test-Path $jdk)) { throw "No JDK at $jdk. Set JAVA_HOME; Android Studio ships one in jbr." }
+
+Write-Host "== prebuild" -ForegroundColor Cyan
+Push-Location $mobile
+try {
+  $env:ANDROID_HOME = $sdk
+  & npx expo prebuild --platform android --clean
+  if ($LASTEXITCODE -ne 0) { throw "prebuild failed" }
+} finally { Pop-Location }
+
+Write-Host "== patching android/build.gradle for MAX_PATH" -ForegroundColor Cyan
+$gradleFile = Join-Path $mobile "android\build.gradle"
+$patch = @'
+// Re-applied by scripts/android-build.ps1 after every prebuild. See that script for why.
+def shortRoot = new File("C:/dmb")
+subprojects { sub ->
+  sub.buildDir = new File(shortRoot, "b/" + sub.name)
+  def relocateCxx = {
+    try {
+      sub.android.externalNativeBuild.cmake.buildStagingDirectory = new File(shortRoot, "c/" + sub.name)
+    } catch (ignored) {
+      // No native build in this module; nothing to relocate.
+    }
+  }
+  sub.plugins.withId("com.android.library") { relocateCxx() }
+  sub.plugins.withId("com.android.application") { relocateCxx() }
+}
+
+'@
+$content = Get-Content $gradleFile -Raw
+$anchor = 'apply plugin: "expo-root-project"'
+if ($content -notmatch [regex]::Escape($anchor)) { throw "android/build.gradle has no expo-root-project line to anchor to" }
+# WriteAllText with a BOM-less encoder: PowerShell 5.1's `-Encoding utf8` emits a BOM, and
+# Gradle refuses the file with "Unexpected character" on line 1.
+[System.IO.File]::WriteAllText($gradleFile, $content.Replace($anchor, $patch + $anchor), (New-Object System.Text.UTF8Encoding $false))
+
+Write-Host "== assembleRelease ($Abi, API $ApiUrl)" -ForegroundColor Cyan
+Push-Location (Join-Path $mobile "android")
+try {
+  $env:JAVA_HOME = $jdk
+  $env:EXPO_PUBLIC_API_URL = $ApiUrl
+  & .\gradlew.bat assembleRelease --no-daemon "-PreactNativeArchitectures=$Abi"
+  if ($LASTEXITCODE -ne 0) { throw "gradle build failed" }
+} finally { Pop-Location }
+
+# The patch moves every module's buildDir, the app module included, so the apk lands under
+# the short root rather than in android/app/build. Look in both, newest first.
+$apk = @("C:\dmb\b\app\outputs\apk\release", (Join-Path $mobile "android\app\build\outputs\apk\release")) |
+  Where-Object { Test-Path $_ } |
+  ForEach-Object { Get-ChildItem $_ -Filter "*.apk" -Recurse -ErrorAction SilentlyContinue } |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 1
+if (-not $apk) { throw "build reported success but produced no apk" }
+Write-Host "== built $($apk.FullName) ($([math]::Round($apk.Length / 1MB, 1)) MB)" -ForegroundColor Green
+
+if ($Install) {
+  $adb = Join-Path $sdk "platform-tools\adb.exe"
+  Write-Host "== installing on the connected device" -ForegroundColor Cyan
+  & $adb install -r $apk.FullName
+  if ($LASTEXITCODE -ne 0) { throw "adb install failed" }
+  Write-Host "== installed" -ForegroundColor Green
+}
