@@ -14,8 +14,10 @@ the email all carry the same artwork. Colours are the CLAUDE.md palette.
 
     python scripts/app-icons.py
 
-Writes into apps/mobile/assets/. Re-run if the artwork or palette changes; never hand-edit the
-output.
+Also writes the Play listing's feature graphic into apps/mobile/store/ — same artwork, banner
+shaped. See that directory's README for the rest of the listing.
+
+Re-run if the artwork or palette changes; never hand-edit the output.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from PIL import Image, ImageDraw
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / "apps" / "mobile" / "assets"
+STORE = ROOT / "apps" / "mobile" / "store"
 BRAND = ROOT / "apps" / "web" / "public" / "brand"
 GEOMETRY = ROOT / "apps" / "web" / "src" / "components" / "hero" / "logo-geometry.ts"
 
@@ -168,6 +171,24 @@ def lockup(size: int) -> Image.Image:
     return canvas
 
 
+def feature_graphic() -> Image.Image:
+    """
+    Play's listing banner: 1024x500, opaque, no alpha.
+
+    Play crops and scales this differently across its surfaces, and overlays the app name on some
+    of them, so the composition is deliberately simple and centred: the lockup on Parchment with
+    generous margins, and nothing near the edges that would be missed if they were trimmed. No
+    text of our own beyond the wordmark, because Play's own title sits on top of it.
+    """
+    w, h = 1024, 500
+    img = Image.new("RGBA", (w, h), PARCHMENT)
+    art = lockup(h)  # square, sized to the banner's height
+    inset = round(h * 0.08)
+    side = h - inset * 2
+    img.alpha_composite(art.resize((side, side), Image.LANCZOS), ((w - side) // 2, inset))
+    return img
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
@@ -200,8 +221,13 @@ def main() -> None:
     # four little glyphs genuinely do collapse, and this is the case the rose exists for.
     on(MIDNIGHT, 48, GOLD, 0.66).save(OUT / "favicon.png")
 
+    STORE.mkdir(parents=True, exist_ok=True)
+    feature_graphic().convert("RGB").save(STORE / "feature-graphic.png")
+
     for f in sorted(OUT.iterdir()):
-        print(f"  {f.name:24} {Image.open(f).size}")
+        print(f"  assets/{f.name:24} {Image.open(f).size}")
+    for f in sorted(STORE.glob("*.png")):
+        print(f"  store/{f.name:25} {Image.open(f).size}")
 
 
 if __name__ == "__main__":
