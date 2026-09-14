@@ -12,9 +12,33 @@
       "supportsTablet": false
     },
     "android": {
-      "package": "com.diothas.daymarkable"
+      "package": "com.diothas.daymarkable",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1E2A44"
+      },
+      "icon": "./assets/play-store-icon.png"
     },
-    "plugins": ["expo-router", "expo-secure-store", "expo-font"],
-    "experiments": { "typedRoutes": true }
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      "expo-system-ui",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#F7F0E3"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "icon": "./assets/icon.png",
+    "backgroundColor": "#F7F0E3",
+    "primaryColor": "#1E2A44"
   }
 }

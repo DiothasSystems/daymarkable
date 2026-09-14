@@ -212,6 +212,11 @@ handoff in `design/design_handoff_daymarkable/` (style guide, tablet page + emai
 - **Type**: Source Serif 4 600–700 (titles, headlines), Public Sans 400–700 (UI, body), IBM
   Plex Mono 400–500 (timestamps, sync status, page refs, uppercase section labels with
   0.12–0.2em tracking).
+- **App icon and splash**: generated, never drawn by hand — `python scripts/app-icons.py` writes
+  `apps/mobile/assets/` from the compass rose geometry in `apps/web/src/components/Brand.tsx` and
+  the palette above. Gold rose on Midnight for the icon (the emblem is a detailed scene and turns
+  to mud at 48px, which is exactly the case the rose exists for); Midnight rose on Parchment for
+  the splash. Re-run it if the rose or the palette changes.
 - **Web UI**: cards Notepaper, 1px #E3D9C2 border, 6px radius, shadow no heavier than
   `0 2px 8px rgba(30,42,68,.08)`; primary button Midnight/Parchment 4px radius; secondary
   1.5px Midnight outline; tertiary gold underlined link; nav active = gold text + 2px gold
