@@ -1,21 +1,42 @@
 /**
- * The dayMarkable API. The Phase 1 mobile app consumes exactly this router (AppRouter type)
- * with no changes: documents, registry, runs, sync now (shared quota), feedback, settings.
+ * The dayMarkable API. The Phase 1 mobile app consumes this router (AppRouter type): documents,
+ * registry, runs, sync now (shared quota), feedback, settings. The one thing it needed that the
+ * web did not is a sign-in it can complete without a cookie — `auth.claim`, see device-login.ts.
  * No payment procedures live here (rule 14): billing is web-page only.
  */
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { logout, requestMagicLink } from "./auth";
+import { claimMobileSession, handoffUrl, logout, requestMagicLink } from "./auth";
+import { PANE_NAMES } from "./handoff";
 import * as svc from "./services";
 import { joinWaitlist } from "./waitlist";
 import { protectedProcedure, publicProcedure, router } from "./trpc";
 
 export const appRouter = router({
   auth: router({
-    requestLink: publicProcedure.input(z.object({ email: z.string().max(200) })).mutation(({ input }) => requestMagicLink(input.email)),
+    requestLink: publicProcedure
+      .input(z.object({ email: z.string().max(200), client: z.enum(["web", "mobile"]).default("web") }))
+      .mutation(({ input }) => requestMagicLink(input.email, input.client)),
+    /**
+     * Native sign-in, step three: the app trades the secret it kept for the session the emailed
+     * link created (device-login.ts). Public by necessity — there is no session yet — and
+     * incurious by design: "pending" until the link is tapped, and for a secret that was never
+     * issued, which is what keeps this from answering who has an account.
+     */
+    claim: publicProcedure.input(z.object({ pollSecret: z.string().min(1).max(200) })).mutation(({ input }) => claimMobileSession(input.pollSecret)),
+    /**
+     * A one-time URL that opens one of the web's own pages already signed in (server/handoff.ts).
+     * The pane is a name rather than a path, so the redirect is not something a caller chooses.
+     */
+    webHandoff: protectedProcedure
+      .input(z.object({ pane: z.enum(PANE_NAMES) }))
+      .mutation(async ({ ctx, input }) => {
+        if (!ctx.bearer) throw new TRPCError({ code: "BAD_REQUEST", message: "this is for the app; a browser already has the cookie" });
+        return { url: await handoffUrl(ctx.bearer, input.pane) };
+      }),
     me: publicProcedure.query(({ ctx }) => ctx.user),
-    logout: protectedProcedure.mutation(async () => {
-      await logout();
+    logout: protectedProcedure.mutation(async ({ ctx }) => {
+      await logout(ctx.bearer);
       return { ok: true };
     }),
   }),
@@ -53,6 +74,16 @@ export const appRouter = router({
   documents: router({
     list: protectedProcedure.query(({ ctx }) => svc.listDocuments(ctx.user.id)),
     registry: protectedProcedure.query(({ ctx }) => svc.getRegistry(ctx.user.id)),
+    /** A span of dates with repeating series expanded — what a month grid needs (rule 1). */
+    calendar: protectedProcedure
+      .input(z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
+      .query(async ({ ctx, input }) => {
+        try {
+          return await svc.getCalendar(ctx.user.id, input.from, input.to);
+        } catch (err) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        }
+      }),
     republish: protectedProcedure.mutation(async ({ ctx }) => {
       try {
         return await svc.republish(ctx.user.id);
@@ -125,6 +156,44 @@ export const appRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
         }
       }),
+  }),
+  /**
+   * Editing what the lists say — the mobile app's reason for existing, and available to the web
+   * on the same terms. Deliberately NOT `corrections` below: that one teaches the decoder, this
+   * one only changes the plan. See packages/pipeline/src/edits.ts for why they must stay apart.
+   *
+   * There is no `delete`. An item leaves the list by being ticked or dropped (`documents.decide`,
+   * rule 8), which is the same pair of exits a printed page offers.
+   */
+  items: router({
+    /**
+     * The stored row, for an editor to open. Not the registry's or the calendar's view of it:
+     * both project a repeating series onto a date it lands on, and saving that back would move
+     * the series anchor. See packages/pipeline/src/edits.ts.
+     */
+    get: protectedProcedure
+      .input(z.object({ itemType: z.enum(["task", "event", "meeting"]), itemId: z.string().min(1).max(64) }))
+      .query(async ({ ctx, input }) => {
+        try {
+          return await svc.getItemForEdit(ctx.user.id, input.itemType, input.itemId);
+        } catch (err) {
+          throw new TRPCError({ code: "NOT_FOUND", message: (err as Error).message });
+        }
+      }),
+    update: protectedProcedure.input(svc.itemEditSchema).mutation(async ({ ctx, input }) => {
+      try {
+        return await svc.updateItem(ctx.user.id, input);
+      } catch (err) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+      }
+    }),
+    create: protectedProcedure.input(svc.newItemSchema).mutation(async ({ ctx, input }) => {
+      try {
+        return await svc.createItem(ctx.user.id, input);
+      } catch (err) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+      }
+    }),
   }),
   corrections: router({
     fix: protectedProcedure

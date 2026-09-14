@@ -2,7 +2,11 @@ packages:
   - "packages/*"
   - "apps/*"
 allowBuilds:
+  # Jest's optional native file-watcher. Declined: the runner works without it, and the
+  # speed it buys on watch mode is not worth a native build step in this repo.
+  '@parcel/watcher': false
   core-js: false
   esbuild: true
+  unrs-resolver: false
 minimumReleaseAgeExclude:
   - '@anthropic-ai/sdk@0.123.0'

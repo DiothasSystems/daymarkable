@@ -33,7 +33,8 @@ export const taskStatus = pgEnum("task_status", ["open", "carried", "done", "dro
 export const taskPriority = pgEnum("task_priority", ["high", "normal", "low"]);
 export const taskKind = pgEnum("task_kind", ["action", "follow_up"]);
 export const eventStatus = pgEnum("event_status", ["active", "dropped"]);
-export const eventSource = pgEnum("event_source", ["ink", "external"]);
+/** Where the entry came from: the user's ink, a connected calendar, or typed into the app. */
+export const eventSource = pgEnum("event_source", ["ink", "external", "app"]);
 export const meetingRequestState = pgEnum("meeting_request_state", ["drafted", "confirmed", "sent", "dropped"]);
 export const inboxKind = pgEnum("inbox_kind", ["task", "event", "meeting_request", "margin_note"]);
 export const inboxStatus = pgEnum("inbox_status", ["pending", "accepted", "dropped", "expired"]);
@@ -488,6 +489,57 @@ export const sessions = pgTable("sessions", {
   id: text("id").primaryKey(),
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  /** "web" (a cookie) or "mobile" (a bearer token). Null on rows that predate the column. */
+  client: text("client"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One sign-in attempt from a native client.
+ *
+ * A phone cannot be handed a cookie, and the emailed link is very often opened somewhere else
+ * entirely — laptop mail, phone app — so a deep link back to the device that asked would fail in
+ * the ordinary case. Instead the app keeps a secret of its own and waits: the link is tapped
+ * wherever it lands, /auth/verify creates the session exactly as it always has, and writes the
+ * session's id here. The app then trades its secret for that id, once.
+ *
+ * Keyed by the hash of the secret, like login_tokens beside it — the plaintext is only ever in
+ * the app's keychain. Dead in fifteen minutes whether claimed or not.
+ */
+export const deviceLogins = pgTable(
+  "device_logins",
+  {
+    secretHash: text("secret_hash").primaryKey(),
+    /** The login_tokens row this attempt is waiting on. */
+    tokenHash: text("token_hash").notNull(),
+    /** Written by /auth/verify when the link is tapped; null until then. */
+    sessionId: text("session_id").references(() => sessions.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    /** Polls against this row, so a wedged client cannot poll it forever. */
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("device_logins_token").on(t.tokenHash)],
+);
+
+/**
+ * A one-time ticket that turns a native session into a browser cookie.
+ *
+ * The app carries `Authorization: Bearer <session id>`; the web's own pages — setup, settings,
+ * billing, support — read a cookie. Rather than keep two ways to be signed in, the app asks for
+ * one of these, the WebView loads it once, and the SAME session comes back as a cookie in that
+ * WebView's jar.
+ *
+ * Short-lived and single-use because it travels in a URL, where a credential does not belong:
+ * sixty seconds and one redemption means a captured link is worthless before it can be used.
+ * Only the hash is stored, as with every other token here.
+ */
+export const webHandoffs = pgTable("web_handoffs", {
+  tokenHash: text("token_hash").primaryKey(),
+  sessionId: text("session_id").notNull().references(() => sessions.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

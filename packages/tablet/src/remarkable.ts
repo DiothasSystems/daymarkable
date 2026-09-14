@@ -46,7 +46,9 @@ const CALL_ATTEMPTS = Number(process.env.RMAPI_ATTEMPTS ?? 5);
 const CALL_BACKOFF_MS = Number(process.env.RMAPI_BACKOFF_MS ?? 3_000);
 
 export function withTimeout<T>(work: Promise<T>, ms = CALL_TIMEOUT_MS): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
+  // Not NodeJS.Timeout: this module is compiled by consumers whose lib includes DOM, where
+  // setTimeout returns a number. ReturnType is right under either.
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const limit = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`timed out after ${Math.round(ms / 1000)}s`)), ms);
   });

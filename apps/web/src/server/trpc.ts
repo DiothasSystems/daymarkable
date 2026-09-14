@@ -4,6 +4,8 @@ import type { SessionUser } from "./auth";
 
 export interface Context {
   user: SessionUser | null;
+  /** The session id a native client signed in with, when that is how it arrived. Null for a cookie. */
+  bearer: string | null;
 }
 
 const t = initTRPC.context<Context>().create({ transformer: superjson });

@@ -10,3 +10,4 @@ export * from "./fixtures.js";
 export * from "./deps.js";
 export * from "./quota.js";
 export * from "./republish.js";
+export * from "./edits.js";
