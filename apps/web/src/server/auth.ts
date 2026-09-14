@@ -53,7 +53,15 @@ export async function requestMagicLink(rawEmail: string, client: LoginClient = "
   if (!email) return silent();
   // Who may sign in is decided in one place; this one only obeys it, and says nothing either
   // way, because the reply here reaches whoever typed the address rather than its owner.
-  if (!(await maySignIn(email))) return silent();
+  //
+  // The SERVER log is a different audience. Without this line "no link was sent because that
+  // address may not sign in" and "no link arrived because the mail provider is misconfigured"
+  // look identical from the outside, and the first is by far the more common. The operator
+  // reading their own logs is allowed to know which; the person who typed the address is not.
+  if (!(await maySignIn(email))) {
+    console.log(`[web] no sign-in link for ${email}: that address may not sign in (invite it at /admin/waitlist)`);
+    return silent();
+  }
   const rt = await getRuntime();
   const token = randomBytes(32).toString("base64url");
   const tokenHash = sha256(token);
@@ -67,7 +75,10 @@ export async function requestMagicLink(rawEmail: string, client: LoginClient = "
     console.log(`[web] magic link for ${email}: ${link}`);
     return process.env.NODE_ENV === "production" ? { ok: true, pollSecret } : { ok: true, devLink: link, pollSecret };
   }
+  // The provider's own words, kept whole: a Resend 403 naming an unverified domain is the
+  // difference between "our mail is broken" and "EMAIL_FROM is on a domain we never verified".
   if (res.status === "failed") console.error(`[web] sign-in email to ${email} failed: ${res.error}`);
+  if (res.status === "sent") console.log(`[web] sign-in link mailed to ${email} via ${rt.mail.name} (${res.providerId ?? "no id"})`);
   return { ok: true, pollSecret };
 }
 

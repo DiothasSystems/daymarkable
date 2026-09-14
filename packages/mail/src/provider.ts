@@ -82,7 +82,16 @@ export class MemoryProvider implements MailProvider {
   }
 }
 
+/**
+ * The address mail comes from when `EMAIL_FROM` is unset.
+ *
+ * It must be on the domain verified with the provider — `daymarkable.com`, per docs/DEPLOY.md.
+ * This used to read `.app`, which is not a domain this product owns: Resend rejects the send
+ * with a 403 and every sign-in link silently fails to arrive.
+ */
+export const DEFAULT_FROM = "dayMarkable <notes@daymarkable.com>";
+
 export function mailProviderFromEnv(env: NodeJS.ProcessEnv = process.env, sink?: (mail: OutgoingMail) => Promise<void> | void): MailProvider {
-  if (env.EMAIL_API_KEY) return new ResendProvider(env.EMAIL_API_KEY, env.EMAIL_FROM || "dayMarkable <notes@daymarkable.app>");
+  if (env.EMAIL_API_KEY) return new ResendProvider(env.EMAIL_API_KEY, env.EMAIL_FROM || DEFAULT_FROM);
   return new MemoryProvider(sink);
 }

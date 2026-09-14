@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildSignInMail } from "./authMail.js";
 import { buildDeliveryMail, buildDeliveryVerificationMail } from "./deliveryMail.js";
 import { buildMeetingMail, meetingSubject } from "./meetingMail.js";
-import { MemoryProvider, ResendProvider } from "./provider.js";
+import { DEFAULT_FROM, MemoryProvider, ResendProvider, mailProviderFromEnv } from "./provider.js";
 
 const m: Meeting = {
   id: "abc",
@@ -118,5 +118,21 @@ describe("sign-in mail", () => {
     const mail = buildSignInMail('x"<b>y@example.com', LINK, "h");
     expect(mail.html).not.toContain("<b>");
     expect(mail.html).toContain("&lt;b&gt;");
+  });
+});
+
+describe("provider selection", () => {
+  it("sends from the domain the deploy runbook verifies, not one we do not own", () => {
+    // This was `notes@daymarkable.app` — a domain this product has never owned. Resend answers a
+    // 403 for an unverified sender, so every sign-in link failed to arrive while the app looked
+    // like it had sent one. docs/DEPLOY.md says verify daymarkable.com and send from it.
+    expect(DEFAULT_FROM).toContain("@daymarkable.com");
+    expect(DEFAULT_FROM).not.toContain(".app");
+  });
+
+  it("only reaches for a real provider when there is a key to reach with", () => {
+    expect(mailProviderFromEnv({} as NodeJS.ProcessEnv).name).toBe("memory");
+    expect(mailProviderFromEnv({ EMAIL_API_KEY: "" } as NodeJS.ProcessEnv).name).toBe("memory");
+    expect(mailProviderFromEnv({ EMAIL_API_KEY: "re_x" } as NodeJS.ProcessEnv).name).toBe("resend");
   });
 });
