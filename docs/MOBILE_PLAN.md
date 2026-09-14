@@ -480,6 +480,39 @@ to disagree quietly:
 
 ---
 
+## 13a. Getting a build onto a phone
+
+**Expo Go** runs the app against a dev server and needs no build — it is how the app was first
+verified on hardware (2026-09-14, a Pixel 8 Pro: poll-and-claim sign-in, ticking an action off,
+the weekly series expanded on the calendar). It is not a way to ship.
+
+```bash
+cd apps/mobile && EXPO_PUBLIC_API_URL=http://<your LAN ip>:3000 npx expo start
+```
+
+**A real build goes through EAS**, not Gradle on this machine. `eas.json` carries three profiles;
+`preview` produces an installable APK pointing at production, `production` produces the AAB Play
+wants. Both need one interactive login first:
+
+```bash
+cd apps/mobile && npx eas-cli login && npx eas-cli build -p android --profile preview
+```
+
+**Why not a local `assembleRelease`.** It was tried and it does not work here. Each native module
+builds under `<module>/.cxx` and `<module>/build/intermediates/cxx`, and under pnpm `<module>` is a
+hashed directory like `node_modules/.pnpm/react-native-screens@4.26.2_7c467fb.../node_modules/...`.
+With the repo under `OneDrive/Documents` that is past Windows' 260-character limit before CMake
+appends its own temp files, and clang reports that it "is not able to compile a simple test
+program" — which reads like a broken NDK and is nothing of the kind. Relocating the `.cxx`
+directory moves the failure to the next module rather than fixing it, and a junction at `C:\dm`
+does not help because Gradle resolves module paths to their real location. The two real fixes are
+`LongPathsEnabled=1` in the registry plus a reboot, or building somewhere without the limit —
+which is what EAS is.
+
+**Before the first Play upload**, still missing: an app icon and splash in `app.json` (Play wants a
+512x512 icon and a feature graphic; the compass rose in the brand handoff is the source), and a
+privacy policy URL — `/privacy` already exists on the public site.
+
 ## 14. Open questions
 
 1. **Does "edit the calendar" include creating events and actions from the phone?** §5 assumes yes
