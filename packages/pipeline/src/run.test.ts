@@ -189,8 +189,9 @@ describe("selection and windows", () => {
   it("decides page changes by hash, and by page timestamp only on first sight of a document", () => {
     const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });
     const snap = new Map<string, string | null>([["p1", "h1"], ["p2", "h2"]]);
-    const seen = { pagesNeverSeen: false, pageCount: 10 };
-    const first = (pageCount = 10) => ({ pagesNeverSeen: true, pageCount });
+    const seen = { pagesNeverSeen: false, tailPageIds: new Set<string>() };
+    // On first sight the tail is whichever page ids carry ink; these cases name them directly.
+    const first = (...tail: string[]) => ({ pagesNeverSeen: true, tailPageIds: new Set(tail) });
 
     // Snapshotted pages: the hash decides, whatever the timestamp says.
     expect(pageChanged({ pageId: "p1", index: 0, hash: "h1", modified: null }, snap, w)).toBe(false);
@@ -227,26 +228,55 @@ describe("selection and windows", () => {
   it("reads only the tail of an undatable notebook on first sight, not its whole history", () => {
     const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });
     const none = new Map<string, string | null>();
-    const first = { pagesNeverSeen: true, pageCount: 40 };
     const page = (index: number) => ({ pageId: `p${index}`, index, hash: `h${index}`, modified: null });
 
-    const read = Array.from({ length: 40 }, (_, i) => i).filter((i) => pageChanged(page(i), none, w, first));
+    // A 40-page notebook, every page inked: the tail is the last three.
+    const refs = Array.from({ length: 40 }, (_, i) => page(i));
+    const tailPageIds = new Set(refs.filter((r) => r.hash).slice(-FIRST_SIGHT_TAIL_PAGES).map((r) => r.pageId));
+    const firstSight = { pagesNeverSeen: true, tailPageIds };
+    const read = refs.filter((r) => pageChanged(r, none, w, firstSight)).map((r) => r.index);
     expect(read).toEqual([37, 38, 39]);
     expect(read).toHaveLength(FIRST_SIGHT_TAIL_PAGES);
 
     // A short notebook is read whole, because its tail is the whole thing.
-    const short = { pagesNeverSeen: true, pageCount: 2 };
-    expect(pageChanged(page(0), none, w, short)).toBe(true);
-    expect(pageChanged(page(1), none, w, short)).toBe(true);
+    const shortRefs = [page(0), page(1)];
+    const shortSight = { pagesNeverSeen: true, tailPageIds: new Set(shortRefs.map((r) => r.pageId)) };
+    expect(shortRefs.every((r) => pageChanged(r, none, w, shortSight))).toBe(true);
 
     // A real timestamp still decides when there is one — the tail rule is only for pages with none.
-    expect(pageChanged({ pageId: "dated-old", index: 39, hash: "h", modified: "1761573438256" }, none, w, first)).toBe(false);
-    expect(pageChanged({ pageId: "dated-new", index: 0, hash: "h", modified: "1788288231187" }, none, w, first)).toBe(true);
+    expect(pageChanged({ pageId: "dated-old", index: 39, hash: "h", modified: "1761573438256" }, none, w, firstSight)).toBe(false);
+    expect(pageChanged({ pageId: "dated-new", index: 0, hash: "h", modified: "1788288231187" }, none, w, firstSight)).toBe(true);
 
     // And once a notebook's pages ARE recorded, a new page is new ink wherever it sits.
     const snap = new Map<string, string | null>([["p0", "h0"]]);
-    expect(pageChanged(page(5), snap, w, { pagesNeverSeen: false, pageCount: 40 })).toBe(true);
+    expect(pageChanged(page(5), snap, w, { pagesNeverSeen: false, tailPageIds: new Set() })).toBe(true);
   });
+
+  /**
+   * An annotated PDF is why the tail counts INK rather than pages. A year planner is ~365 pages of
+   * which a handful are written on; measuring the tail from the end of the FILE puts every
+   * annotation outside it, and the first night a user marks up a calendar template reads nothing.
+   */
+  it("finds the annotated pages of a PDF template, wherever they sit in the file", () => {
+    const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });
+    const none = new Map<string, string | null>();
+    // 365 pages; only three carry an ink layer, and they are nowhere near the end.
+    const inkedAt = new Set([12, 250, 251]);
+    const refs = Array.from({ length: 365 }, (_, i) => ({
+      pageId: `d${i}`,
+      index: i,
+      hash: inkedAt.has(i) ? `ink${i}` : null,
+      modified: null,
+    }));
+    const tailPageIds = new Set(refs.filter((r) => r.hash).slice(-FIRST_SIGHT_TAIL_PAGES).map((r) => r.pageId));
+    const firstSight = { pagesNeverSeen: true, tailPageIds };
+
+    const read = refs.filter((r) => pageChanged(r, none, w, firstSight)).map((r) => r.index);
+    expect(read).toEqual([12, 250, 251]);
+    // The 362 blank pages cost nothing: no ink layer, no hash, never decoded.
+    expect(read.every((i) => inkedAt.has(i))).toBe(true);
+  });
+
   it("opens the window at local midnight of the previous day once the account has run", () => {
     const w = changeWindowStart("2026-09-02", "America/New_York", new Date("2026-09-01T07:00:00Z"));
     expect(w.toISO()).toBe("2026-09-01T00:00:00.000-04:00");

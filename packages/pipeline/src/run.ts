@@ -197,8 +197,11 @@ export function pageChanged(
   page: { pageId: string; index: number; hash: string | null; modified: string | null },
   snapshot: Map<string, string | null>,
   windowStart: DateTime,
-  /** Set when this notebook has no page snapshots at all — nothing to compare against. */
-  firstSight: { pagesNeverSeen: boolean; pageCount: number } = { pagesNeverSeen: false, pageCount: 0 },
+  /**
+   * Set when this notebook has no page snapshots at all — nothing to compare against.
+   * `tailPageIds` is the last few pages that actually carry ink (see FIRST_SIGHT_TAIL_PAGES).
+   */
+  firstSight: { pagesNeverSeen: boolean; tailPageIds: ReadonlySet<string> } = { pagesNeverSeen: false, tailPageIds: new Set() },
 ): boolean {
   if (!page.hash) return false;
   if (snapshot.has(page.pageId)) return snapshot.get(page.pageId) !== page.hash;
@@ -222,7 +225,11 @@ export function pageChanged(
   // So read the tail, where reMarkable puts new writing, and baseline the rest. Baselining records
   // each hash, so a page that is genuinely edited later differs from its snapshot and decodes then
   // — the notebook heals itself on the next real edit instead of being re-read in full now.
-  return page.index >= firstSight.pageCount - FIRST_SIGHT_TAIL_PAGES;
+  //
+  // The tail counts pages that carry INK, not pages. An annotated PDF is the case that makes the
+  // difference: a year planner is ~365 pages of which three are written on, and counting all of
+  // them puts every annotation outside a tail measured from the end of the file.
+  return firstSight.tailPageIds.has(page.pageId);
 }
 
 export async function runPipeline(deps: PipelineDeps, params: PipelineParams): Promise<RunOutcome> {
@@ -285,7 +292,10 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       // or only some pages were ever decoded), and treating those pages as new ink decoded a
       // year of an existing notebook in one night.
       const pagesNeverSeen = pageSnap.size === 0;
-      const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart, { pagesNeverSeen, pageCount: pageRefs.length })).map((p) => p.pageId);
+      // The tail is measured over inked pages: a PDF template is mostly blank pages, and counting
+      // those would put every annotation outside it.
+      const tailPageIds = new Set(pageRefs.filter((p) => p.hash).slice(-FIRST_SIGHT_TAIL_PAGES).map((p) => p.pageId));
+      const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart, { pagesNeverSeen, tailPageIds })).map((p) => p.pageId);
       // Record every page we did NOT decode at its current hash, so "no snapshot" converges on
       // meaning "genuinely new page" instead of "never got round to it".
       const changed = new Set(changedPageIds);
