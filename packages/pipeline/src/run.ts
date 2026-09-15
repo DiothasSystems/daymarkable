@@ -193,6 +193,20 @@ export function changeWindowStart(localDate: string, timezone: string, lastSucce
  */
 export const FIRST_SIGHT_TAIL_PAGES = 3;
 
+/**
+ * How many undatable inked pages a document may carry on first sight and still be read whole.
+ *
+ * Position is the wrong question for a template. A 226-page planner kit annotated on twenty
+ * scattered days is twenty pages of deliberate writing, and a tail measured from the end of the
+ * file reads three of them. What separates "a document in use" from "a history to leave alone" is
+ * how MUCH ink there is, not where it sits: a notebook filled over a year carries ink on most of
+ * its pages, a template in use carries it on a few.
+ *
+ * Above this, the tail still applies and the rest is baselined — so nothing is lost permanently,
+ * it just waits for the page to be touched again.
+ */
+export const FIRST_SIGHT_MAX_INKED_PAGES = 25;
+
 export function pageChanged(
   page: { pageId: string; index: number; hash: string | null; modified: string | null },
   snapshot: Map<string, string | null>,
@@ -292,10 +306,22 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       // or only some pages were ever decoded), and treating those pages as new ink decoded a
       // year of an existing notebook in one night.
       const pagesNeverSeen = pageSnap.size === 0;
-      // The tail is measured over inked pages: a PDF template is mostly blank pages, and counting
-      // those would put every annotation outside it.
-      const tailPageIds = new Set(pageRefs.filter((p) => p.hash).slice(-FIRST_SIGHT_TAIL_PAGES).map((p) => p.pageId));
+      // First sight of a document, for the pages that carry no timestamp of their own: read them
+      // all when the ink is sparse enough to be a document in use, and fall back to the tail when
+      // there is so much of it that this is a history rather than a day's work. Pages that DO
+      // carry a timestamp never reach this — the window decides those.
+      const inkedUndatable = pageRefs.filter((p) => p.hash && parseCloudDate(p.modified) === null);
+      const readWhole = inkedUndatable.length <= FIRST_SIGHT_MAX_INKED_PAGES;
+      const tailPageIds = new Set((readWhole ? inkedUndatable : inkedUndatable.slice(-FIRST_SIGHT_TAIL_PAGES)).map((p) => p.pageId));
       const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart, { pagesNeverSeen, tailPageIds })).map((p) => p.pageId);
+      if (pagesNeverSeen && inkedUndatable.length > 0) {
+        // Ids and counts only (rule 5). This is the line that says why a first sight read what it
+        // did, which is the hard thing to work out afterwards from the page count alone.
+        log(
+          `first sight ${doc.id.slice(0, 8)}: ${pageRefs.length} pages, ${inkedUndatable.length} inked without a timestamp, ` +
+            `${readWhole ? "all read" : `tail ${tailPageIds.size} read, ${inkedUndatable.length - tailPageIds.size} baselined as history`}`,
+        );
+      }
       // Record every page we did NOT decode at its current hash, so "no snapshot" converges on
       // meaning "genuinely new page" instead of "never got round to it".
       const changed = new Set(changedPageIds);

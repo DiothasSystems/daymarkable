@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LocalCacheStore } from "./cache.js";
 import { FixtureDecoder, FixtureRenderer, FixtureTabletProvider } from "./fixtures.js";
 import * as repo from "./repo.js";
-import { FIRST_SIGHT_TAIL_PAGES, changeWindowStart, cleanStaleOutputs, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, weekNotesName, type PipelineDeps } from "./run.js";
+import { FIRST_SIGHT_MAX_INKED_PAGES, FIRST_SIGHT_TAIL_PAGES, changeWindowStart, cleanStaleOutputs, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, weekNotesName, type PipelineDeps } from "./run.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(here, "..", "..", "..", "fixtures", "notebooks");
@@ -253,28 +253,45 @@ describe("selection and windows", () => {
   });
 
   /**
-   * An annotated PDF is why the tail counts INK rather than pages. A year planner is ~365 pages of
-   * which a handful are written on; measuring the tail from the end of the FILE puts every
-   * annotation outside it, and the first night a user marks up a calendar template reads nothing.
+   * An annotated PDF template is why first sight is decided by how MUCH ink there is rather than
+   * where it sits. A 226-page planner kit annotated on scattered days is deliberate writing, and a
+   * tail measured from the end of the file reads three pages of it.
    */
-  it("finds the annotated pages of a PDF template, wherever they sit in the file", () => {
+  it("reads every annotated page of a template, wherever they sit in the file", () => {
     const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });
     const none = new Map<string, string | null>();
-    // 365 pages; only three carry an ink layer, and they are nowhere near the end.
-    const inkedAt = new Set([12, 250, 251]);
-    const refs = Array.from({ length: 365 }, (_, i) => ({
+    // 226 pages, twenty annotated on scattered days — none of them near the end.
+    const inkedAt = new Set([3, 12, 18, 25, 31, 44, 57, 63, 78, 91, 104, 117, 130, 142, 155, 168, 181, 194, 207, 210]);
+    const refs = Array.from({ length: 226 }, (_, i) => ({
       pageId: `d${i}`,
       index: i,
       hash: inkedAt.has(i) ? `ink${i}` : null,
       modified: null,
     }));
-    const tailPageIds = new Set(refs.filter((r) => r.hash).slice(-FIRST_SIGHT_TAIL_PAGES).map((r) => r.pageId));
-    const firstSight = { pagesNeverSeen: true, tailPageIds };
+    const undatable = refs.filter((r) => r.hash);
+    expect(undatable.length).toBeLessThanOrEqual(FIRST_SIGHT_MAX_INKED_PAGES);
 
-    const read = refs.filter((r) => pageChanged(r, none, w, firstSight)).map((r) => r.index);
-    expect(read).toEqual([12, 250, 251]);
-    // The 362 blank pages cost nothing: no ink layer, no hash, never decoded.
-    expect(read.every((i) => inkedAt.has(i))).toBe(true);
+    const tailPageIds = new Set(undatable.map((r) => r.pageId)); // sparse enough: read whole
+    const read = refs.filter((r) => pageChanged(r, none, w, { pagesNeverSeen: true, tailPageIds })).map((r) => r.index);
+    expect(read).toEqual([...inkedAt].sort((a, b) => a - b));
+    // The 206 blank pages cost nothing: no ink layer, no hash, never decoded.
+    expect(read).toHaveLength(20);
+  });
+
+  /**
+   * And the other side of the same rule: a notebook carrying ink on page after page is a history,
+   * not a day's work. This is 2026-09-15 — three of these became 44 pages and 19 emails.
+   */
+  it("holds back a notebook whose every page is inked, and says so", () => {
+    const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });
+    const none = new Map<string, string | null>();
+    const refs = Array.from({ length: 60 }, (_, i) => ({ pageId: `p${i}`, index: i, hash: `h${i}`, modified: null }));
+    const undatable = refs.filter((r) => r.hash);
+    expect(undatable.length).toBeGreaterThan(FIRST_SIGHT_MAX_INKED_PAGES);
+
+    const tailPageIds = new Set(undatable.slice(-FIRST_SIGHT_TAIL_PAGES).map((r) => r.pageId));
+    const read = refs.filter((r) => pageChanged(r, none, w, { pagesNeverSeen: true, tailPageIds })).map((r) => r.index);
+    expect(read).toEqual([57, 58, 59]);
   });
 
   it("opens the window at local midnight of the previous day once the account has run", () => {
