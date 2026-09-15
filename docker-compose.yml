@@ -45,7 +45,10 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-daymarkable}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-daymarkable}
       RENDER_SERVICE_URL: http://render:8787
       DAYMARKABLE_STATE_DIR: /data
-      DAYMARKABLE_SCHEDULER: "1"
+      # Settable from .env so the automatic run can be disarmed without a code change — which is
+      # what you want at 1am when a run is doing something wrong and you need it to stop tonight.
+      # Sync now is unaffected; only the scheduled run reads this.
+      DAYMARKABLE_SCHEDULER: "${DAYMARKABLE_SCHEDULER:-1}"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?set DATA_ENCRYPTION_KEY (32 bytes base64)}
       DECODE_MODEL: ${DECODE_MODEL:-claude-sonnet-5}
