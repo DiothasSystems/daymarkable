@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LocalCacheStore } from "./cache.js";
 import { FixtureDecoder, FixtureRenderer, FixtureTabletProvider } from "./fixtures.js";
 import * as repo from "./repo.js";
-import { changeWindowStart, cleanStaleOutputs, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, weekNotesName, type PipelineDeps } from "./run.js";
+import { FIRST_SIGHT_TAIL_PAGES, changeWindowStart, cleanStaleOutputs, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, weekNotesName, type PipelineDeps } from "./run.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(here, "..", "..", "..", "fixtures", "notebooks");
@@ -189,31 +189,63 @@ describe("selection and windows", () => {
   it("decides page changes by hash, and by page timestamp only on first sight of a document", () => {
     const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });
     const snap = new Map<string, string | null>([["p1", "h1"], ["p2", "h2"]]);
+    const seen = { pagesNeverSeen: false, pageCount: 10 };
+    const first = (pageCount = 10) => ({ pagesNeverSeen: true, pageCount });
+
     // Snapshotted pages: the hash decides, whatever the timestamp says.
-    expect(pageChanged({ pageId: "p1", hash: "h1", modified: null }, snap, w)).toBe(false);
-    expect(pageChanged({ pageId: "p2", hash: "h9", modified: "1000" }, snap, w)).toBe(true);
-    expect(pageChanged({ pageId: "blank", hash: null, modified: null }, snap, w)).toBe(false);
+    expect(pageChanged({ pageId: "p1", index: 0, hash: "h1", modified: null }, snap, w)).toBe(false);
+    expect(pageChanged({ pageId: "p2", index: 1, hash: "h9", modified: "1000" }, snap, w)).toBe(true);
+    expect(pageChanged({ pageId: "blank", index: 2, hash: null, modified: null }, snap, w)).toBe(false);
 
     // A page added to a notebook whose pages we have recorded is new ink: read it regardless of
     // when the cloud claims it was written. This is the first defect — page 2 of a tracked
     // notebook was dropped because its timestamp did not parse the way this code assumed.
-    expect(pageChanged({ pageId: "added", hash: "h", modified: "1761573438256" }, snap, w)).toBe(true);
-    expect(pageChanged({ pageId: "added-secs", hash: "h", modified: "1757000000" }, snap, w)).toBe(true);
+    expect(pageChanged({ pageId: "added", index: 3, hash: "h", modified: "1761573438256" }, snap, w, seen)).toBe(true);
+    expect(pageChanged({ pageId: "added-secs", index: 4, hash: "h", modified: "1757000000" }, snap, w, seen)).toBe(true);
 
     // No page record at all: the timestamp keeps an old notebook's history out. This is the
     // SECOND defect — a document can hold a hash snapshot with no page rows behind it, and
     // reading that as "we know this notebook" decoded a year of an existing one in one night.
     const none = new Map<string, string | null>();
-    expect(pageChanged({ pageId: "ancient", hash: "h", modified: "1761573438256" }, none, w, true)).toBe(false);
-    expect(pageChanged({ pageId: "recent", hash: "h", modified: "1788288231187" }, none, w, true)).toBe(true);
+    expect(pageChanged({ pageId: "ancient", index: 0, hash: "h", modified: "1761573438256" }, none, w, first())).toBe(false);
+    expect(pageChanged({ pageId: "recent", index: 1, hash: "h", modified: "1788288231187" }, none, w, first())).toBe(true);
 
     // First sight of a whole document: the timestamp keeps an old notebook's history out.
-    expect(pageChanged({ pageId: "new-old", hash: "h", modified: "1761573438256" }, snap, w, true)).toBe(false);
-    expect(pageChanged({ pageId: "new-fresh", hash: "h", modified: "1788288231187" }, snap, w, true)).toBe(true);
-    expect(pageChanged({ pageId: "new-unknown", hash: "h", modified: null }, snap, w, true)).toBe(true);
+    expect(pageChanged({ pageId: "new-old", index: 0, hash: "h", modified: "1761573438256" }, snap, w, first())).toBe(false);
+    expect(pageChanged({ pageId: "new-fresh", index: 1, hash: "h", modified: "1788288231187" }, snap, w, first())).toBe(true);
     // Epoch SECONDS, which read as 1970 before and silently skipped the page.
-    expect(pageChanged({ pageId: "new-secs", hash: "h", modified: "1788288231" }, snap, w, true)).toBe(true);
-    expect(pageChanged({ pageId: "old-secs", hash: "h", modified: "1761573438" }, snap, w, true)).toBe(false);
+    expect(pageChanged({ pageId: "new-secs", index: 2, hash: "h", modified: "1788288231" }, snap, w, first())).toBe(true);
+    expect(pageChanged({ pageId: "old-secs", index: 3, hash: "h", modified: "1761573438" }, snap, w, first())).toBe(false);
+  });
+
+  /**
+   * The THIRD defect, 2026-09-15. Pages that carry no timestamp do not carry one individually: a
+   * whole notebook of them read as new the moment the notebook was touched, and three notebooks
+   * became 44 pages, 20 meetings spanning 2025-01 to 2026-09, and 19 emails. The tail is where
+   * reMarkable puts new writing, so read that and baseline the rest.
+   */
+  it("reads only the tail of an undatable notebook on first sight, not its whole history", () => {
+    const w = DateTime.fromISO("2026-09-01T00:00:00", { zone: "America/New_York" });
+    const none = new Map<string, string | null>();
+    const first = { pagesNeverSeen: true, pageCount: 40 };
+    const page = (index: number) => ({ pageId: `p${index}`, index, hash: `h${index}`, modified: null });
+
+    const read = Array.from({ length: 40 }, (_, i) => i).filter((i) => pageChanged(page(i), none, w, first));
+    expect(read).toEqual([37, 38, 39]);
+    expect(read).toHaveLength(FIRST_SIGHT_TAIL_PAGES);
+
+    // A short notebook is read whole, because its tail is the whole thing.
+    const short = { pagesNeverSeen: true, pageCount: 2 };
+    expect(pageChanged(page(0), none, w, short)).toBe(true);
+    expect(pageChanged(page(1), none, w, short)).toBe(true);
+
+    // A real timestamp still decides when there is one — the tail rule is only for pages with none.
+    expect(pageChanged({ pageId: "dated-old", index: 39, hash: "h", modified: "1761573438256" }, none, w, first)).toBe(false);
+    expect(pageChanged({ pageId: "dated-new", index: 0, hash: "h", modified: "1788288231187" }, none, w, first)).toBe(true);
+
+    // And once a notebook's pages ARE recorded, a new page is new ink wherever it sits.
+    const snap = new Map<string, string | null>([["p0", "h0"]]);
+    expect(pageChanged(page(5), snap, w, { pagesNeverSeen: false, pageCount: 40 })).toBe(true);
   });
   it("opens the window at local midnight of the previous day once the account has run", () => {
     const w = changeWindowStart("2026-09-02", "America/New_York", new Date("2026-09-01T07:00:00Z"));

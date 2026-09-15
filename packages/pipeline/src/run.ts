@@ -108,6 +108,13 @@ export async function cleanStaleOutputs(tablet: TabletProvider, docs: readonly T
   return stale.length;
 }
 const ARCHIVE_DAYS = 7;
+/**
+ * Most meeting-note emails one run may send. A normal night produces a handful; a run that read
+ * more than this is re-reading history rather than reporting a day, and the customer should not
+ * find nineteen emails about meetings from months ago in their inbox. The notes are on the tablet
+ * and in the app either way, so suppressing the mail loses nothing but the noise.
+ */
+export const MAX_MEETING_EMAILS_PER_RUN = 6;
 /** How far the very first run for an account looks back (see changeWindowStart). */
 export const FIRST_RUN_LOOKBACK_DAYS = 7;
 
@@ -180,12 +187,18 @@ export function changeWindowStart(localDate: string, timezone: string, lastSucce
  * with no page rows behind it, and reading that as "we know this notebook" decoded a year of an
  * existing one in a single night.
  */
+/**
+ * How many pages off the end of a notebook to read the first time it is touched, when its pages
+ * carry no usable timestamp. reMarkable notebooks are written at the end, so the new ink is there.
+ */
+export const FIRST_SIGHT_TAIL_PAGES = 3;
+
 export function pageChanged(
-  page: { pageId: string; hash: string | null; modified: string | null },
+  page: { pageId: string; index: number; hash: string | null; modified: string | null },
   snapshot: Map<string, string | null>,
   windowStart: DateTime,
-  /** True when this notebook has no page snapshots at all — nothing to compare against. */
-  pagesNeverSeen = false,
+  /** Set when this notebook has no page snapshots at all — nothing to compare against. */
+  firstSight: { pagesNeverSeen: boolean; pageCount: number } = { pagesNeverSeen: false, pageCount: 0 },
 ): boolean {
   if (!page.hash) return false;
   if (snapshot.has(page.pageId)) return snapshot.get(page.pageId) !== page.hash;
@@ -194,13 +207,22 @@ export function pageChanged(
   // definition — the user added a page. Read it, and never let a timestamp decide: page 2 of a
   // notebook whose page 1 was already snapshotted was being dropped whenever its timestamp did
   // not parse the way this code assumed.
-  if (!pagesNeverSeen) return true;
+  if (!firstSight.pagesNeverSeen) return true;
 
-  // No page of this notebook has ever been recorded, so we cannot tell new ink from old: fall
-  // back to the timestamp, which is what stops adding a year-old notebook decoding its entire
-  // history. Unreadable timestamp = read the page: paying for one page beats losing it.
+  // No page of this notebook has ever been recorded, so we cannot tell new ink from old. A
+  // timestamp settles it when there is one.
   const at = parseCloudDate(page.modified);
-  return at === null || at.getTime() >= windowStart.toMillis();
+  if (at !== null) return at.getTime() >= windowStart.toMillis();
+
+  // And when there is not: "read it, paying for one page beats losing it" was the old answer, and
+  // it is wrong at notebook scale. Pages that carry no timestamp do not carry one individually —
+  // a whole notebook of them reads as new the moment the notebook is touched, which on 2026-09-15
+  // turned three notebooks into 44 pages, 20 meetings and 19 emails of months-old material.
+  //
+  // So read the tail, where reMarkable puts new writing, and baseline the rest. Baselining records
+  // each hash, so a page that is genuinely edited later differs from its snapshot and decodes then
+  // — the notebook heals itself on the next real edit instead of being re-read in full now.
+  return page.index >= firstSight.pageCount - FIRST_SIGHT_TAIL_PAGES;
 }
 
 export async function runPipeline(deps: PipelineDeps, params: PipelineParams): Promise<RunOutcome> {
@@ -263,7 +285,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       // or only some pages were ever decoded), and treating those pages as new ink decoded a
       // year of an existing notebook in one night.
       const pagesNeverSeen = pageSnap.size === 0;
-      const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart, pagesNeverSeen)).map((p) => p.pageId);
+      const changedPageIds = pageRefs.filter((p) => pageChanged(p, pageSnap, windowStart, { pagesNeverSeen, pageCount: pageRefs.length })).map((p) => p.pageId);
       // Record every page we did NOT decode at its current hash, so "no snapshot" converges on
       // meaning "genuinely new page" instead of "never got round to it".
       const changed = new Set(changedPageIds);
@@ -420,7 +442,9 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
 
     // ---- 7. email: one per decoded meeting, registered address only (rule 10) -------
     if (settings.email.meetingNotes) {
-      for (const m of merged.newMeetings) {
+      const mailable = merged.newMeetings.slice(0, MAX_MEETING_EMAILS_PER_RUN);
+      const suppressed = merged.newMeetings.length - mailable.length;
+      for (const m of mailable) {
         const mail = buildMeetingMail(user.email, user.id, m, {
           syncedAt: now().setZone(tz).toFormat("HH:mm"),
           ...((process.env.SERVICE_URL || process.env.APP_URL) ? { appUrl: `${(process.env.SERVICE_URL || process.env.APP_URL)!.replace(/\/$/, "")}/documents?tab=meetings` } : {}),
@@ -434,6 +458,9 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         else if (res.status === "failed") log(`email failed for meeting ${m.id}: ${res.error}`);
       }
       log(`email: ${stats.emailsSent} meeting note email(s) sent via ${deps.mail.name} (${merged.newMeetings.length} new meetings)`);
+      if (suppressed > 0) {
+        log(`email: ${suppressed} meeting note email(s) suppressed — more than ${MAX_MEETING_EMAILS_PER_RUN} in one run reads as a re-read of history, not a day`);
+      }
     }
 
     // ---- 7b. deliver the night's PDFs to the user's confirmed delivery address -------
