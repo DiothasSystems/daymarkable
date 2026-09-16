@@ -327,6 +327,17 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       const changed = new Set(changedPageIds);
       baselinePages.push({ docId: doc.id, pages: pageRefs.filter((p) => !changed.has(p.pageId)) });
       if (changedPageIds.length === 0) {
+        // Examined and found nothing. Worth a line: "the document changed but no page did" is the
+        // hardest outcome to explain afterwards, and the page count alone cannot distinguish a
+        // notebook nobody wrote in from an annotated PDF whose ink we failed to see. Counts and
+        // timestamps only, never content (rule 5).
+        const inked = pageRefs.filter((p) => p.hash);
+        const dated = inked.map((p) => parseCloudDate(p.modified)).filter((d): d is Date => d !== null);
+        const newest = dated.length ? new Date(Math.max(...dated.map((d) => d.getTime()))) : null;
+        log(
+          `no changed pages in ${doc.id.slice(0, 8)}: ${pageRefs.length} pages, ${inked.length} with ink, ` +
+            `${dated.length} of those dated, newest ${newest ? newest.toISOString() : "none"}; window opens ${windowStart.toISO()}`,
+        );
         baselineOnly.push({ ...doc, pageCount: pageRefs.length });
         continue;
       }
