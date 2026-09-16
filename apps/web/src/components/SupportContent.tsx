@@ -79,6 +79,22 @@ export function SupportContent({ appBase, supportEmail, signedIn }: SupportConte
         </li>
       </ol>
 
+      <h2 id="templates">I added a planner template and nothing was read</h2>
+      <p>
+        Expected, once. The first sync after a document appears records the state of every page in
+        it without reading any of them — that is what stops adding a notebook you have kept for
+        years decoding all of it. Write on a page and sync again, and from then on your annotations
+        are picked up exactly, because every page now has a recorded state to compare against.
+      </p>
+      <p>So adding a template takes two syncs to come alive. After that it is immediate.</p>
+      <p>
+        Two things worth knowing about templates specifically. Annotated PDFs are only read if{" "}
+        <strong>Include annotated PDFs</strong> is on in <a href={app("/account")}>your settings</a>
+        {" "}— it is off by default, because most PDFs on a reMarkable are books. And a page you have
+        not written on costs nothing: it carries no ink layer, so a two-thousand-page planner kit is
+        read as the handful of pages you actually marked up, not as two thousand pages.
+      </p>
+
       <h2 id="cancel">How do I cancel?</h2>
       <p>
         On <a href={app("/account")}>your account page</a>, under <strong>Cancel subscription</strong>. It takes effect
