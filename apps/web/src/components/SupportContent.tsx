@@ -79,6 +79,51 @@ export function SupportContent({ appBase, supportEmail, signedIn }: SupportConte
         </li>
       </ol>
 
+      <h2 id="planner-pdf">Using dayMarkable with a planner PDF</h2>
+      <p>
+        Plenty of people already write into a PDF planner kit — one they bought, a year of dated
+        pages, something they made themselves. dayMarkable reads those the same way it reads a
+        notebook. There is one switch to find and one thing worth knowing about the first night.
+      </p>
+      <ol>
+        <li>
+          <strong>Turn PDFs on.</strong> <em>Also read annotated PDFs</em> sits with your watch
+          folders on <a href={app("/account")}>your account page</a>, and it starts off, because most
+          PDFs on a reMarkable are books rather than planners. Ebooks are never read whichever way
+          you set it.
+        </li>
+        <li>
+          <strong>Check the file is in a watched folder.</strong> If you have narrowed that list, a
+          planner sitting outside it is skipped like anything else. Nothing selected means
+          everything.
+        </li>
+        <li>
+          <strong>Write on a page, then sync.</strong> A page you have not written on carries no ink
+          layer at all, so it is neither read nor charged for — a two-thousand-page kit is read as
+          the handful of pages you marked up.
+        </li>
+      </ol>
+      <p>
+        Your ink is read on top of the printed page rather than lifted off it, so the template does
+        some of the work for you: a heading that says <span className="mono">WEEK OF</span>, a column
+        labelled <span className="mono">ACTIONS</span>, a date already printed in the corner are all
+        read as part of the page. Writing inside the boxes the template gives you is the best single
+        thing you can do for accuracy on a planner kit — it helps more than neat handwriting does.
+      </p>
+      <p>
+        The first night is the exception. A kit you have kept for months arrives carrying a lot of
+        old ink, and the pages of a PDF often have no timestamp to tell yesterday&apos;s from last
+        March&apos;s. So a lightly marked kit is read whole, and past roughly twenty-five written
+        pages only the last few in the file are read — the recent end of a dated planner — while the
+        rest is recorded as history. Nothing is lost by that: every page passed over is remembered
+        exactly as it stands, so the next time you write on one it no longer matches and is read
+        then.
+      </p>
+      <p>
+        dayMarkable&apos;s own notebooks are PDFs too. They are always read however this setting
+        stands, which is what makes ticking a box on a planner page close the loop.
+      </p>
+
       <h2 id="templates">I added a planner template and nothing was read</h2>
       <p>
         Expected, once. The first sync after a document appears records the state of every page in
