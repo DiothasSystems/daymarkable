@@ -6,3 +6,4 @@ export { composeMeetingNotes, type MeetingNotesInput } from "./meetingNotes.js";
 export { pageCode, sourceRef, type PageKindCode } from "./section.js";
 export { inkCoverage, parseInkSvg } from "./ink.js";
 export { composeCalibrationSheet, type CalibrationSheetInput, type ComposedCalibrationSheet } from "./calibrationSheet.js";
+export { extractPdfPages, type ExtractedPdf } from "./extract.js";
