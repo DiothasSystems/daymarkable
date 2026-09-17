@@ -93,7 +93,7 @@ export function sourceRef(source: { notebook: string; pageIndex: number }): stri
   return `${name.toUpperCase()} · p.${source.pageIndex + 1}`;
 }
 
-export type PageKindCode = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "INBOX" | "ACTIONS" | "MEETINGS";
+export type PageKindCode = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "INBOX" | "ACTIONS" | "MEETINGS" | "NEWS" | "PUZZLE";
 
 export function pageCode(kind: PageKindCode, date: string, page: number): string {
   return `dM/${kind}/${date}/${page}`;

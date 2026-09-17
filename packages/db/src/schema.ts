@@ -38,7 +38,7 @@ export const eventSource = pgEnum("event_source", ["ink", "external", "app"]);
 export const meetingRequestState = pgEnum("meeting_request_state", ["drafted", "confirmed", "sent", "dropped"]);
 export const inboxKind = pgEnum("inbox_kind", ["task", "event", "meeting_request", "margin_note"]);
 export const inboxStatus = pgEnum("inbox_status", ["pending", "accepted", "dropped", "expired"]);
-export const documentKind = pgEnum("document_kind", ["planner", "action_list", "meeting_notes"]);
+export const documentKind = pgEnum("document_kind", ["planner", "action_list", "meeting_notes", "daily_update", "daily_puzzle"]);
 export const printedItemType = pgEnum("printed_item_type", ["task", "inbox", "meeting_request"]);
 export const emailStatus = pgEnum("email_status", ["sent", "failed", "skipped"]);
 

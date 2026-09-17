@@ -6,7 +6,7 @@
  */
 import path from "node:path";
 import { RemarkableCloudProvider, type TabletProvider } from "@daymarkable/tablet";
-import { AnthropicDecoder, ESCALATION_DECODE_MODEL, resolveDecodeModel, validateConventions, type Decoder } from "@daymarkable/decode";
+import { AnthropicDecoder, ESCALATION_DECODE_MODEL, anthropicClient, resolveDecodeModel, validateConventions, type Decoder } from "@daymarkable/decode";
 import { Sealer, generateKey, openDb, type Db, type DbHandle } from "@daymarkable/db";
 import { mailProviderFromEnv, type MailProvider } from "@daymarkable/mail";
 import { DateTime } from "luxon";
@@ -130,5 +130,8 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
     log,
   });
   if (calibration) log(`decode context: calibration sample + ${user.settings.lexicon.length} lexicon term(s)`);
-  return { db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet: await tabletFor(rt, userId), renderer, decoder, mail: rt.mail, decodeModel: model, log };
+  // The brief needs its own Anthropic client: it uses the web-search tool, which the decoder does
+  // not, and a fixture run has no key at all and simply skips the brief.
+  const newsClient = rt.config.anthropicApiKey ? anthropicClient(rt.config.anthropicApiKey) : undefined;
+  return { db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet: await tabletFor(rt, userId), renderer, decoder, ...(newsClient ? { newsClient } : {}), mail: rt.mail, decodeModel: model, log };
 }

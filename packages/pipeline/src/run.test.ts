@@ -70,9 +70,13 @@ describe("runPipeline (fixtures)", () => {
     expect(out.stats!.docsChanged).toBe(1);
     expect(out.stats!.pagesDecoded).toBe(1);
     expect(out.stats!.tasksFound).toBeGreaterThan(0);
-    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Notes", "Planner"]);
+    // The Daily Puzzle rides along: on by default, deterministic, and free. The Daily Update does
+    // not, because this account has set no topics to search for.
+    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Daily Puzzle", "Notes", "Planner"]);
     const docs = await handle.db.query.documents.findMany({ where: eq(schema.documents.userId, userId) });
-    expect(docs).toHaveLength(3);
+    expect(docs.map((d) => d.kind).sort()).toEqual(["action_list", "daily_puzzle", "meeting_notes", "planner"]);
+    // Still one cost row: the puzzle is generated, not asked for. Nothing here called a model
+    // except the decode itself, which is the property that makes the puzzle free to ship.
     const costs = await handle.db.query.runCosts.findMany();
     expect(costs).toHaveLength(1);
     expect((await repo.getUser(handle.db, userId)).settings.pendingDelivery).toBeNull();
@@ -121,7 +125,9 @@ describe("runPipeline (fixtures)", () => {
     const good = await runPipeline(deps, { userId: u.id, kind: "on_demand", requestedVia: "test", localDate: "2026-09-10", windowHours: 24 * 30 });
     expect(good.status).toBe("succeeded");
     expect(good.stats!.pagesDecoded).toBe(1);
-    expect(tablet.uploads.length).toBe(uploadsBefore + 3);
+        // Four now: the three lists plus the Daily Puzzle, which is on by default and costs nothing.
+    // The Daily Update is absent because this account has set no topics.
+    expect(tablet.uploads.length).toBe(uploadsBefore + 4);
   });
 
   it("on-demand runs get sequential keys and satisfy the date for the scheduler (rule 11)", async () => {

@@ -21,6 +21,9 @@ import {
 } from "@daymarkable/db";
 import { STARTER_CONVENTIONS } from "@daymarkable/decode";
 
+/** Everything dayMarkable writes back, as the documents registry knows it. */
+export type DocumentKind = "planner" | "action_list" | "meeting_notes" | "daily_update" | "daily_puzzle";
+
 export type UserRow = typeof schema.users.$inferSelect;
 export type RunRow = typeof schema.runs.$inferSelect;
 
@@ -484,7 +487,7 @@ export async function consumeDeliveryVerification(db: Db, token: string): Promis
   return { userId: row.userId, email: row.email };
 }
 
-export async function registerDocument(db: Db, input: { userId: string; runId: string; kind: "planner" | "action_list" | "meeting_notes"; name: string; cachePath: string; bytes: number; pageCount: number; tabletDocId: string | null }): Promise<void> {
+export async function registerDocument(db: Db, input: { userId: string; runId: string; kind: DocumentKind; name: string; cachePath: string; bytes: number; pageCount: number; tabletDocId: string | null }): Promise<void> {
   await db.insert(schema.documents).values(input);
 }
 
@@ -586,7 +589,7 @@ export async function recentCorrections(db: Db, userId: string, limit = 50) {
 }
 
 /** Address a run's generated document of a given kind (used when republishing in place). */
-export function documentMatch(userId: string, runId: string, kind: "planner" | "action_list" | "meeting_notes") {
+export function documentMatch(userId: string, runId: string, kind: DocumentKind) {
   return and(eq(schema.documents.userId, userId), eq(schema.documents.runId, runId), eq(schema.documents.kind, kind));
 }
 

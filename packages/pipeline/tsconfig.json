@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "rootDir": "src", "outDir": "dist" },
   "include": ["src"],
-  "references": [
+  "references": [{ "path": "../news" }, { "path": "../puzzles" }, 
     { "path": "../core" },
     { "path": "../tablet" },
     { "path": "../decode" },

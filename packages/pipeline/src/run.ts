@@ -6,7 +6,9 @@
  * (rule 2). Nothing here logs note content — counts, hashes, ids only (rule 5).
  */
 import { mergeRun, buildOutputSet, buildWeekNotes, notesWeekStart, type MergePage, type PrintedItem } from "@daymarkable/core";
-import { composeActionList, composeMeetingNotes, composePlanner, inkCoverage, parseInkSvg } from "@daymarkable/compose";
+import { composeActionList, composeDailyPuzzle, composeDailyUpdate, composeMeetingNotes, composePlanner, inkCoverage, parseInkSvg, type PuzzleInput } from "@daymarkable/compose";
+import { gatherDailyUpdate } from "@daymarkable/news";
+import { GENERAL_WORDS, generateSudoku, generateWordSearch, puzzleFor, seedFor, solutionCells } from "@daymarkable/puzzles";
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
 import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
 import { buildDeliveryMail, buildMeetingMail, type MailProvider } from "@daymarkable/mail";
@@ -23,6 +25,8 @@ export interface PipelineDeps {
   tablet: TabletProvider;
   renderer: Renderer;
   decoder: Decoder;
+  /** Anthropic client for the news brief. Absent in fixture runs, which skip the brief. */
+  newsClient?: import("@anthropic-ai/sdk").default;
   mail: MailProvider;
   decodeModel: string;
   log: (msg: string) => void;
@@ -61,7 +65,7 @@ export const CALIBRATION_NOTEBOOK = "Handwriting Sample";
 export const CALIBRATION_MIN_ACCURACY = 0.25;
 const ARCHIVE_FOLDER = "/dayMarkable/Archive";
 /** Everything dayMarkable writes to the tablet, by name. */
-export const OUTPUT_NAMES = ["Planner", "Action List", "Notes"] as const;
+export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", "Daily Update", "Daily Puzzle"] as const;
 
 /**
  * Names we used to write. Still recognised as ours — otherwise a renamed notebook left on the
@@ -117,6 +121,69 @@ const ARCHIVE_DAYS = 7;
 export const MAX_MEETING_EMAILS_PER_RUN = 6;
 /** How far the very first run for an account looks back (see changeWindowStart). */
 export const FIRST_RUN_LOOKBACK_DAYS = 7;
+
+/**
+ * The overnight brief. Never throws: a night without news is a night without news, and failing the
+ * run over it would cost the customer their planner as well.
+ */
+async function buildDailyUpdate(
+  deps: PipelineDeps,
+  user: repo.UserRow,
+  localDate: string,
+  generatedAt: string,
+  runLabel: string,
+  runId: string,
+  stats: RunStats,
+  log: (m: string) => void,
+): Promise<Awaited<ReturnType<typeof composeDailyUpdate>> | null> {
+  const topics = user.settings.dailyUpdate.topics;
+  if (topics.length === 0) {
+    // No notebook at all rather than one that says "add some topics". The setup flow asks for
+    // topics at the moment the feature is turned on, so an empty list is a choice — and a daily
+    // page whose only content is a nag is worse than no page.
+    log("news: skipped, no topics set");
+    return null;
+  }
+  if (!deps.newsClient) return null;
+  const update = await gatherDailyUpdate(topics, deps.newsClient, { model: deps.decodeModel, log });
+  if (update.searches > 0 || update.usage.output_tokens > 0) {
+    // Recorded as its own stage so /admin/expenses separates the brief from reading pages — this
+    // is the cost that happens whether or not the customer wrote anything.
+    stats.costUsd += await repo.recordCosts(db2(deps), runId, user.id, "news", [
+      { ...update.usage, model: deps.decodeModel, mode: "standard" as const, pages: update.searches, cost_usd: update.costUsd },
+    ]);
+  }
+  if (update.error) log(`news: no brief this morning (${update.error})`);
+  return composeDailyUpdate({
+    sections: update.sections,
+    date: localDate,
+    generatedAt,
+    runLabel,
+    unavailable: update.error ? "The news search did not answer this morning. Tomorrow's brief will pick up where this one left off." : null,
+  });
+}
+
+/** Narrow helper so the block above reads without a `deps.db` in the middle of every line. */
+function db2(deps: PipelineDeps): Db {
+  return deps.db;
+}
+
+function sudokuInput(seed: number): PuzzleInput {
+  const s = generateSudoku(seed);
+  return { kind: "sudoku", puzzle: s.puzzle, solution: s.solution, difficulty: s.difficulty };
+}
+
+/**
+ * The word search is built from what the customer already told us about themselves — the topics
+ * they follow and the vocabulary their pages taught us — so it is their puzzle rather than a
+ * generic one. A general list covers an account that has said nothing.
+ */
+function wordSearchInput(seed: number, topics: readonly string[], lexicon: readonly string[]): PuzzleInput {
+  const own = [...topics.flatMap((t) => t.split(/\s+/)), ...lexicon];
+  const words = own.length >= 8 ? own : [...own, ...GENERAL_WORDS];
+  const ws = generateWordSearch(words, seed);
+  return { kind: "word_search", size: ws.size, grid: ws.grid, words: ws.placed.map((p) => p.word), solutionCells: solutionCells(ws) };
+}
 
 function emptyStats(): RunStats {
   return {
@@ -456,11 +523,31 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     const planner = await composePlanner(views.planner, merged.state.tasks);
     const actionList = await composeActionList({ model: views.actionList, date: localDate, generatedAt, runLabel });
     const meetingNotes = await composeMeetingNotes({ model: views.meetingNotes, date: localDate, generatedAt, runLabel });
-    const outputs = [
+    type Output = { kind: "planner" | "action_list" | "meeting_notes" | "daily_update" | "daily_puzzle"; name: string; composed: { pdf: Uint8Array; pageCount: number; printed: PrintedItem[] } };
+    const outputs: Output[] = [
       { kind: "planner" as const, name: "Planner", composed: planner },
       { kind: "action_list" as const, name: "Action List", composed: actionList },
       { kind: "meeting_notes" as const, name: "Notes", composed: meetingNotes },
     ];
+
+    // ---- 5b. the optional extras -----------------------------------------------------
+    // Both are switched on by default and off by the customer, and neither can fail the night:
+    // a missing brief is a missing brief, not a lost planner.
+    if (settings.dailyUpdate.enabled) {
+      const brief = await buildDailyUpdate(deps, user, localDate, generatedAt, runLabel, run.id, stats, log);
+      if (brief) outputs.push({ kind: "daily_update" as const, name: "Daily Update", composed: brief });
+    }
+    if (settings.dailyPuzzle.enabled) {
+      const choice = puzzleFor(localDate);
+      const seed = seedFor(user.id, localDate, choice.kind);
+      const puzzle =
+        choice.kind === "sudoku"
+          ? sudokuInput(seed)
+          : wordSearchInput(seed, settings.dailyUpdate.topics, user.settings.lexicon);
+      const composed = await composeDailyPuzzle({ puzzle, date: localDate, generatedAt, runLabel, insteadOf: choice.insteadOf });
+      outputs.push({ kind: "daily_puzzle" as const, name: "Daily Puzzle", composed });
+      log(`puzzle: ${choice.kind}${choice.insteadOf ? ` (standing in for ${choice.insteadOf})` : ""}, 2 pages`);
+    }
     const printed: PrintedItem[] = [];
     for (const o of outputs) {
       await deps.cache.put(run.id, `outputs/${o.name}.pdf`, o.composed.pdf);
