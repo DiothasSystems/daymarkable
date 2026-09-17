@@ -81,6 +81,13 @@ export interface UserSettings {
    * Documents page can ask. Cleared by a delivery. ISO string, or null when there is nothing
    * waiting.
    */
+  /**
+   * The overnight news brief. Topics are the customer's own words — "broadband hardware",
+   * "school board", "Arsenal" — and are searched as written.
+   */
+  dailyUpdate: { enabled: boolean; topics: string[] };
+  /** The two-page puzzle: page one the puzzle, page two its solution. */
+  dailyPuzzle: { enabled: boolean };
   pendingDelivery: string | null;
   confidenceThreshold: number;
   autoSendInvites: boolean;
@@ -601,6 +608,15 @@ export const opsSettings = pgTable("ops_settings", {
   warnEmail: text("warn_email").notNull().default("diothassystems@gmail.com"),
   /** Last time the warning was mailed, so a low balance alerts daily rather than every tick. */
   lastWarnedAt: timestamp("last_warned_at", { withTimezone: true }),
+  /**
+   * Whether a NEW account gets the daily news brief and the puzzle switched on.
+   *
+   * Deliberately only new accounts: turning a feature off because it costs too much should not
+   * take it away from people already using it. Existing customers keep whatever is in their own
+   * settings, and can still turn it off themselves.
+   */
+  newsForNewUsers: boolean("news_for_new_users").notNull().default(true),
+  puzzleForNewUsers: boolean("puzzle_for_new_users").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

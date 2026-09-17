@@ -36,6 +36,8 @@ export function defaultSettings(): UserSettings {
     deliveryVerifiedAt: null,
     deliveryDocuments: { planner: true, actionList: true, meetingNotes: true },
     weeklyNotesArchive: true,
+    dailyUpdate: { enabled: true, topics: [] },
+    dailyPuzzle: { enabled: true },
     pendingDelivery: null,
     confidenceThreshold: 0.7,
     autoSendInvites: false,
@@ -63,6 +65,8 @@ export function normalizeSettings(raw: Partial<UserSettings> | null | undefined)
     deliveryEmail: raw?.deliveryEmail ?? d.deliveryEmail,
     deliveryDocuments: { ...d.deliveryDocuments, ...(raw?.deliveryDocuments ?? {}) },
     weeklyNotesArchive: raw?.weeklyNotesArchive ?? d.weeklyNotesArchive,
+    dailyUpdate: { ...d.dailyUpdate, ...(raw?.dailyUpdate ?? {}) },
+    dailyPuzzle: { ...d.dailyPuzzle, ...(raw?.dailyPuzzle ?? {}) },
     pendingDelivery: raw?.pendingDelivery ?? d.pendingDelivery,
     deliveryVerifiedAt: raw?.deliveryVerifiedAt ?? d.deliveryVerifiedAt,
     profile: raw?.profile ?? d.profile,
@@ -73,10 +77,23 @@ function withSettings(u: UserRow): UserRow {
   return { ...u, settings: normalizeSettings(u.settings) };
 }
 
-export async function ensureUser(db: Db, email: string, timezone: string): Promise<UserRow> {
+/**
+ * `features` is how the operator kill switches reach a new account: off for new subscribers means
+ * the account starts with it off, not that anyone loses it. An existing account is returned
+ * untouched, whatever the switches now say.
+ */
+export async function ensureUser(
+  db: Db,
+  email: string,
+  timezone: string,
+  features: { dailyUpdate?: boolean; dailyPuzzle?: boolean } = {},
+): Promise<UserRow> {
   const existing = await db.query.users.findFirst({ where: eq(schema.users.email, email) });
   if (existing) return withSettings(existing);
-  const [row] = await db.insert(schema.users).values({ email, timezone, settings: defaultSettings() }).returning();
+  const settings = defaultSettings();
+  if (features.dailyUpdate === false) settings.dailyUpdate = { ...settings.dailyUpdate, enabled: false };
+  if (features.dailyPuzzle === false) settings.dailyPuzzle = { ...settings.dailyPuzzle, enabled: false };
+  const [row] = await db.insert(schema.users).values({ email, timezone, settings }).returning();
   return row!;
 }
 

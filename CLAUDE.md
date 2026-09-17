@@ -28,7 +28,15 @@ unchanged.
   - `packages/tablet` — `TabletProvider` interface + `RemarkableCloudProvider` built on
     `rmapi-js`. Nothing outside this package touches the reMarkable API.
   - `packages/decode` — Claude Batch API client, extraction prompt, zod schemas for the
-    structured output. Nothing outside this package calls Anthropic.
+    structured output. Reading a page happens here and nowhere else.
+  - `packages/news` — the overnight news brief: Claude with the web-search tool, one request per
+    run, returning headlines and summaries for the topics the customer typed. The SECOND package
+    permitted to call Anthropic, amended on 2026-09-17 — the constraint exists to keep Anthropic
+    access auditable in known places, and folding news gathering into the decoder would have made
+    the decoder about two things. Any third caller needs the same explicit decision.
+  - `packages/puzzles` — sudoku and word-search generation, pure and deterministic, seeded from
+    (user, local-date, kind) so a retried night reproduces the same grid (rule 4). Crossword is not
+    built: a model cannot be trusted to draw an interlocking grid, so it needs a layout engine.
   - `packages/compose` — PDF generation for all three notebooks (typst templates in
     `templates/`): planner, Action List, Meeting Notes.
   - `packages/calendar` — `CalendarProvider` interface + Google Calendar / Microsoft Graph

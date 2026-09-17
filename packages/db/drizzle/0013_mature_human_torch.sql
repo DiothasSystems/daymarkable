@@ -1,0 +1,2 @@
+ALTER TABLE "ops_settings" ADD COLUMN "news_for_new_users" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "ops_settings" ADD COLUMN "puzzle_for_new_users" boolean DEFAULT true NOT NULL;

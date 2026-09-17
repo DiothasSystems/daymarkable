@@ -6,6 +6,7 @@
     { "path": "packages/decode" },
     { "path": "packages/compose" },
     { "path": "packages/puzzles" },
+    { "path": "packages/news" },
     { "path": "packages/db" },
     { "path": "packages/mail" },
     { "path": "packages/pipeline" },
