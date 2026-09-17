@@ -5,6 +5,7 @@
     { "path": "packages/tablet" },
     { "path": "packages/decode" },
     { "path": "packages/compose" },
+    { "path": "packages/puzzles" },
     { "path": "packages/db" },
     { "path": "packages/mail" },
     { "path": "packages/pipeline" },
