@@ -361,3 +361,118 @@ export function DeliveryEmail({
   );
 }
 
+
+// ------------------------------------------------------------ the two daily extras
+
+/** The most topics honoured; matches packages/news so the form cannot promise more than it does. */
+const MAX_TOPICS = 5;
+
+/**
+ * The overnight news brief. Topics are free text because that is the point — "broadband hardware",
+ * "the school board", "Arsenal" — and they are searched as written rather than matched to a menu.
+ */
+export function DailyUpdateSettings({ initial }: { initial: { enabled: boolean; topics: string[] } }) {
+  const [on, setOn] = useState(initial.enabled);
+  const [topics, setTopics] = useState<string[]>(() => {
+    const t = [...initial.topics];
+    while (t.length < 3) t.push("");
+    return t;
+  });
+  const { state, error, save } = useSaver(async () =>
+    trpc.account.updateSettings.mutate({
+      dailyUpdate: { enabled: on, topics: topics.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TOPICS) },
+    }),
+  );
+  const filled = topics.filter((t) => t.trim()).length;
+
+  return (
+    <div className="stack">
+      <p className="muted" style={{ fontSize: 14 }}>
+        Overnight, dayMarkable searches the news for the subjects you follow and writes a short brief — a few
+        headlines each, a sentence or two apiece. It arrives on your tablet with everything else, so it is there
+        with your coffee rather than in a feed.
+      </p>
+      <label className="check">
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        <span>
+          Send me a daily brief
+          <div className="hint">Off means no news notebook at all. Nothing else changes.</div>
+        </span>
+      </label>
+      {on ? (
+        <div className="field">
+          <label htmlFor="topic-0">What do you follow?</label>
+          <div className="hint" style={{ marginBottom: 8 }}>
+            Anything you would type into a search box. Work, business or personal — they sit in separate sections in
+            the order you list them. {MAX_TOPICS} at most, because more than that and no topic gets enough of the page
+            to be worth reading.
+          </div>
+          <div className="stack" style={{ gap: 8 }}>
+            {topics.map((topic, i) => (
+              <div key={i} className="row" style={{ gap: 8 }}>
+                <input
+                  id={`topic-${i}`}
+                  type="text"
+                  style={{ flex: 1 }}
+                  maxLength={80}
+                  placeholder={i === 0 ? "e.g. broadband hardware" : i === 1 ? "e.g. my industry, my company, a competitor" : "e.g. a team, a city, a hobby"}
+                  value={topic}
+                  onChange={(e) => setTopics((v) => v.map((t, j) => (j === i ? e.target.value : t)))}
+                  aria-label={`Topic ${i + 1}`}
+                />
+                <button
+                  className="tertiary small"
+                  type="button"
+                  onClick={() => setTopics((v) => (v.length > 1 ? v.filter((_, j) => j !== i) : [""]))}
+                  aria-label={`Remove topic ${i + 1}`}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+          {topics.length < MAX_TOPICS ? (
+            <div className="row" style={{ marginTop: 8 }}>
+              <button className="secondary small" type="button" onClick={() => setTopics((v) => [...v, ""])}>Add another topic</button>
+            </div>
+          ) : null}
+          {filled === 0 ? (
+            <div className="hint" style={{ marginTop: 8 }}>
+              With no topics there is nothing to search for, so no brief is written. Add at least one.
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="row">
+        <button onClick={() => void save(undefined)} disabled={state === "saving"}>Save</button>
+        <Status state={state} error={error} />
+      </div>
+    </div>
+  );
+}
+
+/** The two-page puzzle. Nothing to configure but on or off — the week is the week. */
+export function DailyPuzzleSettings({ initial }: { initial: { enabled: boolean } }) {
+  const [on, setOn] = useState(initial.enabled);
+  const { state, error, save } = useSaver(async (v: boolean) => trpc.account.updateSettings.mutate({ dailyPuzzle: { enabled: v } }));
+  return (
+    <div className="stack">
+      <p className="muted" style={{ fontSize: 14 }}>
+        A puzzle a day, two pages: the puzzle, then its solution on the page behind it. Crosswords Monday, Wednesday
+        and Friday; word search Tuesday and Saturday; sudoku Thursday and Sunday. The word search is built from your
+        own vocabulary, so it is about the things you actually write about.
+      </p>
+      <label className="check">
+        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
+        <span>
+          Send me the daily puzzle
+          <div className="hint">Generated here, not fetched — it costs nothing and works whether or not you wrote anything that day.</div>
+        </span>
+      </label>
+      <div className="row">
+        <button onClick={() => void save(on)} disabled={state === "saving"}>Save</button>
+        <Status state={state} error={error} />
+      </div>
+    </div>
+  );
+}

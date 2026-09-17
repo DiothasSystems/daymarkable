@@ -2,7 +2,7 @@ import { CancelSubscription } from "@/components/CancelSubscription";
 import { Shell } from "@/components/Shell";
 import { CalibrationPanel, LexiconEditor } from "@/components/Calibration";
 import { RateRun } from "@/components/RateRun";
-import { ConventionsPicker, DeliveryEmail, OutputLocation, PairingWizard, TimezonePicker, WatchFolders, WeeklyNotesArchive } from "@/components/SettingsForms";
+import { ConventionsPicker, DailyPuzzleSettings, DailyUpdateSettings, DeliveryEmail, OutputLocation, PairingWizard, TimezonePicker, WatchFolders, WeeklyNotesArchive } from "@/components/SettingsForms";
 import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
 import { cancelView, feedbackSummary, getAccount, getCalibration, listRuns } from "@/server/services";
@@ -72,6 +72,14 @@ export default async function AccountPage() {
             perMeeting={account.settings.email.meetingNotes}
             loginEmail={account.email}
           />
+        </section>
+        <section className="card">
+          <h2>Daily brief</h2>
+          <DailyUpdateSettings initial={account.settings.dailyUpdate} />
+        </section>
+        <section className="card">
+          <h2>Daily puzzle</h2>
+          <DailyPuzzleSettings initial={account.settings.dailyPuzzle} />
         </section>
         <section className="card">
           <h2>Cancel subscription</h2>

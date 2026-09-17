@@ -51,6 +51,9 @@ export const MULTI_TENANT_SCHEDULER = false;
 // ---------------------------------------------------------------- operator settings
 
 export interface OpsSettings {
+  /** Whether a NEW account starts with the daily brief / puzzle on. Never touches existing ones. */
+  newsForNewUsers: boolean;
+  puzzleForNewUsers: boolean;
   anthropicBalanceUsd: number | null;
   balanceAsOf: Date | null;
   warnDays: number;
@@ -64,6 +67,8 @@ export async function getOpsSettings(): Promise<OpsSettings> {
   const rt = await getRuntime();
   const row = await rt.db.query.opsSettings.findFirst({ where: eq(schema.opsSettings.id, SINGLETON) });
   return {
+    newsForNewUsers: row?.newsForNewUsers ?? true,
+    puzzleForNewUsers: row?.puzzleForNewUsers ?? true,
     anthropicBalanceUsd: row?.anthropicBalanceUsd === null || row?.anthropicBalanceUsd === undefined ? null : Number(row.anthropicBalanceUsd),
     balanceAsOf: row?.balanceAsOf ?? null,
     warnDays: row?.warnDays ?? 14,
@@ -92,6 +97,25 @@ export async function recordBalance(balanceUsd: number | null, warnDays: number)
   await rt.db.insert(schema.opsSettings).values(values).onConflictDoUpdate({ target: schema.opsSettings.id, set: values });
   await audit("admin.tokens.balance", { balanceUsd, warnDays });
   return { ok: true };
+}
+
+/**
+ * Switch the daily brief or the puzzle off for accounts created from now on.
+ *
+ * Deliberately not retroactive. Deciding a feature costs too much is a decision about the next
+ * customer, not a reason to take something away from someone already using it — they can still
+ * turn it off themselves, and nothing here reaches into their settings.
+ */
+export async function setNewUserFeatures(patch: { news?: boolean; puzzle?: boolean }): Promise<void> {
+  const rt = await getRuntime();
+  const values = {
+    id: SINGLETON,
+    ...(patch.news === undefined ? {} : { newsForNewUsers: patch.news }),
+    ...(patch.puzzle === undefined ? {} : { puzzleForNewUsers: patch.puzzle }),
+    updatedAt: new Date(),
+  };
+  await rt.db.insert(schema.opsSettings).values(values).onConflictDoUpdate({ target: schema.opsSettings.id, set: values });
+  await audit("admin.features.newUsers", { ...patch });
 }
 
 // ---------------------------------------------------------------- spend

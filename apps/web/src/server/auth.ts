@@ -1,4 +1,5 @@
 import "server-only";
+import { getOpsSettings } from "./ops";
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, schema } from "@daymarkable/db";
 import { buildSignInMail } from "@daymarkable/mail";
@@ -90,7 +91,13 @@ export async function verifyMagicLink(token: string): Promise<SessionUser | null
   let user = await rt.db.query.users.findFirst({ where: eq(schema.users.email, row.email) });
   if (!user) {
     const tz = process.env.USER_TIMEZONE || "America/New_York";
-    [user] = await rt.db.insert(schema.users).values({ email: row.email, timezone: tz, settings: defaultSettings() }).returning();
+    // The operator kill switches apply here, at creation, and only here: an account that already
+    // exists keeps whatever is in its own settings whatever the switches now say.
+    const ops = await getOpsSettings();
+    const settings = defaultSettings();
+    if (!ops.newsForNewUsers) settings.dailyUpdate = { ...settings.dailyUpdate, enabled: false };
+    if (!ops.puzzleForNewUsers) settings.dailyPuzzle = { ...settings.dailyPuzzle, enabled: false };
+    [user] = await rt.db.insert(schema.users).values({ email: row.email, timezone: tz, settings }).returning();
     // They were invited and have now turned up, so the waiting list row stops being a promise.
     await markJoined(row.email);
   }

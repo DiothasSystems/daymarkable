@@ -2,13 +2,13 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { CalibrationPanel } from "@/components/Calibration";
-import { ConventionsPicker, DeliveryEmail, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
+import { ConventionsPicker, DailyPuzzleSettings, DailyUpdateSettings, DeliveryEmail, PairingWizard, TimezonePicker, WatchFolders } from "@/components/SettingsForms";
 import { errorMessage, trpc } from "@/lib/trpc";
 import type { getAccount } from "@/server/services";
 
 type Account = Awaited<ReturnType<typeof getAccount>>;
 type Calibration = Awaited<ReturnType<typeof import("@/server/services").getCalibration>>;
-const STEPS = ["Pair tablet", "Watch folders", "Timezone", "Ink conventions", "Handwriting", "Email"];
+const STEPS = ["Pair tablet", "Watch folders", "Timezone", "Ink conventions", "Handwriting", "Daily extras", "Email"];
 
 export function SetupWizard({ account, calibration }: { account: Account; calibration: Calibration }) {
   const router = useRouter();
@@ -40,6 +40,13 @@ export function SetupWizard({ account, calibration }: { account: Account; calibr
       {step === 3 ? <ConventionsPicker initial={account.settings.conventions} catalog={account.conventionCatalog} /> : null}
       {step === 4 ? <CalibrationPanel initial={calibration} /> : null}
       {step === 5 ? (
+        <div className="stack">
+          <DailyUpdateSettings initial={account.settings.dailyUpdate} />
+          <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "8px 0" }} />
+          <DailyPuzzleSettings initial={account.settings.dailyPuzzle} />
+        </div>
+      ) : null}
+      {step === 6 ? (
         <DeliveryEmail
           initial={account.settings.deliveryEmail}
           verified={account.settings.deliveryVerifiedAt}

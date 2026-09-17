@@ -21,6 +21,8 @@ export const settingsPatchSchema = z.object({
   email: z.object({ meetingNotes: z.boolean() }).optional(),
   deliveryDocuments: z.object({ planner: z.boolean(), actionList: z.boolean(), meetingNotes: z.boolean() }).optional(),
   weeklyNotesArchive: z.boolean().optional(),
+  dailyUpdate: z.object({ enabled: z.boolean(), topics: z.array(z.string().max(80)).max(5) }).optional(),
+  dailyPuzzle: z.object({ enabled: z.boolean() }).optional(),
 });
 
 /**
@@ -60,6 +62,8 @@ export async function updateSettings(userId: string, patch: SettingsPatch) {
   if (patch.email) next.email = patch.email;
   if (patch.deliveryDocuments) next.deliveryDocuments = patch.deliveryDocuments;
   if (patch.weeklyNotesArchive !== undefined) next.weeklyNotesArchive = patch.weeklyNotesArchive;
+  if (patch.dailyUpdate) next.dailyUpdate = { enabled: patch.dailyUpdate.enabled, topics: patch.dailyUpdate.topics.map((t) => t.trim()).filter(Boolean) };
+  if (patch.dailyPuzzle) next.dailyPuzzle = { enabled: patch.dailyPuzzle.enabled };
   await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
   return next;
 }

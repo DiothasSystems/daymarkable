@@ -87,6 +87,30 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
+        <p className="kicker">Daily extras · for new accounts</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          The brief costs a web search per topic plus tokens, every night, whether or not the customer wrote anything —
+          it is the only thing here that does. The puzzle is generated locally and costs nothing at all, so switch that
+          off only if it is unwanted rather than because of money.
+        </p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          <strong>These apply to accounts created from now on.</strong> Deciding a feature is too expensive is a
+          decision about the next customer; it does not reach into the settings of anyone already using it.
+        </p>
+        <form action="/admin/api/ops/features" method="post" className="stack">
+          <label className="check">
+            <input type="checkbox" name="news" defaultChecked={s.newsForNewUsers} />
+            <span>New accounts get the daily brief<div className="hint">Costs a web search per topic each night.</div></span>
+          </label>
+          <label className="check">
+            <input type="checkbox" name="puzzle" defaultChecked={s.puzzleForNewUsers} />
+            <span>New accounts get the daily puzzle<div className="hint">Generated here. No API cost.</div></span>
+          </label>
+          <div className="row"><button type="submit">Save</button></div>
+        </form>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
         <p className="kicker">Spend per day · last 30 days</p>
         {plan.days.length === 0 ? (
           <p className="muted">No decode costs recorded yet.</p>
