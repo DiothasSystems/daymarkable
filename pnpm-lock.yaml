@@ -230,6 +230,10 @@ importers:
       pdf-lib:
         specifier: ^1.17.1
         version: 1.17.1
+    devDependencies:
+      '@daymarkable/puzzles':
+        specifier: workspace:*
+        version: link:../puzzles
 
   packages/core:
     dependencies:
@@ -280,8 +284,20 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/news:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.123.0
+        version: 0.123.0(zod@4.5.4)
+      '@daymarkable/decode':
+        specifier: workspace:*
+        version: link:../decode
+
   packages/pipeline:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.123.0
+        version: 0.123.0(zod@4.5.4)
       '@daymarkable/compose':
         specifier: workspace:*
         version: link:../compose
@@ -297,6 +313,12 @@ importers:
       '@daymarkable/mail':
         specifier: workspace:*
         version: link:../mail
+      '@daymarkable/news':
+        specifier: workspace:*
+        version: link:../news
+      '@daymarkable/puzzles':
+        specifier: workspace:*
+        version: link:../puzzles
       '@daymarkable/tablet':
         specifier: workspace:*
         version: link:../tablet
@@ -310,6 +332,8 @@ importers:
       '@types/luxon':
         specifier: ^3.6.2
         version: 3.7.5
+
+  packages/puzzles: {}
 
   packages/tablet:
     dependencies:
@@ -5318,6 +5342,13 @@ snapshots:
       standardwebhooks: 1.1.1
     optionalDependencies:
       zod: 3.25.76
+
+  '@anthropic-ai/sdk@0.123.0(zod@4.5.4)':
+    dependencies:
+      json-schema-to-ts: 3.1.1
+      standardwebhooks: 1.1.1
+    optionalDependencies:
+      zod: 4.5.4
 
   '@babel/code-frame@7.29.7':
     dependencies:
