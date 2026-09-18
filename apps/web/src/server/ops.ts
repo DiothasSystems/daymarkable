@@ -10,6 +10,7 @@ import "server-only";
 import os from "node:os";
 import { statfs } from "node:fs/promises";
 import { and, desc, eq, gte, schema, sql } from "@daymarkable/db";
+import { describeOptions, type OptionGroup } from "./admin-core";
 import {
   capacityUsers,
   headroom,
@@ -428,6 +429,61 @@ export async function expenseSummary(): Promise<ExpenseSummary> {
 
 // ---------------------------------------------------------------- per-user reporting extras
 
+/** One day of one account's consumption, as the cost review reads it. */
+export interface UserDay {
+  /** The run's LOCAL date, not a UTC bucket — see the query for why that matters. */
+  localDate: string;
+  costUsd: number;
+  pages: number;
+  tokens: number;
+  runs: number;
+  onDemand: number;
+  failed: number;
+  /** Which models read that night, so an escalation is visible rather than averaged away. */
+  models: string;
+}
+
+/**
+ * Daily token cost and pages for one account, newest first.
+ *
+ * Grouped by `runs.local_date` rather than by the cost row's timestamp. A nightly run starts at 00:07
+ * local and an on-demand sync can land at any hour, so a UTC day would split one night's work across
+ * two rows for anyone west of Greenwich — and the local date is the day the customer would name.
+ *
+ * LEFT JOIN from runs, so a night that ran and cost nothing still appears. A missing row and a zero
+ * row mean different things: nothing ran, versus nothing changed.
+ */
+export async function userDailyCosts(userId: string, days = 30): Promise<UserDay[]> {
+  const rt = await getRuntime();
+  const rows = await rt.db
+    .select({
+      localDate: schema.runs.localDate,
+      costUsd: sql<string>`coalesce(sum(${schema.runCosts.costUsd}), 0)`,
+      tokens: sql<string>`coalesce(sum(${schema.runCosts.inputTokens} + ${schema.runCosts.outputTokens} + ${schema.runCosts.cacheReadTokens} + ${schema.runCosts.cacheWriteTokens}), 0)`,
+      pages: sql<string>`coalesce(sum(${schema.runCosts.pages}), 0)`,
+      runs: sql<string>`count(distinct ${schema.runs.id})`,
+      onDemand: sql<string>`count(distinct ${schema.runs.id}) filter (where ${schema.runs.kind} = 'on_demand')`,
+      failed: sql<string>`count(distinct ${schema.runs.id}) filter (where ${schema.runs.status} = 'failed')`,
+      models: sql<string>`coalesce(string_agg(distinct ${schema.runCosts.model}, ', '), '')`,
+    })
+    .from(schema.runs)
+    .leftJoin(schema.runCosts, eq(schema.runCosts.runId, schema.runs.id))
+    .where(eq(schema.runs.userId, userId))
+    .groupBy(schema.runs.localDate)
+    .orderBy(desc(schema.runs.localDate))
+    .limit(days);
+  return rows.map((r) => ({
+    localDate: r.localDate,
+    costUsd: Number(r.costUsd),
+    pages: Number(r.pages),
+    tokens: Number(r.tokens),
+    runs: Number(r.runs),
+    onDemand: Number(r.onDemand),
+    failed: Number(r.failed),
+    models: r.models,
+  }));
+}
+
 export interface UserOpsFacts {
   /** Mean confidence of everything the decoder produced for this account. */
   confidenceAvg: number | null;
@@ -440,6 +496,8 @@ export interface UserOpsFacts {
   /** Nights with a successful run, so "pages per night" divides by something real. */
   nights: number;
   tokensPerDay: number;
+  /** Everything the customer switched on or typed in. Read-only on this screen.  */
+  options: OptionGroup[];
 }
 
 export async function userOpsFacts(userId: string): Promise<UserOpsFacts> {
@@ -481,6 +539,7 @@ export async function userOpsFacts(userId: string): Promise<UserOpsFacts> {
     lexiconTerms: user?.settings.lexicon.length ?? 0,
     nights: Number(nights?.n ?? 0),
     tokensPerDay: Number(tok?.tokens ?? 0) / Number(tok?.days ?? 1),
+    options: describeOptions(user?.settings ?? {}),
   };
 }
 

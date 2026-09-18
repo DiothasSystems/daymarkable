@@ -134,3 +134,121 @@ export function matchesUserQuery(u: SearchableUser, query: string): boolean {
   const haystack = [u.email, u.status, u.plan ?? "", u.role ?? "", u.industry ?? ""].join(" ").toLowerCase();
   return terms.every((t) => haystack.includes(t));
 }
+
+// ---------------------------------------------------------------- what the customer chose
+
+/**
+ * One switch or setting as the operator reads it.
+ *
+ * `detail` carries the thing that actually matters when a support question arrives — which topics,
+ * which address, how many words — because "Daily brief: on" does not answer "why is their brief
+ * empty?" and "on, no topics set" does.
+ */
+export interface OptionRow {
+  label: string;
+  /** On, off, or a short value. */
+  value: string;
+  detail?: string;
+  /** True when this is a plain on/off, so the page can render a pip rather than text. */
+  on?: boolean;
+}
+
+export interface OptionGroup {
+  heading: string;
+  rows: OptionRow[];
+}
+
+/** The settings shape this reads. Structural, so it does not drag the DB package into a pure module. */
+export interface OptionSettings {
+  watchFolders?: string[];
+  outputToRoot?: boolean;
+  includePdfs?: boolean;
+  weeklyNotesArchive?: boolean;
+  autoSendInvites?: boolean;
+  email?: { meetingNotes: boolean };
+  deliveryEmail?: string | null;
+  deliveryVerifiedAt?: string | null;
+  deliveryDocuments?: { planner: boolean; actionList: boolean; meetingNotes: boolean };
+  dailyUpdate?: { enabled: boolean; topics: string[] };
+  dailyPuzzle?: { enabled: boolean };
+  conventions?: { active: Array<{ id: string; meaning: string; keyword?: string }> };
+  lexicon?: string[];
+  profile?: { role: string; industry: string; context: string } | null;
+}
+
+const onOff = (b: boolean | undefined): string => (b ? "On" : "Off");
+
+/**
+ * Everything the customer has switched on or typed in, grouped the way an operator asks about it.
+ *
+ * Read-only by design: this is the same account the operator can cancel and refund, and being able
+ * to see a preference is a different thing from being able to change it. Nothing here edits.
+ */
+export function describeOptions(s: OptionSettings): OptionGroup[] {
+  const topics = s.dailyUpdate?.topics ?? [];
+  const delivery = s.deliveryDocuments;
+  const attached = delivery
+    ? [delivery.planner ? "planner" : null, delivery.actionList ? "action list" : null, delivery.meetingNotes ? "notes" : null].filter(Boolean)
+    : [];
+  const folders = s.watchFolders ?? [];
+
+  return [
+    {
+      heading: "Daily extras",
+      rows: [
+        {
+          label: "Daily brief",
+          value: onOff(s.dailyUpdate?.enabled),
+          on: s.dailyUpdate?.enabled ?? false,
+          // The failure everyone hits: the brief is on, nobody typed a topic, and no notebook is
+          // produced at all. Worth saying here rather than making someone read the run log.
+          detail: s.dailyUpdate?.enabled
+            ? topics.length
+              ? `${topics.length} topic${topics.length === 1 ? "" : "s"}: ${topics.join(", ")}`
+              : "no topics set — nothing is produced"
+            : undefined,
+        },
+        { label: "Daily puzzle", value: onOff(s.dailyPuzzle?.enabled), on: s.dailyPuzzle?.enabled ?? false },
+      ],
+    },
+    {
+      heading: "What is read",
+      rows: [
+        {
+          label: "Watched folders",
+          value: folders.length ? String(folders.length) : "All notebooks",
+          detail: folders.length ? folders.join(", ") : undefined,
+        },
+        { label: "Annotated PDFs", value: onOff(s.includePdfs), on: s.includePdfs ?? false },
+        {
+          label: "Ink conventions",
+          value: String(s.conventions?.active.length ?? 0),
+          detail: s.conventions?.active.length
+            ? s.conventions.active.map((c) => (c.keyword ? `${c.id}="${c.keyword}"→${c.meaning}` : `${c.id}→${c.meaning}`)).join(", ")
+            : undefined,
+        },
+        { label: "Vocabulary terms", value: String(s.lexicon?.length ?? 0) },
+      ],
+    },
+    {
+      heading: "What is written",
+      rows: [
+        { label: "Notebooks land in", value: s.outputToRoot ? "Tablet root" : "/dayMarkable" },
+        { label: "Weekly notes archive", value: onOff(s.weeklyNotesArchive), on: s.weeklyNotesArchive ?? false },
+        { label: "Meeting-note emails", value: onOff(s.email?.meetingNotes), on: s.email?.meetingNotes ?? false },
+        {
+          label: "PDF delivery address",
+          // An unverified address is not used, so showing it as configured would be wrong (rule 10).
+          value: s.deliveryEmail ? (s.deliveryVerifiedAt ? s.deliveryEmail : `${s.deliveryEmail} — UNVERIFIED`) : "Not set",
+          detail: s.deliveryEmail && s.deliveryVerifiedAt ? (attached.length ? `attaches ${attached.join(", ")}` : "no documents attached") : undefined,
+        },
+        {
+          label: "Auto-send invites",
+          value: onOff(s.autoSendInvites),
+          on: s.autoSendInvites ?? false,
+          detail: s.autoSendInvites ? "high confidence, no external attendees (rule 7)" : undefined,
+        },
+      ],
+    },
+  ];
+}

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { AdminShell } from "@/components/AdminShell";
 import { fmtDateTime, fmtUsd } from "@/lib/format";
 import { TUNING_MAX, TUNING_MIN, billingView, getUserDetail } from "@/server/admin";
-import { userOpsFacts } from "@/server/ops";
+import { userDailyCosts, userOpsFacts } from "@/server/ops";
 import { requireAdmin } from "@/server/admin-guard";
 import { BillingActions } from "./BillingActions";
 import { DeleteAccountForm } from "./DeleteAccountForm";
@@ -17,9 +17,15 @@ export default async function AdminUserDetail({ params, searchParams }: { params
   const { error, tuned, billed } = await searchParams;
   const detail = await getUserDetail(id);
   const billing = await billingView(id);
-  const facts = await userOpsFacts(id);
+  const [facts, daily] = await Promise.all([userOpsFacts(id), userDailyCosts(id, 30)]);
   if (!detail) notFound();
   const u = detail.user;
+  // Per page and per night, which is what says whether this account is expensive to serve — a
+  // total only says how long they have been a customer.
+  const perPage = u.pagesDecoded > 0 ? u.costTotalUsd / u.pagesDecoded : null;
+  const nights = daily.filter((d) => d.costUsd > 0);
+  const perNight = nights.length ? nights.reduce((n, d) => n + d.costUsd, 0) / nights.length : null;
+  const peakDay = Math.max(...daily.map((d) => d.costUsd), 0.000001);
   return (
     <AdminShell session={session} wide>
       <p className="kicker"><Link href="/admin/users">Users</Link> · {u.status}</p>
@@ -27,10 +33,138 @@ export default async function AdminUserDetail({ params, searchParams }: { params
       {error ? <div className="notice bad" style={{ marginBottom: 16 }}>{error}</div> : null}
       {tuned ? <div className="notice ok" style={{ marginBottom: 16 }}>Decode tuning saved.</div> : null}
       {billed ? <div className="notice ok" style={{ marginBottom: 16 }}>{billed}</div> : null}
-      <div className="grid three" style={{ marginBottom: 24 }}>
-        <div className="card"><p className="kicker">Usage</p><div className="stat">{u.avgPagesPerDay.toFixed(1)}</div><div className="meta" style={{ marginTop: 8 }}>pages / day · {u.runs} runs ({u.onDemandRuns} on-demand, {u.failedRuns} failed) · {u.pagesDecoded} pages decoded</div></div>
-        <div className="card"><p className="kicker">Token cost</p><div className="stat">{fmtUsd(u.costMonthUsd)}</div><div className="meta" style={{ marginTop: 8 }}>this month · {fmtUsd(u.costTotalUsd)} to date</div></div>
-        <div className="card"><p className="kicker">Account</p><div className="meta">created {fmtDateTime(u.createdAt)}<br />onboarded {fmtDateTime(u.onboardedAt)}<br />timezone {u.timezone}<br />tablet {u.paired ? "paired" : "not paired"}<br />rating {u.ratingAvg ? `${u.ratingAvg.toFixed(1)} over ${u.ratingCount}` : "—"}</div></div>
+      <div className="grid four" style={{ marginBottom: 24 }}>
+        <div className="card">
+          <p className="kicker">Token cost</p>
+          <div className="stat">{fmtUsd(u.costMonthUsd)}</div>
+          <div className="meta" style={{ marginTop: 8 }}>this month · {fmtUsd(u.costTotalUsd)} to date</div>
+        </div>
+        <div className="card">
+          <p className="kicker">Cost per night</p>
+          <div className="stat">{perNight === null ? "—" : fmtUsd(perNight)}</div>
+          <div className="meta" style={{ marginTop: 8 }}>
+            over {nights.length} night{nights.length === 1 ? "" : "s"} that cost anything · {perPage === null ? "—" : `${fmtUsd(perPage)} per page`}
+          </div>
+        </div>
+        <div className="card">
+          <p className="kicker">Pages read</p>
+          <div className="stat">{u.avgPagesPerDay.toFixed(1)}</div>
+          <div className="meta" style={{ marginTop: 8 }}>per day · {u.pagesDecoded} decoded over {u.runs} run{u.runs === 1 ? "" : "s"} ({u.onDemandRuns} on-demand, {u.failedRuns} failed)</div>
+        </div>
+        <div className="card">
+          <p className="kicker">Account</p>
+          <div className="meta">created {fmtDateTime(u.createdAt)}<br />onboarded {fmtDateTime(u.onboardedAt)}<br />timezone {u.timezone}<br />tablet {u.paired ? "paired" : "not paired"}<br />rating {u.ratingAvg ? `${u.ratingAvg.toFixed(1)} over ${u.ratingCount}` : "—"}</div>
+        </div>
+      </div>
+
+      <div className="card table-wrap" style={{ marginBottom: 24, padding: 16 }}>
+        <p className="kicker">Day by day · last 30 days with a run</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Grouped by the run&apos;s LOCAL date, not a UTC day — a night starts at 00:07 local and an on-demand sync can
+          land at any hour, so a UTC bucket would split one night across two rows. A day with a run and{" "}
+          <strong>$0.00</strong> is not a gap in the data: it means nothing on the tablet changed, which is rule 2
+          working and the whole unit-economics lever.
+        </p>
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Runs</th><th>Pages</th><th>Tokens</th><th>Model</th><th>Cost</th><th style={{ width: "22%" }} /></tr>
+          </thead>
+          <tbody>
+            {daily.map((d) => (
+              <tr key={d.localDate}>
+                <td className="mono">{d.localDate}</td>
+                <td className="mono">
+                  {d.runs}
+                  {d.onDemand > 0 ? <span className="meta"> · {d.onDemand} on-demand</span> : null}
+                  {d.failed > 0 ? <span className="badge bad" style={{ marginLeft: 6 }}>{d.failed} failed</span> : null}
+                </td>
+                <td className="mono">{d.pages}</td>
+                <td className="mono">{d.tokens > 0 ? Math.round(d.tokens).toLocaleString() : "—"}</td>
+                <td className="mono">{d.models || <span className="meta">none</span>}</td>
+                <td className="mono">{fmtUsd(d.costUsd)}</td>
+                <td>
+                  <div style={{ background: "var(--gold, #C9973F)", height: 10, borderRadius: 2, width: `${Math.max(2, (d.costUsd / peakDay) * 100)}%`, opacity: d.costUsd > 0 ? 1 : 0.15 }} />
+                </td>
+              </tr>
+            ))}
+            {daily.length === 0 ? <tr><td colSpan={7} className="muted">This account has never run.</td></tr> : null}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <p className="kicker">Options this customer has chosen</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Read-only. Being able to see a preference is a different thing from being able to change it, and nothing on
+          this screen edits their settings.
+        </p>
+        <div className="grid three">
+          {facts.options.map((group) => (
+            <div key={group.heading}>
+              <p className="kicker" style={{ marginBottom: 8 }}>{group.heading}</p>
+              <table>
+                <tbody>
+                  {group.rows.map((row) => (
+                    <tr key={row.label}>
+                      <td style={{ width: "50%" }}>{row.label}</td>
+                      <td>
+                        <span className={row.on === undefined ? "mono" : row.on ? "badge ok" : "badge"}>{row.value}</span>
+                        {row.detail ? <div className="meta" style={{ marginTop: 4 }}>{row.detail}</div> : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <p className="kicker">Accuracy and calibration</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Calibration is the largest thing an operator can point at when an account complains about accuracy: a written
+          sample teaches the decoder this person&apos;s letterforms, and an account that skipped it is being read without
+          one. The lexicon is the next largest.
+        </p>
+        <div className="grid two">
+          <table>
+            <tbody>
+              <tr>
+                <td>Calibrated</td>
+                <td>
+                  {facts.calibration ? (
+                    <>
+                      <span className={facts.calibration.status === "scored" ? "badge ok" : "badge warn"}>{facts.calibration.status}</span>
+                      {facts.calibration.accuracy === null ? null : (
+                        <span className="mono" style={{ marginLeft: 8 }}>{(facts.calibration.accuracy * 100).toFixed(0)}% accuracy</span>
+                      )}
+                      {facts.calibration.capturedAt ? <div className="meta" style={{ marginTop: 4 }}>captured {fmtDateTime(facts.calibration.capturedAt)}</div> : null}
+                    </>
+                  ) : (
+                    <>
+                      <span className="badge bad">never started</span>
+                      <div className="meta" style={{ marginTop: 4 }}>read without a handwriting sample</div>
+                    </>
+                  )}
+                </td>
+              </tr>
+              <tr>
+                <td>Mean decoded confidence</td>
+                <td className="mono">{facts.confidenceAvg === null ? "—" : `${(facts.confidenceAvg * 100).toFixed(1)}% over ${facts.confidenceItems} items`}</td>
+              </tr>
+              <tr><td>Vocabulary terms</td><td className="mono">{facts.lexiconTerms}</td></tr>
+            </tbody>
+          </table>
+          <table>
+            <tbody>
+              <tr><td>Role</td><td>{facts.role ?? <span className="meta">not given</span>}</td></tr>
+              <tr><td>Industry</td><td>{facts.industry ?? <span className="meta">not given</span>}</td></tr>
+              <tr><td>Nights read</td><td className="mono">{facts.nights}</td></tr>
+              <tr><td>Tokens / day</td><td className="mono">{Math.round(facts.tokensPerDay).toLocaleString()}</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div className="grid two" style={{ marginBottom: 24 }}>
@@ -95,33 +229,6 @@ export default async function AdminUserDetail({ params, searchParams }: { params
               );
             })}
             {detail.runs.length === 0 ? <tr><td colSpan={10} className="muted">This account has never run.</td></tr> : null}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="card" style={{ marginBottom: 24 }}>
-        <p className="kicker">Accuracy and calibration</p>
-        <table>
-          <tbody>
-            <tr><td>Role</td><td>{facts.role ?? <span className="meta">not given</span>}</td></tr>
-            <tr><td>Industry</td><td>{facts.industry ?? <span className="meta">not given</span>}</td></tr>
-            <tr><td>Vocabulary terms</td><td className="mono">{facts.lexiconTerms}</td></tr>
-            <tr>
-              <td>Calibration</td>
-              <td>
-                {facts.calibration
-                  ? `${facts.calibration.status}${facts.calibration.accuracy === null ? "" : ` · ${(facts.calibration.accuracy * 100).toFixed(0)}% accuracy`}${facts.calibration.capturedAt ? ` · ${fmtDateTime(facts.calibration.capturedAt)}` : ""}`
-                  : "never started"}
-              </td>
-            </tr>
-            <tr>
-              <td>Mean decoded confidence</td>
-              <td className="mono">
-                {facts.confidenceAvg === null ? "—" : `${(facts.confidenceAvg * 100).toFixed(1)}% over ${facts.confidenceItems} items`}
-              </td>
-            </tr>
-            <tr><td>Nights read</td><td className="mono">{facts.nights}</td></tr>
-            <tr><td>Tokens / day</td><td className="mono">{Math.round(facts.tokensPerDay).toLocaleString()}</td></tr>
           </tbody>
         </table>
       </div>

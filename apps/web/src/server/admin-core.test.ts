@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ADMIN_SESSION_TTL_MS, TUNING_MAX, TUNING_MIN, adminConfigFromEnv, checkAdminCredentials, hashAdminPassword, issueAdminToken, loginLocked, matchesUserQuery, validateTuning, verifyAdminToken } from "./admin-core.js";
+import { ADMIN_SESSION_TTL_MS, TUNING_MAX, TUNING_MIN, adminConfigFromEnv, checkAdminCredentials, describeOptions, hashAdminPassword, issueAdminToken, loginLocked, matchesUserQuery, validateTuning, verifyAdminToken } from "./admin-core.js";
 
 describe("admin config", () => {
   it("requires login id, a bcrypt hash (never plaintext), and the data key", async () => {
@@ -100,5 +100,79 @@ describe("matchesUserQuery", () => {
     const bare = { email: "a@b.co", status: "trial", plan: null, role: null, industry: null };
     expect(matchesUserQuery(bare, "trial")).toBe(true);
     expect(matchesUserQuery(bare, "student")).toBe(false);
+  });
+});
+
+describe("describeOptions", () => {
+  const find = (groups: ReturnType<typeof describeOptions>, label: string) =>
+    groups.flatMap((g) => g.rows).find((r) => r.label === label)!;
+
+  it("survives an account with no settings at all", () => {
+    const groups = describeOptions({});
+    expect(groups.length).toBeGreaterThan(0);
+    for (const g of groups) expect(g.rows.length).toBeGreaterThan(0);
+    expect(find(groups, "Daily brief").value).toBe("Off");
+  });
+
+  /**
+   * The support question this screen exists to answer. The brief being "on" is not the whole story —
+   * with no topics nothing is produced at all, and the run log is the only other place that says so.
+   */
+  it("says when the daily brief is on but will produce nothing", () => {
+    const on = find(describeOptions({ dailyUpdate: { enabled: true, topics: [] } }), "Daily brief");
+    expect(on.value).toBe("On");
+    expect(on.detail).toMatch(/no topics/);
+
+    const withTopics = find(describeOptions({ dailyUpdate: { enabled: true, topics: ["broadband", "Arsenal"] } }), "Daily brief");
+    expect(withTopics.detail).toContain("broadband");
+    expect(withTopics.detail).toContain("2 topics");
+  });
+
+  /**
+   * Rule 10: an unverified delivery address is NOT used. Showing it as though it were configured
+   * would send an operator looking for a mail that is never sent.
+   */
+  it("marks an unverified delivery address rather than showing it as set up", () => {
+    const unverified = find(describeOptions({ deliveryEmail: "jim@example.com", deliveryVerifiedAt: null }), "PDF delivery address");
+    expect(unverified.value).toContain("UNVERIFIED");
+    expect(unverified.detail).toBeUndefined();
+
+    const verified = find(
+      describeOptions({
+        deliveryEmail: "jim@example.com",
+        deliveryVerifiedAt: "2026-09-01T00:00:00Z",
+        deliveryDocuments: { planner: true, actionList: false, meetingNotes: true },
+      }),
+      "PDF delivery address",
+    );
+    expect(verified.value).toBe("jim@example.com");
+    expect(verified.detail).toBe("attaches planner, notes");
+  });
+
+  it("reads no watched folders as everything, which is what it means", () => {
+    expect(find(describeOptions({ watchFolders: [] }), "Watched folders").value).toBe("All notebooks");
+    const some = find(describeOptions({ watchFolders: ["/Work", "/Personal"] }), "Watched folders");
+    expect(some.value).toBe("2");
+    expect(some.detail).toBe("/Work, /Personal");
+  });
+
+  it("spells out an ink convention's keyword, since that is the part that differs per user", () => {
+    const row = find(
+      describeOptions({ conventions: { active: [{ id: "asterisk", meaning: "action" }, { id: "keyword", meaning: "action", keyword: "TODO" }] } }),
+      "Ink conventions",
+    );
+    expect(row.value).toBe("2");
+    expect(row.detail).toContain('keyword="TODO"→action');
+  });
+
+  it("flags auto-send invites with the constraint that still applies to it", () => {
+    const row = find(describeOptions({ autoSendInvites: true }), "Auto-send invites");
+    expect(row.on).toBe(true);
+    expect(row.detail).toMatch(/rule 7/);
+  });
+
+  it("says where the notebooks land, both ways round", () => {
+    expect(find(describeOptions({ outputToRoot: true }), "Notebooks land in").value).toBe("Tablet root");
+    expect(find(describeOptions({ outputToRoot: false }), "Notebooks land in").value).toBe("/dayMarkable");
   });
 });
