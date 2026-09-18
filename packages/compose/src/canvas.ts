@@ -221,8 +221,15 @@ export class Canvas {
     return dayW + this.textWidth("Markable", f, size);
   }
 
-  /** Header used on every page: serif title, mono subtitle, brand lockup right, 2px×3 rule. Returns the content top. */
-  header(title: string, subtitle: string): number {
+  /**
+   * Header used on every page: serif title, mono subtitle, brand lockup right, 2px×3 rule. Returns
+   * the content top.
+   *
+   * `rightNote` is set right-aligned on the subtitle's own baseline — the one place on the page that
+   * is both in the eye's path and out of the way of anything it could collide with. It sits below
+   * the lockup, so the two never meet.
+   */
+  header(title: string, subtitle: string, rightNote?: string): number {
     const f = this.fonts;
     const titleSize = 78;
     const titleBaseline = PAD_TOP + titleSize * 0.82;
@@ -239,6 +246,7 @@ export class Canvas {
     const maxTitle = CONTENT_W - lockupW - 40;
     this.text(this.fit(title, f.display, titleSize, maxTitle), CONTENT_X, titleBaseline, { font: f.display, size: titleSize });
     this.text(subtitle, CONTENT_X, titleBaseline + 42, { font: f.mono, size: 30, color: SECONDARY, tracking: 0.02 });
+    if (rightNote) this.text(rightNote, CONTENT_RIGHT, titleBaseline + 42, { font: f.mono, size: 30, color: SECONDARY, tracking: 0.02, align: "right" });
     this.rose(CONTENT_RIGHT - lockupW, PAD_TOP + 6, roseSize);
     this.wordmark(CONTENT_RIGHT - markW, PAD_TOP + 6 + roseSize * 0.5 + markSize * 0.36, markSize);
     const ruleY = titleBaseline + 42 + 30;

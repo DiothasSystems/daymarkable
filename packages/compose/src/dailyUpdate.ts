@@ -2,7 +2,7 @@
 import { SECONDARY } from "./brand.js";
 import { newDocument } from "./canvas.js";
 import type { ComposedDocument } from "./planner.js";
-import { LINE_H, MAIN_X, Section, generatedStamp, type ComposeContext } from "./section.js";
+import { LINE_H, MAIN_X, Section, compiledAt, type ComposeContext } from "./section.js";
 
 export interface DailyUpdateItem {
   headline: string;
@@ -32,7 +32,10 @@ export async function composeDailyUpdate(input: DailyUpdateInput): Promise<Compo
     ctx,
     "NEWS",
     (p) => (p === 1 ? "dayLy Update" : "dayLy Update · cont."),
-    () => `NEWS · ${count} HEADLINE${count === 1 ? "" : "S"} · ${generatedStamp(ctx)}`,
+    () => `NEWS · ${count} HEADLINE${count === 1 ? "" : "S"}`,
+    // The compile time, right-aligned and on its own: a reader glancing at the top corner wants to
+    // know this is today's brief, and a bare clock reading says that without a label.
+    () => compiledAt(ctx),
   );
   s.newPage();
 

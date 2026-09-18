@@ -109,7 +109,19 @@ export interface ComposeContext {
 }
 
 export function generatedStamp(ctx: ComposeContext): string {
-  return `GENERATED ${ctx.generatedAt.slice(11, 16)}`;
+  return `GENERATED ${compiledAt(ctx)}`;
+}
+
+/**
+ * Just the time the notebook was compiled, as HH:MM local.
+ *
+ * The bare time, with no "GENERATED" in front of it: on a page whose whole purpose is this morning,
+ * a clock reading in the top corner is read as "this is when it was made" without being told. It is
+ * the run's own timestamp, so a page that says 02:14 was composed at 02:14 — which is how a reader
+ * tells this morning's copy from one left over.
+ */
+export function compiledAt(ctx: ComposeContext): string {
+  return ctx.generatedAt.slice(11, 16);
 }
 
 export interface RowItem {
@@ -137,6 +149,8 @@ export class Section {
     readonly kind: PageKindCode,
     private readonly title: (pageNo: number) => string,
     private readonly subtitle: (pageNo: number) => string,
+    /** Optional right-aligned note on the subtitle line. */
+    private readonly rightNote?: (pageNo: number) => string,
   ) {}
 
   get pageCode(): string {
@@ -147,7 +161,7 @@ export class Section {
     this.pageNo += 1;
     this.codeCounters.clear();
     this.canvas = addPage(this.ctx.doc, this.ctx.fonts, this.ctx.doc.getPageCount() + 1);
-    this.y = this.canvas.header(this.title(this.pageNo), this.subtitle(this.pageNo));
+    this.y = this.canvas.header(this.title(this.pageNo), this.subtitle(this.pageNo), this.rightNote?.(this.pageNo));
     this.canvas.footer(this.pageCode);
   }
 
