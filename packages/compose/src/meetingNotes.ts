@@ -16,7 +16,7 @@ export async function composeMeetingNotes(input: MeetingNotesInput): Promise<Com
   const { doc, fonts } = await newDocument();
   const ctx: ComposeContext = { doc, fonts, date: input.date, generatedAt: input.generatedAt, runLabel: input.runLabel, printed: [] };
   const meetings = input.model.meetings;
-  const s = new Section(ctx, "MEETINGS", (p) => (p === 1 ? "Notes" : "Notes · cont."), () => `dayMarkable MEETINGS · ${meetings.length} MEETING${meetings.length === 1 ? "" : "S"} · ${generatedStamp(ctx)}`);
+  const s = new Section(ctx, "MEETINGS", (p) => (p === 1 ? "Notes" : "Notes · cont."), () => `MEETINGS · ${meetings.length} MEETING${meetings.length === 1 ? "" : "S"} · ${generatedStamp(ctx)}`);
   s.newPage();
   if (meetings.length === 0) {
     s.label("No meetings decoded yet");

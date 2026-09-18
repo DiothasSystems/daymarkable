@@ -1,5 +1,5 @@
 /**
- * The Daily Puzzle notebook: page one the puzzle, page two its solution.
+ * The dayLy Puzzle notebook: page one the puzzle, page two its solution.
  *
  * Exactly two pages, always, because the solution must be a page turn away rather than something
  * to hunt for — and because a customer who wants to avoid the answer needs to know it is on page
@@ -71,7 +71,7 @@ export async function composeDailyPuzzle(input: DailyPuzzleInput): Promise<Compo
     ctx,
     "PUZZLE",
     (p) => (p === 1 ? name : cluePage && p === 2 ? `${name} · clues` : `${name} · solution`),
-    () => `dayMarkable PUZZLE · ${generatedStamp(ctx)}`,
+    () => `PUZZLE · ${generatedStamp(ctx)}`,
   );
 
   // ---- page one: the puzzle
@@ -113,7 +113,7 @@ export async function composeDailyPuzzle(input: DailyPuzzleInput): Promise<Compo
     drawWordList(s, input.puzzle.words);
   }
 
-  doc.setTitle(`dayMarkable Daily Puzzle ${input.date}`);
+  doc.setTitle(`dayLy Puzzle ${input.date}`);
   return { pdf: await doc.save(), pageCount: doc.getPageCount(), printed: ctx.printed };
 }
 

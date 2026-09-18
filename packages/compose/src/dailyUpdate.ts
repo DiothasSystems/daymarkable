@@ -1,4 +1,4 @@
-/** The Daily Update notebook: the overnight news brief, one section per topic. */
+/** The dayLy Update notebook: the overnight news brief, one section per topic. */
 import { SECONDARY } from "./brand.js";
 import { newDocument } from "./canvas.js";
 import type { ComposedDocument } from "./planner.js";
@@ -31,8 +31,8 @@ export async function composeDailyUpdate(input: DailyUpdateInput): Promise<Compo
   const s = new Section(
     ctx,
     "NEWS",
-    (p) => (p === 1 ? "Daily Update" : "Daily Update · cont."),
-    () => `dayMarkable NEWS · ${count} HEADLINE${count === 1 ? "" : "S"} · ${generatedStamp(ctx)}`,
+    (p) => (p === 1 ? "dayLy Update" : "dayLy Update · cont."),
+    () => `NEWS · ${count} HEADLINE${count === 1 ? "" : "S"} · ${generatedStamp(ctx)}`,
   );
   s.newPage();
 
@@ -76,6 +76,6 @@ export async function composeDailyUpdate(input: DailyUpdateInput): Promise<Compo
     }
   });
 
-  doc.setTitle(`dayMarkable Daily Update ${input.date}`);
+  doc.setTitle(`dayLy Update ${input.date}`);
   return { pdf: await doc.save(), pageCount: doc.getPageCount(), printed: ctx.printed };
 }

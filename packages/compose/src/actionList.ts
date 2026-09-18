@@ -20,7 +20,7 @@ export async function composeActionList(input: ActionListInput): Promise<Compose
   const { doc, fonts } = await newDocument();
   const ctx: ComposeContext = { doc, fonts, date: input.date, generatedAt: input.generatedAt, runLabel: input.runLabel, printed: [] };
   const m = input.model;
-  const s = new Section(ctx, "ACTIONS", (p) => (p === 1 ? "Action List" : "Action List · cont."), () => `dayMarkable ACTIONS · ${m.openCount} OPEN · ${generatedStamp(ctx)}`);
+  const s = new Section(ctx, "ACTIONS", (p) => (p === 1 ? "Action List" : "Action List · cont."), () => `ACTIONS · ${m.openCount} OPEN · ${generatedStamp(ctx)}`);
   s.newPage();
   if (m.openCount === 0) s.note("Nothing open. Write something down.");
   // One group per source page: the notebook's name, then the page reference and the page's own

@@ -202,7 +202,7 @@ export function writeDailySheet(ctx: ComposeContext, m: DailySheetModel): void {
   const c = addPage(ctx.doc, ctx.fonts, ctx.doc.getPageCount() + 1);
   const page = dailyPageCode(m.date, 1);
   const codes: Codes = { ctx, page, counters: new Map() };
-  const top = c.header(formatTitleDate(m.date), `dayMarkable DAILY · ${generatedStamp(ctx)} · ${ctx.runLabel.toUpperCase()}`);
+  const top = c.header(formatTitleDate(m.date), `DAILY · ${generatedStamp(ctx)} · ${ctx.runLabel.toUpperCase()}`);
   c.footer(page);
   const bottom = BODY_BOTTOM;
 

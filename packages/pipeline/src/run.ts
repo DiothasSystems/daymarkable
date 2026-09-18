@@ -85,7 +85,7 @@ const ARCHIVE_FOLDER = "/dayMarkable/Archive";
 /** Yesterday's puzzles, kept so an unfinished one can be gone back to. */
 export const PUZZLE_FOLDER = `${OUTPUT_FOLDER}/Puzzles`;
 /** Yesterday's briefs, kept so a headline can be looked up again. */
-export const HEADLINES_FOLDER = `${OUTPUT_FOLDER}/Daily Headlines`;
+export const HEADLINES_FOLDER = `${OUTPUT_FOLDER}/dayLy Headlines`;
 
 /**
  * Folders that hold what we have already published. Everything in them is ours, but it is FINISHED:
@@ -99,8 +99,14 @@ export function inKeepFolder(path: string): boolean {
   return KEEP_FOLDERS.some((f) => path.startsWith(`${f}/`));
 }
 
-/** Everything dayMarkable writes to the tablet, by name. */
-export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", "Daily Update", "Daily Puzzle"] as const;
+/**
+ * Everything dayMarkable writes to the tablet, by name.
+ *
+ * The two daily notebooks are set the way the brand sets its own name: lowercase "day", then a
+ * capital. `dayMarkable`, `dayLy Update`, `dayLy Puzzle` — the pattern is the point, so the tablet's
+ * file list reads as one product rather than as five unrelated notebooks.
+ */
+export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", "dayLy Update", "dayLy Puzzle"] as const;
 
 /**
  * The two notebooks that are output and nothing else.
@@ -109,15 +115,19 @@ export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", "Daily Update", 
  * the next night, which is the closed loop. A crossword is not: letters written into its grid are an
  * answer to a puzzle, not a task, and decoding them costs money to produce nonsense. Same for the
  * brief, which is there to be read.
+ *
+ * The old names are listed too. A copy left on the tablet from before the rename must not become a
+ * user notebook the moment it stops matching — it would be decoded straight back into itself, which
+ * is the trap `LEGACY_OUTPUT_NAMES` exists for.
  */
-export const NEVER_READ_BACK = ["Daily Puzzle", "Daily Update"] as const;
+export const NEVER_READ_BACK = ["dayLy Puzzle", "dayLy Update", "Daily Puzzle", "Daily Update"] as const;
 
 /**
  * Names we used to write. Still recognised as ours — otherwise a renamed notebook left on the
  * tablet would be treated as the user's own and decoded back into itself — and deleted on the
  * next run wherever it is found.
  */
-export const LEGACY_OUTPUT_NAMES = ["Meeting Notes"] as const;
+export const LEGACY_OUTPUT_NAMES = ["Meeting Notes", "Daily Update", "Daily Puzzle"] as const;
 
 /** Where this user's notebooks are published: a folder, or the tablet root. */
 export function outputFolderFor(settings: { outputToRoot?: boolean }): string {
@@ -684,7 +694,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // a missing brief is a missing brief, not a lost planner.
     if (settings.dailyUpdate.enabled) {
       const brief = await buildDailyUpdate(deps, user, localDate, generatedAt, runLabel, run.id, stats, log);
-      if (brief) outputs.push({ kind: "daily_update" as const, name: "Daily Update", composed: brief });
+      if (brief) outputs.push({ kind: "daily_update" as const, name: "dayLy Update", composed: brief });
     }
     if (settings.dailyPuzzle.enabled) {
       const choice = puzzleFor(localDate);
@@ -706,7 +716,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         puzzle = kind === "sudoku" ? sudokuInput(seed) : wordSearchInput(seed);
       }
       const composed = await composeDailyPuzzle({ puzzle, date: localDate, generatedAt, runLabel, insteadOf });
-      outputs.push({ kind: "daily_puzzle" as const, name: "Daily Puzzle", composed });
+      outputs.push({ kind: "daily_puzzle" as const, name: "dayLy Puzzle", composed });
       log(`puzzle: ${kind}${insteadOf ? ` (standing in for ${insteadOf})` : ""}, ${composed.pageCount} pages`);
     }
     const printed: PrintedItem[] = [];
@@ -727,10 +737,10 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       // The daily extras keep their own folders. Only reached for when the feature is on, so an
       // account that has switched the puzzle off never grows an empty Puzzles folder.
       if (outputs.some((o) => o.kind === "daily_puzzle")) {
-        await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(PUZZLE_FOLDER), "Daily Puzzle", localDate, log);
+        await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(PUZZLE_FOLDER), "dayLy Puzzle", localDate, log);
       }
       if (outputs.some((o) => o.kind === "daily_update")) {
-        await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(HEADLINES_FOLDER), "Daily Update", localDate, log);
+        await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(HEADLINES_FOLDER), "dayLy Update", localDate, log);
       }
       await cleanStaleOutputs(deps.tablet, tree.documents, folder.id, log);
       for (const o of outputs) {

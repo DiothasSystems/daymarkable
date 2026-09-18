@@ -322,7 +322,7 @@ function writeYear(ctx: ComposeContext, yv: PlannerModel["year"], today: string)
 }
 
 function writeInbox(ctx: ComposeContext, inbox: PlannerModel["inbox"]): void {
-  const s = new Section(ctx, "INBOX", (p) => (p === 1 ? "Inbox" : "Inbox · cont."), () => `dayMarkable INBOX · ${inbox.items.length} TO CONFIRM · ${generatedStamp(ctx)}`);
+  const s = new Section(ctx, "INBOX", (p) => (p === 1 ? "Inbox" : "Inbox · cont."), () => `INBOX · ${inbox.items.length} TO CONFIRM · ${generatedStamp(ctx)}`);
   s.newPage();
   s.label("Confirm these · tick = yes · strike = drop");
   if (inbox.items.length === 0) s.note("Nothing to confirm. Everything read cleanly.");

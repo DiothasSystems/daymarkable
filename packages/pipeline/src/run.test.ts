@@ -73,7 +73,7 @@ describe("runPipeline (fixtures)", () => {
     expect(out.stats!.tasksFound).toBeGreaterThan(0);
     // The Daily Puzzle rides along: on by default, deterministic, and free. The Daily Update does
     // not, because this account has set no topics to search for.
-    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Daily Puzzle", "Notes", "Planner"]);
+    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Notes", "Planner", "dayLy Puzzle"]);
     const docs = await handle.db.query.documents.findMany({ where: eq(schema.documents.userId, userId) });
     expect(docs.map((d) => d.kind).sort()).toEqual(["action_list", "daily_puzzle", "meeting_notes", "planner"]);
     // Still one cost row: the puzzle is generated, not asked for. Nothing here called a model
@@ -340,9 +340,9 @@ describe("the daily extras' own folders", () => {
 
   it("keeps puzzles and headlines in folders of their own", () => {
     expect(PUZZLE_FOLDER).toBe("/dayMarkable/Puzzles");
-    expect(HEADLINES_FOLDER).toBe("/dayMarkable/Daily Headlines");
-    expect(inKeepFolder("/dayMarkable/Puzzles/Daily Puzzle 2026-09-21")).toBe(true);
-    expect(inKeepFolder("/dayMarkable/Daily Headlines/Daily Update 2026-09-21")).toBe(true);
+    expect(HEADLINES_FOLDER).toBe("/dayMarkable/dayLy Headlines");
+    expect(inKeepFolder("/dayMarkable/Puzzles/dayLy Puzzle 2026-09-21")).toBe(true);
+    expect(inKeepFolder("/dayMarkable/dayLy Headlines/dayLy Update 2026-09-21")).toBe(true);
     expect(inKeepFolder("/dayMarkable/Planner")).toBe(false);
   });
 
@@ -354,14 +354,28 @@ describe("the daily extras' own folders", () => {
   it("does not let the stale-output cleaner eat the archive", async () => {
     const deleted: string[] = [];
     const docs = [
-      doc("/dayMarkable/Daily Puzzle"),
-      doc("/dayMarkable/Puzzles/Daily Puzzle 2026-09-21", "Daily Puzzle 2026-09-21"),
-      doc("/dayMarkable/Daily Headlines/Daily Update 2026-09-21", "Daily Update 2026-09-21"),
+      doc("/dayMarkable/dayLy Puzzle"),
+      doc("/dayMarkable/Puzzles/dayLy Puzzle 2026-09-21", "dayLy Puzzle 2026-09-21"),
+      doc("/dayMarkable/dayLy Headlines/dayLy Update 2026-09-21", "dayLy Update 2026-09-21"),
       doc("/dayMarkable/Archive/Planner 2026-09-01", "Planner 2026-09-01"),
     ];
     const tablet = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as unknown as Parameters<typeof cleanStaleOutputs>[0];
+    // parentId "" matches the live notebook's, so nothing here is in the wrong place.
     await cleanStaleOutputs(tablet, docs, "", () => {});
     expect(deleted).toEqual([]);
+  });
+
+  /**
+   * The other half of a rename: the copy written under the OLD name has to go, or the tablet shows
+   * two puzzles and the stale one — no longer matching an output name — gets decoded back into
+   * itself. This is what LEGACY_OUTPUT_NAMES is for, and it did the same job for "Meeting Notes".
+   */
+  it("removes the notebook left behind under the previous name", async () => {
+    const deleted: string[] = [];
+    const docs = [doc("/dayMarkable/dayLy Puzzle"), doc("/dayMarkable/Daily Puzzle"), doc("/dayMarkable/Daily Update")];
+    const tablet = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as unknown as Parameters<typeof cleanStaleOutputs>[0];
+    await cleanStaleOutputs(tablet, docs, "", () => {});
+    expect(deleted.sort()).toEqual(["Daily Puzzle", "Daily Update"]);
   });
 
   /**
@@ -371,10 +385,12 @@ describe("the daily extras' own folders", () => {
   it("never reads a puzzle or a brief back, live or archived", () => {
     const docs = [
       doc("/dayMarkable/Planner"),
+      doc("/dayMarkable/dayLy Puzzle"),
+      doc("/dayMarkable/dayLy Update"),
+      // The names from before the rename are excluded too, for as long as a copy can still exist.
       doc("/dayMarkable/Daily Puzzle"),
-      doc("/dayMarkable/Daily Update"),
-      doc("/dayMarkable/Puzzles/Daily Puzzle 2026-09-21", "Daily Puzzle 2026-09-21"),
-      doc("/dayMarkable/Daily Headlines/Daily Update 2026-09-21", "Daily Update 2026-09-21"),
+      doc("/dayMarkable/Puzzles/dayLy Puzzle 2026-09-21", "dayLy Puzzle 2026-09-21"),
+      doc("/dayMarkable/dayLy Headlines/dayLy Update 2026-09-21", "dayLy Update 2026-09-21"),
     ];
     expect(selectDocuments(docs, { watchFolders: [], includePdfs: true }).map((d) => d.name)).toEqual(["Planner"]);
   });

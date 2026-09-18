@@ -186,7 +186,7 @@ unchanged.
     nowhere for fifty clues to sit beside it.
 
     Both extras keep their own tablet folders: yesterday's copy is filed into `/dayMarkable/Puzzles`
-    or `/dayMarkable/Daily Headlines` before today's replaces it, dated from the document's own
+    or `/dayMarkable/dayLy Headlines` before today's replaces it, dated from the document's own
     last-modified time. Nothing is deleted from them — a planner archive is spent once its ticks are
     read, an unfinished crossword is not. Those folders join `/dayMarkable/Archive` in `KEEP_FOLDERS`,
     which matters twice over: `cleanStaleOutputs` deletes anything of ours outside the output folder,
@@ -268,7 +268,11 @@ it carried in the cached system prompt:
 ## Brand
 
 Product name is always spelled **dayMarkable** (lowercase d, capital M) — in copy, UI, code
-identifiers where casing allows, and email subjects. The design source of truth is the brand
+identifiers where casing allows, and email subjects. The two daily notebooks follow the same shape:
+**dayLy Update** and **dayLy Puzzle**, lowercase "day" then a capital, so the tablet's file list reads
+as one product. Their folder is **dayLy Headlines**. Renaming a notebook means adding the old name to
+`LEGACY_OUTPUT_NAMES`, or the copy left on the tablet stops being ours and is decoded back into
+itself. The design source of truth is the brand
 handoff in `design/design_handoff_daymarkable/` (style guide, tablet page + email mocks,
 `assets/emblem.png`, `assets/full-lockup.png`); `README.md` there summarises every token.
 
