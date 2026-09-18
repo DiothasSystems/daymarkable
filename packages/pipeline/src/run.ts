@@ -7,8 +7,19 @@
  */
 import { mergeRun, buildOutputSet, buildWeekNotes, notesWeekStart, type MergePage, type PrintedItem } from "@daymarkable/core";
 import { composeActionList, composeDailyPuzzle, composeDailyUpdate, composeMeetingNotes, composePlanner, inkCoverage, parseInkSvg, type PuzzleInput } from "@daymarkable/compose";
-import { gatherDailyUpdate } from "@daymarkable/news";
-import { GENERAL_WORDS, generateSudoku, generateWordSearch, puzzleFor, seedFor, solutionCells } from "@daymarkable/puzzles";
+import { crosswordWords, gatherDailyUpdate } from "@daymarkable/news";
+import {
+  GENERAL_WORDS,
+  MIN_PLACED,
+  buildCrossword,
+  cluesByDirection,
+  generateSudoku,
+  generateWordSearch,
+  puzzleFor,
+  seedFor,
+  solutionCells,
+  validateCrossword,
+} from "@daymarkable/puzzles";
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
 import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
 import { buildDeliveryMail, buildMeetingMail, type MailProvider } from "@daymarkable/mail";
@@ -166,6 +177,74 @@ async function buildDailyUpdate(
 /** Narrow helper so the block above reads without a `deps.db` in the middle of every line. */
 function db2(deps: PipelineDeps): Db {
   return deps.db;
+}
+
+/**
+ * A crossword, or null when one cannot be had tonight.
+ *
+ * Three ways it returns null, and all three end with a word search on the page rather than a bad
+ * crossword: the model did not answer, the words it gave will not interlock into enough of a grid,
+ * or — the one that must never reach paper — the finished grid contains a run of letters that is
+ * not a clued answer. The layout cannot produce that by construction, so the check is a belt on top
+ * of the braces; if it ever fires, something is wrong and printing is the worse option.
+ *
+ * A fixture run has no client and so always gets the word search, which is what keeps `pnpm dev:run`
+ * working without a key.
+ *
+ * On rule 4: the GRID is seeded by (user, local-date), but the WORDS come from a model, so a
+ * re-run of the same night produces a different crossword. That is deliberate rather than
+ * overlooked. The cache is keyed by run id, so a retry cannot read the previous attempt's words
+ * without new cross-run plumbing, and the property rule 4 protects is intact either way: this
+ * notebook is replaced whole rather than appended to, so a re-run cannot duplicate anything, and
+ * both pages are generated from one layout so the solution always matches the puzzle printed
+ * beside it. The cost of asking again is one Sonnet call.
+ */
+async function buildCrosswordInput(
+  deps: PipelineDeps,
+  user: repo.UserRow,
+  localDate: string,
+  runId: string,
+  stats: RunStats,
+  log: (m: string) => void,
+): Promise<PuzzleInput | null> {
+  if (!deps.newsClient) return null;
+  const result = await crosswordWords(deps.newsClient, {
+    model: deps.decodeModel,
+    topics: user.settings.dailyUpdate.topics,
+    lexicon: user.settings.lexicon,
+    log,
+  });
+  if (result.usage.output_tokens > 0) {
+    stats.costUsd += await repo.recordCosts(db2(deps), runId, user.id, "puzzle", [
+      { ...result.usage, model: deps.decodeModel, mode: "standard" as const, pages: 1, cost_usd: result.costUsd },
+    ]);
+  }
+  if (result.error) {
+    log(`crossword: no words tonight (${result.error})`);
+    return null;
+  }
+  const cw = buildCrossword(result.words, seedFor(user.id, localDate, "crossword"));
+  if (cw.placed.length < MIN_PLACED) {
+    log(`crossword: only ${cw.placed.length} of ${result.words.length} words would interlock, needs ${MIN_PLACED}`);
+    return null;
+  }
+  const check = validateCrossword(cw);
+  if (!check.ok) {
+    log(`crossword: REJECTED, grid contained ${check.unclued.length} unclued run(s)`);
+    return null;
+  }
+  const { across, down } = cluesByDirection(cw);
+  const numbers = new Map<string, number>();
+  for (const p of cw.placed) numbers.set(`${p.row},${p.col}`, p.number);
+  log(`crossword: ${cw.placed.length} answers placed (${across.length} across, ${down.length} down), ${cw.skipped.length} unused`);
+  return {
+    kind: "crossword",
+    size: cw.size,
+    grid: cw.grid,
+    numbers,
+    across: across.map((p) => ({ number: p.number, clue: p.clue, answer: p.answer })),
+    down: down.map((p) => ({ number: p.number, clue: p.clue, answer: p.answer })),
+  };
 }
 
 function sudokuInput(seed: number): PuzzleInput {
@@ -539,14 +618,26 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     }
     if (settings.dailyPuzzle.enabled) {
       const choice = puzzleFor(localDate);
-      const seed = seedFor(user.id, localDate, choice.kind);
-      const puzzle =
-        choice.kind === "sudoku"
-          ? sudokuInput(seed)
-          : wordSearchInput(seed, settings.dailyUpdate.topics, user.settings.lexicon);
-      const composed = await composeDailyPuzzle({ puzzle, date: localDate, generatedAt, runLabel, insteadOf: choice.insteadOf });
+      let kind = choice.kind;
+      let insteadOf = choice.insteadOf;
+      let puzzle: PuzzleInput | null = null;
+
+      if (kind === "crossword") {
+        puzzle = await buildCrosswordInput(deps, user, localDate, run.id, stats, log);
+        if (!puzzle) {
+          // A thin layout or a model that did not answer: print a word search instead rather than
+          // a crossword nobody can solve, and say so on the page.
+          kind = "word_search";
+          insteadOf = "crossword";
+        }
+      }
+      if (!puzzle) {
+        const seed = seedFor(user.id, localDate, kind);
+        puzzle = kind === "sudoku" ? sudokuInput(seed) : wordSearchInput(seed, settings.dailyUpdate.topics, user.settings.lexicon);
+      }
+      const composed = await composeDailyPuzzle({ puzzle, date: localDate, generatedAt, runLabel, insteadOf });
       outputs.push({ kind: "daily_puzzle" as const, name: "Daily Puzzle", composed });
-      log(`puzzle: ${choice.kind}${choice.insteadOf ? ` (standing in for ${choice.insteadOf})` : ""}, 2 pages`);
+      log(`puzzle: ${kind}${insteadOf ? ` (standing in for ${insteadOf})` : ""}, 2 pages`);
     }
     const printed: PrintedItem[] = [];
     for (const o of outputs) {

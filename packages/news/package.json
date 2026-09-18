@@ -5,10 +5,15 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "exports": { ".": "./src/index.ts" },
-  "scripts": { "build": "tsc -b" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
-    "@daymarkable/decode": "workspace:*"
+    "@daymarkable/decode": "workspace:*",
+    "@daymarkable/puzzles": "workspace:*"
   }
 }

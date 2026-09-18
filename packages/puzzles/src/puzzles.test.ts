@@ -21,10 +21,22 @@ describe("schedule", () => {
     expect(puzzleFor("2026-09-17")).toEqual({ kind: "sudoku", insteadOf: null }); // Thursday
   });
 
-  it("stands something in for a crossword, and says what it replaced", () => {
-    const monday = puzzleFor("2026-09-14");
+  it("prints the day's own puzzle now that all three kinds exist", () => {
+    for (const date of ["2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18"]) {
+      expect(puzzleFor(date).insteadOf).toBeNull();
+    }
+    expect(puzzleFor("2026-09-14").kind).toBe("crossword");
+    expect(IMPLEMENTED).toEqual(["crossword", "word_search", "sudoku"]);
+  });
+
+  /**
+   * The stand-in still matters: a night whose crossword words do not arrive falls back at the point
+   * of use. These cases drive it through the parameter, which is the same code path.
+   */
+  it("stands something in for a kind that cannot be built, and says what it replaced", () => {
+    const monday = puzzleFor("2026-09-14", ["word_search", "sudoku"]);
     expect(monday.insteadOf).toBe("crossword");
-    expect(IMPLEMENTED).toContain(monday.kind);
+    expect(monday.kind).not.toBe("crossword");
   });
 
   /**
@@ -32,7 +44,7 @@ describe("schedule", () => {
    * four word searches and a sudoku.
    */
   it("alternates the stand-in across weeks rather than always choosing one", () => {
-    const mondays = ["2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05"].map((d) => puzzleFor(d).kind);
+    const mondays = ["2026-09-14", "2026-09-21", "2026-09-28", "2026-10-05"].map((d) => puzzleFor(d, ["word_search", "sudoku"]).kind);
     expect(new Set(mondays).size).toBeGreaterThan(1);
   });
 

@@ -8,4 +8,4 @@ export { inkCoverage, parseInkSvg } from "./ink.js";
 export { composeCalibrationSheet, type CalibrationSheetInput, type ComposedCalibrationSheet } from "./calibrationSheet.js";
 export { extractPdfPages, type ExtractedPdf } from "./extract.js";
 export { composeDailyUpdate, type DailyUpdateInput, type DailyUpdateSection, type DailyUpdateItem } from "./dailyUpdate.js";
-export { composeDailyPuzzle, type DailyPuzzleInput, type PuzzleInput } from "./dailyPuzzle.js";
+export { composeDailyPuzzle, type DailyPuzzleInput, type PuzzleInput, type CrosswordClue } from "./dailyPuzzle.js";

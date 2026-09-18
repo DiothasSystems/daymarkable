@@ -29,14 +29,20 @@ unchanged.
     `rmapi-js`. Nothing outside this package touches the reMarkable API.
   - `packages/decode` — Claude Batch API client, extraction prompt, zod schemas for the
     structured output. Reading a page happens here and nowhere else.
-  - `packages/news` — the overnight news brief: Claude with the web-search tool, one request per
-    run, returning headlines and summaries for the topics the customer typed. The SECOND package
+  - `packages/news` — the Claude calls that are not reading a page: the overnight news brief
+    (web-search tool, one request per run, headlines and summaries for the topics the customer
+    typed) and the crossword's answers and clues (`clues.ts`, one request). The SECOND package
     permitted to call Anthropic, amended on 2026-09-17 — the constraint exists to keep Anthropic
     access auditable in known places, and folding news gathering into the decoder would have made
     the decoder about two things. Any third caller needs the same explicit decision.
-  - `packages/puzzles` — sudoku and word-search generation, pure and deterministic, seeded from
-    (user, local-date, kind) so a retried night reproduces the same grid (rule 4). Crossword is not
-    built: a model cannot be trusted to draw an interlocking grid, so it needs a layout engine.
+  - `packages/puzzles` — sudoku, word-search and crossword generation, pure and deterministic,
+    seeded from (user, local-date, kind) so a retried night reproduces the same grid (rule 4). The
+    crossword splits the two jobs the obvious way: the model supplies words and clues, and
+    `crossword.ts` lays out the grid, because a model asked to draw an interlocking grid produces
+    letter runs it cannot clue (a hand-generated 5x5 failed its own validator on 2 of 10 tries).
+    `canPlace` makes an unintended run impossible by construction, `validateCrossword` checks the
+    finished grid anyway, and a night that cannot reach `MIN_PLACED` answers prints a word search
+    instead rather than an unsolvable puzzle.
   - `packages/compose` — PDF generation for all three notebooks (typst templates in
     `templates/`): planner, Action List, Meeting Notes.
   - `packages/calendar` — `CalendarProvider` interface + Google Calendar / Microsoft Graph

@@ -292,6 +292,9 @@ importers:
       '@daymarkable/decode':
         specifier: workspace:*
         version: link:../decode
+      '@daymarkable/puzzles':
+        specifier: workspace:*
+        version: link:../puzzles
 
   packages/pipeline:
     dependencies:

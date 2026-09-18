@@ -30,7 +30,24 @@ export interface WordSearchPuzzleInput {
   solutionCells: Set<string>;
 }
 
-export type PuzzleInput = SudokuPuzzleInput | WordSearchPuzzleInput;
+export interface CrosswordClue {
+  number: number;
+  clue: string;
+  answer: string;
+}
+
+export interface CrosswordPuzzleInput {
+  kind: "crossword";
+  size: number;
+  /** Letters, or null for a black square. */
+  grid: (string | null)[][];
+  /** "row,col" -> the number printed in that square's corner. */
+  numbers: Map<string, number>;
+  across: CrosswordClue[];
+  down: CrosswordClue[];
+}
+
+export type PuzzleInput = SudokuPuzzleInput | WordSearchPuzzleInput | CrosswordPuzzleInput;
 
 export interface DailyPuzzleInput {
   puzzle: PuzzleInput;
@@ -41,7 +58,7 @@ export interface DailyPuzzleInput {
   insteadOf?: string | null;
 }
 
-const TITLE: Record<PuzzleInput["kind"], string> = { sudoku: "Sudoku", word_search: "Word Search" };
+const TITLE: Record<PuzzleInput["kind"], string> = { sudoku: "Sudoku", word_search: "Word Search", crossword: "Crossword" };
 
 export async function composeDailyPuzzle(input: DailyPuzzleInput): Promise<ComposedDocument> {
   const { doc, fonts } = await newDocument();
@@ -63,6 +80,11 @@ export async function composeDailyPuzzle(input: DailyPuzzleInput): Promise<Compo
   if (input.puzzle.kind === "sudoku") {
     s.label("Fill every row, column and box with 1 to 9", input.puzzle.difficulty.toUpperCase());
     drawSudoku(s, input.puzzle.puzzle, null);
+  } else if (input.puzzle.kind === "crossword") {
+    const total = input.puzzle.across.length + input.puzzle.down.length;
+    s.label("Across and down", `${total} CLUE${total === 1 ? "" : "S"}`);
+    drawCrossword(s, input.puzzle, false);
+    drawClues(s, input.puzzle);
   } else {
     s.label("Find every word", `${input.puzzle.words.length} TO FIND`);
     drawWordGrid(s, input.puzzle.grid, input.puzzle.size, null);
@@ -74,6 +96,8 @@ export async function composeDailyPuzzle(input: DailyPuzzleInput): Promise<Compo
   s.label("Solution");
   if (input.puzzle.kind === "sudoku") {
     drawSudoku(s, input.puzzle.solution, input.puzzle.puzzle);
+  } else if (input.puzzle.kind === "crossword") {
+    drawCrossword(s, input.puzzle, true);
   } else {
     drawWordGrid(s, input.puzzle.grid, input.puzzle.size, input.puzzle.solutionCells);
     drawWordList(s, input.puzzle.words);
@@ -81,6 +105,69 @@ export async function composeDailyPuzzle(input: DailyPuzzleInput): Promise<Compo
 
   doc.setTitle(`dayMarkable Daily Puzzle ${input.date}`);
   return { pdf: await doc.save(), pageCount: doc.getPageCount(), printed: ctx.printed };
+}
+
+
+/**
+ * The crossword grid. A square with no letter is black — a crossword's black squares are the shape
+ * of the puzzle, not absent content, so they are filled rather than left as paper.
+ *
+ * Smaller than the sudoku's grid because the clue lists share the page with it, and two pages is
+ * the whole contract of this document.
+ */
+function drawCrossword(s: Section, cw: CrosswordPuzzleInput, solved: boolean): void {
+  const width = Math.min(CONTENT_W, 760);
+  const cell = width / cw.size;
+  const left = CONTENT_X + (CONTENT_W - width) / 2;
+  const top = s.y + 30;
+
+  for (let r = 0; r < cw.size; r++) {
+    for (let c = 0; c < cw.size; c++) {
+      const x = left + c * cell;
+      const y = top + r * cell;
+      // A cell off the end of a short row is a black square like any other: the grid is the
+      // puzzle's shape, and absent content and a blocked square are the same thing here.
+      const letter = cw.grid[r]![c] ?? null;
+      if (letter === null) {
+        s.canvas.rect(x, y, cell, cell, { fill: INK });
+        continue;
+      }
+      s.canvas.rect(x, y, cell, cell, { stroke: INK, thickness: 2 });
+      const n = cw.numbers.get(`${r},${c}`);
+      if (n !== undefined) {
+        s.canvas.text(String(n), x + cell * 0.1, y + cell * 0.32, { font: s.canvas.fonts.mono, size: cell * 0.26, color: SECONDARY });
+      }
+      if (solved) {
+        const size = cell * 0.5;
+        const w = s.canvas.textWidth(letter, s.canvas.fonts.uiSemibold, size);
+        s.canvas.text(letter, x + (cell - w) / 2, y + cell * 0.82, { font: s.canvas.fonts.uiSemibold, size, color: INK });
+      }
+    }
+  }
+  s.y = top + width + 34;
+}
+
+/** Across on the left, down on the right. No `ensure`: this page is one page by contract. */
+function drawClues(s: Section, cw: CrosswordPuzzleInput): void {
+  const colW = CONTENT_W / 2 - 20;
+  const top = s.y;
+  const lineH = 34;
+  const columns: Array<[string, CrosswordClue[]]> = [
+    ["ACROSS", cw.across],
+    ["DOWN", cw.down],
+  ];
+  let deepest = 0;
+  columns.forEach(([heading, clues], i) => {
+    const x = MAIN_X + i * (colW + 40);
+    s.canvas.text(heading, x, top + 22, { font: s.canvas.fonts.mono, size: 22, color: SECONDARY, tracking: 0.16 });
+    clues.forEach((clue, j) => {
+      const y = top + 22 + (j + 1) * lineH;
+      s.canvas.text(String(clue.number), x, y, { font: s.canvas.fonts.mono, size: 24, color: SECONDARY });
+      s.canvas.text(s.canvas.fit(clue.clue, s.canvas.fonts.ui, 26, colW - 52), x + 46, y, { font: s.canvas.fonts.ui, size: 26, color: INK });
+    });
+    deepest = Math.max(deepest, 22 + (clues.length + 1) * lineH);
+  });
+  s.y = top + deepest + 10;
 }
 
 /**

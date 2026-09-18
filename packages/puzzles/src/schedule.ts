@@ -24,8 +24,12 @@ export const PUZZLE_WEEK: Record<number, PuzzleKind> = {
   7: "sudoku",
 };
 
-/** Kinds that can actually be generated today. Crossword needs a layout engine and is not built. */
-export const IMPLEMENTED: readonly PuzzleKind[] = ["word_search", "sudoku"];
+/**
+ * Kinds that can be generated. All three now: the crossword's words come from a model and its grid
+ * from `crossword.ts`, and a night where the words do not arrive or will not interlock falls back
+ * to a word search at the point of use rather than by being absent from this list.
+ */
+export const IMPLEMENTED: readonly PuzzleKind[] = ["crossword", "word_search", "sudoku"];
 
 /**
  * What to print for a local date.
