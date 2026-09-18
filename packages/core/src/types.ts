@@ -45,6 +45,16 @@ export interface CalendarItem {
    * anchor, and an expanded occurrence carries the date it falls on.
    */
   recurrence?: import("./recurrence.js").Recurrence | null;
+  /**
+   * A full RFC 5545 RRULE, as it arrived on a calendar invite — "FREQ=MONTHLY;BYDAY=TH;BYSETPOS=3".
+   *
+   * Kept raw and expanded by packages/core/recurrence.ts, because the `recurrence` enum above cannot
+   * say "the third Thursday until March": storing the nearest enum value instead would put meetings
+   * on the wrong days and there would be nothing left to tell that it had happened.
+   */
+  rrule?: string | null;
+  /** Dates the organiser removed from the series (EXDATE), as local YYYY-MM-DD. */
+  exdates?: string[] | null;
 }
 
 export type InboxKind = "task" | "event" | "meeting_request" | "margin_note";

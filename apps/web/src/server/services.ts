@@ -9,6 +9,7 @@ import { randomUUID } from "node:crypto";
 import { buildDeliveryVerificationMail } from "@daymarkable/mail";
 import { DateTime } from "luxon";
 import { z } from "zod";
+import { calendarAddress, newCalendarToken } from "./calendar-inbox";
 import { getRuntime } from "./runtime";
 import { billingConfigured, cancelSubscription } from "./billing";
 
@@ -48,7 +49,24 @@ export async function getAccount(userId: string) {
     tablet: cred ? { paired: true as const, pairedAt: cred.pairedAt, lastOkAt: cred.lastOkAt, lastError: cred.lastError } : { paired: false as const },
     quota,
     conventionCatalog: CONVENTION_CATALOG,
+    /** Null until the customer asks for one — see rotateCalendarAddress. */
+    calendarAddress: calendarAddress(user.calendarToken),
   };
+}
+
+/**
+ * Issue or replace the inbound calendar address.
+ *
+ * The same call does both, because they are the same act: a new token IS the new address, and the old
+ * one stops working the moment it is replaced. That is the point of having a rotate button — the
+ * address travels in mail headers and forwarding chains, so being able to retire one without
+ * involving support is the difference between a leak being a nuisance and a leak being permanent.
+ */
+export async function rotateCalendarAddress(userId: string): Promise<{ address: string }> {
+  const rt = await getRuntime();
+  const token = newCalendarToken();
+  await rt.db.update(schema.users).set({ calendarToken: token }).where(eq(schema.users.id, userId));
+  return { address: calendarAddress(token)! };
 }
 
 export async function updateSettings(userId: string, patch: SettingsPatch) {

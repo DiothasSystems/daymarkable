@@ -120,6 +120,13 @@
       "when": 1789729538966,
       "tag": "0016_known_joshua_kane",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789761395846,
+      "tag": "0017_pale_firedrake",
+      "breakpoints": true
     }
   ]
 }

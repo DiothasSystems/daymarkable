@@ -53,9 +53,11 @@ unchanged.
     sees it.
   - `packages/compose` — PDF generation for all three notebooks (typst templates in
     `templates/`): planner, Action List, Meeting Notes.
-  - `packages/calendar` — `CalendarProvider` interface + Google Calendar / Microsoft Graph
-    implementations (read merge + draft invite creation). Nothing outside this package
-    touches calendar APIs.
+  - `packages/calendar` — everything iCalendar. Today that is INBOUND invites (rule 17): `ical.ts`
+    parses an RFC 5545 document with `ical.js`, `inbound.ts` finds the calendar part inside a real
+    email with `postal-mime`, `ingest.ts` maps an invite onto a planner row in the account's own
+    timezone. Pure, no I/O. Later it gains the `CalendarProvider` interface + Google Calendar /
+    Microsoft Graph implementations; nothing outside this package touches calendar APIs.
   - `packages/mail` — transactional email (SES/Resend): meeting-note emails (subject
     `"<topic> — <date> <time>"`) and the nightly delivery of the three notebooks as PDF
     attachments; idempotency keys per (user, meeting, date) and (user, date, address).
@@ -90,7 +92,8 @@ unchanged.
 - Postgres via Drizzle ORM; migrations in `packages/db`. Queue: pg-boss (Phase 2).
 - Env vars in `.env` locally, and in `/root/daymarkable/.env` on the production VPS, beside the
   compose file that reads it (never committed): `RMAPI_DEVICE_TOKEN`, `ANTHROPIC_API_KEY`, `DATABASE_URL`,
-  `RENDER_SERVICE_URL`, `EMAIL_API_KEY`, `NEWS_MODEL` (the model for the brief and the
+  `RENDER_SERVICE_URL`, `EMAIL_API_KEY`, `INBOUND_CALENDAR_HOST`/`INBOUND_CALENDAR_SECRET`
+  (the inbound invite subdomain and the shared secret the mail provider presents), `NEWS_MODEL` (the model for the brief and the
   crossword's words; NOT `DECODE_MODEL` — see Model usage), `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` (bcrypt —
   never store the plaintext admin password), `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
   (Phase 2), `GOOGLE_OAUTH_CLIENT_ID/SECRET`, `MS_GRAPH_CLIENT_ID/SECRET` (calendar vars
@@ -203,6 +206,33 @@ unchanged.
     row comes back in through the run that paid. Estate-wide figures (burn rate, runway, the balance
     drawdown) still count it, because the money was still spent, and `/admin/expenses` lists it on
     its own row — so the per-account rows deliberately do not sum to the month's total.
+
+17. **Forwarded invites: the address identifies, the sender authorises.** A customer forwards a
+    meeting from Outlook or Google to `<token>@cal.daymarkable.com` and it lands on their planner.
+    NO mailbox is provisioned per account — one MX and one webhook (`/api/inbound/calendar`) serve
+    everybody, and `users.calendar_token` is only the lookup key. That token is not a credential: it
+    travels in mail headers, forwarding chains and corporate archives, and it will leak. So a message
+    is accepted only when its SENDER is an address the account has already verified (`senderAllowed`),
+    and the sender is checked BEFORE the message is examined, so a probe cannot learn from the
+    difference whether a token is real. The address is rotatable from settings for when it does leak.
+    The endpoint takes the RAW RFC 822 message rather than a provider's parsed JSON, so swapping
+    Cloudflare for SES does not reach past that one file.
+
+    Recurrence is stored as the **raw RRULE** and expanded in `packages/core/recurrence.ts`, not
+    flattened into the six-value `recurrence` enum — that enum cannot say "the third Thursday until
+    March", and writing the nearest value would put meetings on the wrong days with nothing left to
+    show it happened. An event may carry both: the rule decides the dates, the enum is a label for
+    printing. Expansion includes the event's start TIME because UNTIL is an instant, is built in UTC
+    so the planner cannot depend on the server's zone (rule 1), and is memoised because a view asks
+    per-day and re-walking a daily series 365 times is 133,000 iterations to draw a month.
+
+    Identity is the iCal `UID`, hashed into the event id, so forwarding the same invite twice
+    converges on one row (rule 4); `SEQUENCE` decides which revision wins, and an older forward of a
+    long-held invitation loses. `METHOD:CANCEL` drops the event. Ingested events are
+    `source: "external"` with `confidence: 1` — structured data, not a reading of handwriting, so they
+    never go to the Inbox (rule 3). Nothing about an invite is logged: it is the customer's diary and
+    rule 5 covers it as it covers a page.
+
 
 ## Testing
 

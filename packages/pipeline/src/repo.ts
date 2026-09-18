@@ -316,6 +316,10 @@ export async function loadWorkingSet(db: Db, sealer: Sealer, userId: string): Pr
       confidence: e.confidence,
       status: e.status,
       recurrence: e.recurrence,
+      // Carried through so the planner can expand a forwarded invite's real rule. Without these two
+      // an ingested series would print once, on its anchor, and never again.
+      rrule: e.rrule,
+      exdates: e.exdates,
     })),
     meetingRequests: mrs.map((m) => ({
       id: m.id,

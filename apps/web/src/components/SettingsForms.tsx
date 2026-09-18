@@ -477,3 +477,70 @@ export function DailyPuzzleSettings({ initial }: { initial: { enabled: boolean }
     </div>
   );
 }
+
+// ------------------------------------------------------------ forwarding meetings in
+
+/**
+ * The inbound calendar address.
+ *
+ * One address per account, and no mailbox behind it — the token in front of the @ is only how the
+ * service knows whose planner a forwarded invite belongs on. The copy has to carry two facts the
+ * customer would otherwise learn the hard way: forward from the account's own email address or the
+ * invite is refused, and rotating the address retires the old one immediately.
+ */
+export function CalendarInbox({ initial, loginEmail }: { initial: string | null; loginEmail: string }) {
+  const [address, setAddress] = useState(initial);
+  const [copied, setCopied] = useState(false);
+  const { state, error, save } = useSaver(async () => {
+    const r = await trpc.account.rotateCalendarAddress.mutate();
+    setAddress(r.address);
+  });
+
+  return (
+    <div className="stack">
+      <p className="muted" style={{ fontSize: 14 }}>
+        Forward a meeting invitation here — from Outlook, Google Calendar, anywhere — and it goes onto your planner
+        pages. Single meetings and repeating ones both work, including the awkward ones: the third Thursday of the
+        month, every other Tuesday until March. Updates and cancellations follow the meeting, so moving it in Outlook
+        and forwarding again moves it here too.
+      </p>
+      {address ? (
+        <>
+          <div className="field">
+            <label htmlFor="cal-address">Your calendar address</label>
+            <div className="row" style={{ gap: 8 }}>
+              <input id="cal-address" type="text" className="mono" style={{ flex: 1 }} value={address} readOnly />
+              <button
+                className="secondary small"
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(address);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+              >
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+            <div className="hint">
+              Forward from <strong>{loginEmail}</strong>. Invites from any other address are refused — the address above
+              travels in mail headers and forwarding chains, so on its own it is not proof of who sent something.
+            </div>
+          </div>
+          <div className="row">
+            <button className="secondary" onClick={() => void save(undefined)} disabled={state === "saving"}>
+              Replace this address
+            </button>
+            <Status state={state} error={error} />
+          </div>
+          <div className="hint">Replacing it stops the old one working straight away. Anything already on your planner stays.</div>
+        </>
+      ) : (
+        <div className="row">
+          <button onClick={() => void save(undefined)} disabled={state === "saving"}>Create my calendar address</button>
+          <Status state={state} error={error} />
+        </div>
+      )}
+    </div>
+  );
+}

@@ -53,6 +53,7 @@ export const appRouter = router({
     updateSettings: protectedProcedure.input(svc.settingsPatchSchema).mutation(({ ctx, input }) => svc.updateSettings(ctx.user.id, input)),
     updateTimezone: protectedProcedure.input(z.object({ timezone: z.string().min(1) })).mutation(({ ctx, input }) => svc.updateTimezone(ctx.user.id, input.timezone)),
     completeOnboarding: protectedProcedure.mutation(({ ctx }) => svc.completeOnboarding(ctx.user.id)),
+    rotateCalendarAddress: protectedProcedure.mutation(({ ctx }) => svc.rotateCalendarAddress(ctx.user.id)),
     pairTablet: protectedProcedure.input(z.object({ code: z.string().min(8).max(8) })).mutation(async ({ ctx, input }) => {
       try {
         return await svc.pairTablet(ctx.user.id, input.code);

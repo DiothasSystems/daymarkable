@@ -1,5 +1,5 @@
 {
-  "name": "@daymarkable/core",
+  "name": "@daymarkable/calendar",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,11 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@daymarkable/decode": "workspace:*",
-    "ical.js": "^2.1.0"
+    "ical.js": "^2.1.0",
+    "postal-mime": "^2.4.4",
+    "luxon": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/luxon": "^3.4.2"
   }
 }

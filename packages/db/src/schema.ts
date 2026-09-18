@@ -108,6 +108,17 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   timezone: text("timezone").notNull().default("America/New_York"),
   status: accountStatus("status").notNull().default("trial"),
+  /**
+   * The token in this account's inbound calendar address — `<token>@cal.daymarkable.com`.
+   *
+   * Not a mailbox. One MX and one webhook serve every account; this is only the lookup key that says
+   * which account a forwarded invite belongs to, so ten thousand customers need zero mailboxes
+   * provisioned. It is a bearer secret in the weakest sense — it travels in mail headers and
+   * forwarding chains and will leak — which is why an invite is accepted only when the SENDER is also
+   * an address the account has verified. The token identifies; the sender authorises. Rotatable from
+   * settings, and null until the customer asks for one.
+   */
+  calendarToken: text("calendar_token").unique(),
   settings: jsonb("settings").$type<UserSettings>().notNull(),
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   /** Stripe, from Phase 2. Null on every Phase 0 account, which never sees a payment page. */
@@ -296,10 +307,31 @@ export const events = pgTable(
     status: eventStatus("status").notNull().default("active"),
     /** Repeating series: the row is the anchor, occurrences are expanded per date in core. */
     recurrence: text("recurrence").$type<"daily" | "weekdays" | "weekly" | "biweekly" | "monthly" | "yearly">(),
+    /**
+     * A full RFC 5545 RRULE from a forwarded calendar invite, kept exactly as it arrived.
+     *
+     * The `recurrence` column above is a six-value enum and cannot say "the third Thursday until
+     * March"; writing the nearest value instead would put meetings on the wrong days with nothing
+     * left to show it had happened. Both can be set: the rule decides the dates, the enum is a label
+     * for printing.
+     */
+    rrule: text("rrule"),
+    /** Dates the organiser removed from the series (EXDATE), as local YYYY-MM-DD. */
+    exdates: jsonb("exdates").$type<string[]>(),
+    /**
+     * RFC 5545 UID and SEQUENCE, for invites that arrived by email.
+     *
+     * The UID is the meeting's identity across every update and cancellation it will ever get, so it
+     * is what makes forwarding the same invite twice a no-op (rule 4). SEQUENCE is the organiser's
+     * revision counter: an older one must never overwrite a newer, which happens whenever somebody
+     * forwards an invitation they have had sitting in their inbox for a fortnight.
+     */
+    icalUid: text("ical_uid"),
+    icalSequence: integer("ical_sequence"),
     createdRunId: uuid("created_run_id"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("events_user_date").on(t.userId, t.date)],
+  (t) => [index("events_user_date").on(t.userId, t.date), uniqueIndex("events_ical_uid").on(t.userId, t.icalUid)],
 );
 
 export const meetings = pgTable(
