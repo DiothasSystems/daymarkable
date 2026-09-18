@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LocalCacheStore } from "./cache.js";
 import { FixtureDecoder, FixtureRenderer, FixtureTabletProvider } from "./fixtures.js";
 import * as repo from "./repo.js";
-import { FIRST_SIGHT_MAX_INKED_PAGES, FIRST_SIGHT_TAIL_PAGES, changeWindowStart, cleanStaleOutputs, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, weekNotesName, type PipelineDeps } from "./run.js";
+import { FIRST_SIGHT_MAX_INKED_PAGES, FIRST_SIGHT_TAIL_PAGES, HEADLINES_FOLDER, PUZZLE_FOLDER, changeWindowStart, cleanStaleOutputs, inKeepFolder, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, weekNotesName, type PipelineDeps } from "./run.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(here, "..", "..", "..", "fixtures", "notebooks");
@@ -332,5 +332,50 @@ describe("weekly notes archive naming", () => {
     const archived = { id: "a", hash: "h", name: "Notes - Week of 09-06-2026", path: "/dayMarkable/Archive/Notes - Week of 09-06-2026", parentId: "arch", fileType: "pdf" as const, lastModified: null, pageCount: 0 };
     expect(selectDocuments([archived], { watchFolders: [], includePdfs: true })).toHaveLength(0);
     expect(isOurDocument(archived)).toBe(false);
+  });
+});
+
+describe("the daily extras' own folders", () => {
+  const doc = (p: string, name?: string) => ({ id: p, hash: "h", name: name ?? p.split("/").pop()!, path: p, parentId: "", fileType: "pdf" as const, lastModified: null, pageCount: 0 });
+
+  it("keeps puzzles and headlines in folders of their own", () => {
+    expect(PUZZLE_FOLDER).toBe("/dayMarkable/Puzzles");
+    expect(HEADLINES_FOLDER).toBe("/dayMarkable/Daily Headlines");
+    expect(inKeepFolder("/dayMarkable/Puzzles/Daily Puzzle 2026-09-21")).toBe(true);
+    expect(inKeepFolder("/dayMarkable/Daily Headlines/Daily Update 2026-09-21")).toBe(true);
+    expect(inKeepFolder("/dayMarkable/Planner")).toBe(false);
+  });
+
+  /**
+   * The trap worth a test. `cleanStaleOutputs` deletes anything of OURS sitting outside the output
+   * folder — which, if an archived puzzle counted as ours, is the entire archive, silently, on the
+   * first night after it was created.
+   */
+  it("does not let the stale-output cleaner eat the archive", async () => {
+    const deleted: string[] = [];
+    const docs = [
+      doc("/dayMarkable/Daily Puzzle"),
+      doc("/dayMarkable/Puzzles/Daily Puzzle 2026-09-21", "Daily Puzzle 2026-09-21"),
+      doc("/dayMarkable/Daily Headlines/Daily Update 2026-09-21", "Daily Update 2026-09-21"),
+      doc("/dayMarkable/Archive/Planner 2026-09-01", "Planner 2026-09-01"),
+    ];
+    const tablet = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as unknown as Parameters<typeof cleanStaleOutputs>[0];
+    await cleanStaleOutputs(tablet, docs, "", () => {});
+    expect(deleted).toEqual([]);
+  });
+
+  /**
+   * A crossword is output, not an input form. Decoding a grid full of hand-written letters costs
+   * money to produce nonsense, and the closed loop does not apply to it.
+   */
+  it("never reads a puzzle or a brief back, live or archived", () => {
+    const docs = [
+      doc("/dayMarkable/Planner"),
+      doc("/dayMarkable/Daily Puzzle"),
+      doc("/dayMarkable/Daily Update"),
+      doc("/dayMarkable/Puzzles/Daily Puzzle 2026-09-21", "Daily Puzzle 2026-09-21"),
+      doc("/dayMarkable/Daily Headlines/Daily Update 2026-09-21", "Daily Update 2026-09-21"),
+    ];
+    expect(selectDocuments(docs, { watchFolders: [], includePdfs: true }).map((d) => d.name)).toEqual(["Planner"]);
   });
 });

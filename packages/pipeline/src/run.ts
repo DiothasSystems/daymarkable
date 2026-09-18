@@ -82,8 +82,35 @@ export const CALIBRATION_NOTEBOOK = "Handwriting Sample";
 /** Below this share of the passage read back, the sheet is assumed not written yet. */
 export const CALIBRATION_MIN_ACCURACY = 0.25;
 const ARCHIVE_FOLDER = "/dayMarkable/Archive";
+/** Yesterday's puzzles, kept so an unfinished one can be gone back to. */
+export const PUZZLE_FOLDER = `${OUTPUT_FOLDER}/Puzzles`;
+/** Yesterday's briefs, kept so a headline can be looked up again. */
+export const HEADLINES_FOLDER = `${OUTPUT_FOLDER}/Daily Headlines`;
+
+/**
+ * Folders that hold what we have already published. Everything in them is ours, but it is FINISHED:
+ * never decoded, never tidied away by `cleanStaleOutputs`, never counted as a stray copy. Both of
+ * those functions would otherwise do real damage here — the cleaner deletes anything of ours sitting
+ * outside the output folder, which is every archived puzzle.
+ */
+const KEEP_FOLDERS = [ARCHIVE_FOLDER, PUZZLE_FOLDER, HEADLINES_FOLDER] as const;
+
+export function inKeepFolder(path: string): boolean {
+  return KEEP_FOLDERS.some((f) => path.startsWith(`${f}/`));
+}
+
 /** Everything dayMarkable writes to the tablet, by name. */
 export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", "Daily Update", "Daily Puzzle"] as const;
+
+/**
+ * The two notebooks that are output and nothing else.
+ *
+ * The planner, action list and notes are input forms as well — ticks and margin notes are read back
+ * the next night, which is the closed loop. A crossword is not: letters written into its grid are an
+ * answer to a puzzle, not a task, and decoding them costs money to produce nonsense. Same for the
+ * brief, which is there to be read.
+ */
+export const NEVER_READ_BACK = ["Daily Puzzle", "Daily Update"] as const;
 
 /**
  * Names we used to write. Still recognised as ours — otherwise a renamed notebook left on the
@@ -99,13 +126,13 @@ export function outputFolderFor(settings: { outputToRoot?: boolean }): string {
 
 /** Is this document one of ours, wherever the user has chosen to keep them? */
 export function isOurDocument(doc: TabletDocument): boolean {
-  if (doc.path.startsWith(`${ARCHIVE_FOLDER}/`)) return false;
+  if (inKeepFolder(doc.path)) return false;
   const inRoot = doc.path.lastIndexOf("/") === 0;
   const named =
     (OUTPUT_NAMES as readonly string[]).includes(doc.name) ||
     (LEGACY_OUTPUT_NAMES as readonly string[]).includes(doc.name) ||
     doc.name === CALIBRATION_NOTEBOOK;
-  return (inRoot && named) || (doc.path.startsWith(`${OUTPUT_FOLDER}/`) && !doc.path.startsWith(`${ARCHIVE_FOLDER}/`));
+  return (inRoot && named) || (doc.path.startsWith(`${OUTPUT_FOLDER}/`) && !inKeepFolder(doc.path));
 }
 
 /**
@@ -342,7 +369,8 @@ export function inWatchedFolder(path: string, folder: string): boolean {
 
 export function selectDocuments(docs: TabletDocument[], settings: { watchFolders: string[]; includePdfs: boolean; outputToRoot?: boolean }): TabletDocument[] {
   return docs.filter((d) => {
-    if (d.path.startsWith(`${ARCHIVE_FOLDER}/`)) return false;
+    if (inKeepFolder(d.path)) return false;
+    if ((NEVER_READ_BACK as readonly string[]).includes(d.name)) return false;
     if (isOurDocument(d)) return true; // our own planner pages: the closed loop
     if (d.fileType === "epub") return false;
     if (d.fileType === "pdf" && !settings.includePdfs) return false;
@@ -696,6 +724,14 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       const archive = await deps.tablet.ensureFolder(ARCHIVE_FOLDER);
       await rotateArchive(deps, tree.documents, folder, archive, localDate, log);
       if (weekStart) await archiveFinishedWeeks(deps, merged.state, tree.documents, archive, weekStart, localDate, generatedAt, log);
+      // The daily extras keep their own folders. Only reached for when the feature is on, so an
+      // account that has switched the puzzle off never grows an empty Puzzles folder.
+      if (outputs.some((o) => o.kind === "daily_puzzle")) {
+        await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(PUZZLE_FOLDER), "Daily Puzzle", localDate, log);
+      }
+      if (outputs.some((o) => o.kind === "daily_update")) {
+        await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(HEADLINES_FOLDER), "Daily Update", localDate, log);
+      }
       await cleanStaleOutputs(deps.tablet, tree.documents, folder.id, log);
       for (const o of outputs) {
         const res = await deps.tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true });
@@ -859,6 +895,46 @@ async function archiveFinishedWeeks(
       // Never fail the night over an archive copy: the live notebook still goes to the tablet.
       log(`notes archive skipped for ${week}: ${(err as Error).message}`);
     }
+  }
+}
+
+/**
+ * File yesterday's copy of a daily notebook into its own folder before today's replaces it.
+ *
+ * Same shape as `rotateArchive`, with one deliberate difference: nothing is deleted. The planner
+ * rotation drops archives older than a week because a planner page has had its ticks read back and
+ * is spent; an unfinished crossword has not, and removing something from the customer's own tablet
+ * that they did not ask to have removed is not a decision to take quietly. They will accumulate —
+ * one notebook a day — and a retention rule can be added when somebody wants one.
+ *
+ * Dated from the document's own last-modified time rather than tonight's date, so a night that did
+ * not run does not misfile the copy it finds.
+ */
+async function archiveDaily(
+  deps: PipelineDeps,
+  docs: readonly TabletDocument[],
+  folder: TabletFolder,
+  destination: TabletFolder,
+  name: string,
+  localDate: string,
+  log: (m: string) => void,
+): Promise<void> {
+  const current = docs.find((d) => d.parentId === folder.id && d.name === name);
+  if (!current) return;
+  const stamp = current.lastModified ? DateTime.fromJSDate(current.lastModified).toISODate() : localDate;
+  const dated = `${name} ${stamp}`;
+  if (docs.some((d) => d.parentId === destination.id && d.name === dated)) {
+    // Already filed under this date — a re-run of the same night. Leave the copy that is there and
+    // let today's upload replace the live one (rule 4: a re-run must not produce duplicates).
+    return;
+  }
+  try {
+    const renamed = await deps.tablet.renameDocument(current, dated);
+    await deps.tablet.moveDocument({ ...current, hash: renamed.hash, name: dated }, destination);
+    log(`filed "${dated}" into ${destination.name}`);
+  } catch (err) {
+    // Never fail the night over filing: today's notebook still reaches the tablet.
+    log(`could not file "${dated}": ${(err as Error).message}`);
   }
 }
 

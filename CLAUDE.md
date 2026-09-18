@@ -185,6 +185,15 @@ unchanged.
     whole page because the squares have to be big enough to write a letter in by hand, which leaves
     nowhere for fifty clues to sit beside it.
 
+    Both extras keep their own tablet folders: yesterday's copy is filed into `/dayMarkable/Puzzles`
+    or `/dayMarkable/Daily Headlines` before today's replaces it, dated from the document's own
+    last-modified time. Nothing is deleted from them — a planner archive is spent once its ticks are
+    read, an unfinished crossword is not. Those folders join `/dayMarkable/Archive` in `KEEP_FOLDERS`,
+    which matters twice over: `cleanStaleOutputs` deletes anything of ours outside the output folder,
+    and `selectDocuments` would otherwise feed a filled-in crossword to the decoder every night. The
+    puzzle and the brief are output and NOT input forms — unlike the planner, action list and notes,
+    they are never read back, so rule 6 does not apply to them.
+
     Its cost is booked to the HOUSE, not to a customer: `run_costs.user_id` is nullable and null
     means nobody. The account whose run reached midnight first paid for it, and charging it to them
     would make one arbitrary customer read as expensive to serve — about 1.5c a night on the three
