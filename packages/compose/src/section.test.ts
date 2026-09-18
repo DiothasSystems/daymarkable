@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { newDocument } from "./canvas.js";
+import { CONTENT_W, CONTENT_X, addPage, newDocument } from "./canvas.js";
 import { BODY_SIZE, LINE_H, Section, type ComposeContext, type RowItem } from "./section.js";
 
 const ROW: RowItem = {
@@ -150,5 +150,34 @@ describe("note bullet markers", () => {
   it("does not treat a sentence starting with a capital and a dot as a marker", async () => {
     const r = await drawNotes("A. Smith joined the call");
     expect(r.strings).toEqual(["A. Smith joined the call"]);
+  });
+});
+
+describe("the brand lockup in the header", () => {
+  /**
+   * The wordmark sits to the right of the rose, and the title's width is reserved against BOTH. A
+   * long title used to have only the rose to avoid; if it is measured against the rose alone it now
+   * runs underneath the name.
+   */
+  it("leaves the title enough room that it cannot run under the wordmark", async () => {
+    const { doc, fonts } = await newDocument();
+    const canvas = addPage(doc, fonts, 1);
+    const markW = canvas.textWidth("dayMarkable", fonts.display, 34);
+    const lockupW = 76 + 16 + markW;
+    expect(lockupW).toBeLessThan(CONTENT_W / 2);
+
+    // The longest title any notebook sets, fitted, must end before the lockup starts.
+    const longest = "Crossword · solution";
+    const fitted = canvas.fit(longest, fonts.display, 78, CONTENT_W - lockupW - 40);
+    expect(CONTENT_X + canvas.textWidth(fitted, fonts.display, 78)).toBeLessThan(CONTENT_X + CONTENT_W - lockupW);
+  });
+
+  it("sets the wordmark in two tones, the way the brand splits it", async () => {
+    const { doc, fonts } = await newDocument();
+    const canvas = addPage(doc, fonts, 1);
+    const width = canvas.wordmark(100, 100, 34);
+    // "day" plus "Markable" drawn separately must measure the same as the whole word set at once,
+    // or the two halves have drifted apart on the page.
+    expect(width).toBeCloseTo(canvas.textWidth("dayMarkable", fonts.display, 34), 1);
   });
 });

@@ -204,15 +204,43 @@ export class Canvas {
     for (const p of ROSE_PATHS) this.page.drawSvgPath(p, { ...opts, color });
   }
 
-  /** Header used on every page: serif title, mono subtitle, rose right, 2px×3 rule. Returns the content top. */
+  /**
+   * The wordmark, set as the brand sets it: Source Serif Bold, with "day" and "Markable" carrying
+   * different weight of colour.
+   *
+   * On paper that split is Compass Gold against Midnight. An e-ink page has no colour, so the
+   * grayscale stand-in is the secondary grey against full ink — the same relationship, one tone
+   * quieter, which is how the rest of these pages already translate the palette. Returns the width
+   * drawn, so a caller can lay it out against something else.
+   */
+  wordmark(x: number, baselineY: number, size: number): number {
+    const f = this.fonts.display;
+    const dayW = this.textWidth("day", f, size);
+    this.text("day", x, baselineY, { font: f, size, color: SECONDARY });
+    this.text("Markable", x + dayW, baselineY, { font: f, size, color: INK });
+    return dayW + this.textWidth("Markable", f, size);
+  }
+
+  /** Header used on every page: serif title, mono subtitle, brand lockup right, 2px×3 rule. Returns the content top. */
   header(title: string, subtitle: string): number {
     const f = this.fonts;
     const titleSize = 78;
     const titleBaseline = PAD_TOP + titleSize * 0.82;
-    const maxTitle = CONTENT_W - 90 - 40;
+    // The lockup, right-aligned: compass rose then wordmark, in the order and proportion of the
+    // printed lockup. The rose gives up a little size to make room for the name — at this scale the
+    // emblem alone says "a compass", and the two together say whose page this is.
+    const markSize = 34;
+    const roseSize = 76;
+    const gap = 16;
+    const markW = this.textWidth("dayMarkable", f.display, markSize);
+    const lockupW = roseSize + gap + markW;
+    // Title width is reserved against the whole lockup, not just the rose, or a long title runs
+    // under the wordmark.
+    const maxTitle = CONTENT_W - lockupW - 40;
     this.text(this.fit(title, f.display, titleSize, maxTitle), CONTENT_X, titleBaseline, { font: f.display, size: titleSize });
     this.text(subtitle, CONTENT_X, titleBaseline + 42, { font: f.mono, size: 30, color: SECONDARY, tracking: 0.02 });
-    this.rose(CONTENT_RIGHT - 90, PAD_TOP + 4, 90);
+    this.rose(CONTENT_RIGHT - lockupW, PAD_TOP + 6, roseSize);
+    this.wordmark(CONTENT_RIGHT - markW, PAD_TOP + 6 + roseSize * 0.5 + markSize * 0.36, markSize);
     const ruleY = titleBaseline + 42 + 30;
     this.hline(CONTENT_X, CONTENT_RIGHT, ruleY, 6, INK);
     return ruleY + 42;
