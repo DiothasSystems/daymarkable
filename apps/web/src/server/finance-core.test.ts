@@ -3,6 +3,7 @@ import {
   PLAN_PRICE_USD,
   balanceWarning,
   billedUsd,
+  currentBalance,
   burnPerDayUsd,
   expectedNightlyUsd,
   marginPct,
@@ -164,5 +165,68 @@ describe("prorated refund", () => {
   it("rounds to the cent, because a refund is a payment", () => {
     const r = proratedRefund({ paidUsd: 10, periodStart: start, periodEnd: end, now: new Date("2026-09-08T00:00:00Z") });
     expect(Number.isInteger(r.usd * 100)).toBe(true);
+  });
+});
+
+describe("current balance", () => {
+  const recordedAt = new Date("2026-09-10T14:00:00Z");
+  const now = new Date("2026-09-17T14:00:00Z");
+
+  it("draws the recorded figure down by what has been spent since", () => {
+    const b = currentBalance({ recordedUsd: 50, recordedAt, spentSinceUsd: 12.34, now });
+    expect(b.currentUsd).toBeCloseTo(37.66, 6);
+    expect(b.recordedUsd).toBe(50);
+    expect(b.spentSinceUsd).toBeCloseTo(12.34, 6);
+    expect(b.exhausted).toBe(false);
+    expect(b.overspent).toBe(false);
+  });
+
+  it("equals the recorded figure when nothing has been spent since", () => {
+    expect(currentBalance({ recordedUsd: 50, recordedAt, spentSinceUsd: 0, now }).currentUsd).toBe(50);
+  });
+
+  it("reports the age of the snapshot, which is what says whether to trust it", () => {
+    expect(currentBalance({ recordedUsd: 50, recordedAt, spentSinceUsd: 1, now }).ageDays).toBeCloseTo(7, 6);
+    expect(currentBalance({ recordedUsd: 50, recordedAt, spentSinceUsd: 1, now: recordedAt }).ageDays).toBe(0);
+  });
+
+  it("is exhausted at exactly zero, but not overspent", () => {
+    const b = currentBalance({ recordedUsd: 20, recordedAt, spentSinceUsd: 20, now });
+    expect(b.currentUsd).toBe(0);
+    expect(b.exhausted).toBe(true);
+    expect(b.overspent).toBe(false);
+  });
+
+  /**
+   * Spending more than was ever recorded is impossible unless credit was topped up without
+   * recording it. The figure is kept rather than floored at zero, because a negative number is the
+   * signal that the snapshot is wrong — flooring it would hide exactly that.
+   */
+  it("goes negative and says so when a top-up went unrecorded", () => {
+    const b = currentBalance({ recordedUsd: 5, recordedAt, spentSinceUsd: 9, now });
+    expect(b.currentUsd).toBe(-4);
+    expect(b.overspent).toBe(true);
+    expect(b.exhausted).toBe(true);
+  });
+
+  it("ignores a negative spend, which would otherwise invent credit", () => {
+    expect(currentBalance({ recordedUsd: 10, recordedAt, spentSinceUsd: -5, now }).currentUsd).toBe(10);
+  });
+
+  /**
+   * The point of the whole exercise. A runway computed from the recorded snapshot overstates itself
+   * by exactly the spend since, and grows more wrong every night.
+   */
+  it("shortens the runway compared with the stale recorded figure", () => {
+    const b = currentBalance({ recordedUsd: 100, recordedAt, spentSinceUsd: 70, now });
+    expect(runwayDays(b.recordedUsd, 10)).toBe(10);
+    expect(runwayDays(b.currentUsd, 10)).toBe(3);
+  });
+
+  it("warns on the current figure where the recorded one would have kept quiet", () => {
+    const b = currentBalance({ recordedUsd: 100, recordedAt, spentSinceUsd: 80, now });
+    const args = { burnUsd: 5, warnDays: 7, lastWarnedAt: null, now };
+    expect(balanceWarning({ ...args, balanceUsd: 100 }).warn).toBe(false);
+    expect(balanceWarning({ ...args, balanceUsd: b.currentUsd }).warn).toBe(true);
   });
 });

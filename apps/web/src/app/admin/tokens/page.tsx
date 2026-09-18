@@ -19,6 +19,7 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
   const s = plan.settings;
   const runway = plan.runwayDays;
   const low = runway !== null && runway <= s.warnDays;
+  const bal = plan.balance;
   const peak = Math.max(...plan.days.map((d) => d.usd), 0.000001);
 
   return (
@@ -28,7 +29,20 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
       {error ? <div className="notice bad" style={{ marginBottom: 16 }}>{error}</div> : null}
       {saved ? <div className="notice ok" style={{ marginBottom: 16 }}>Balance recorded. The warning clock is reset.</div> : null}
 
-      <div className="grid three" style={{ marginBottom: 24 }}>
+      <div className="grid four" style={{ marginBottom: 24 }}>
+        <div className={bal?.exhausted ? "card danger" : "card"}>
+          <p className="kicker">Credit remaining</p>
+          <div className="stat">{bal === null ? "—" : fmtUsd(bal.currentUsd)}</div>
+          <div className="meta" style={{ marginTop: 8 }}>
+            {bal === null ? (
+              "record a balance below"
+            ) : bal.overspent ? (
+              <>spent {fmtUsd(bal.spentSinceUsd)} against {fmtUsd(bal.recordedUsd)} recorded — top up unrecorded?</>
+            ) : (
+              <>{fmtUsd(bal.recordedUsd)} recorded, less {fmtUsd(bal.spentSinceUsd)} spent since</>
+            )}
+          </div>
+        </div>
         <div className="card">
           <p className="kicker">Burn rate</p>
           <div className="stat">{fmtUsd(plan.burnPerDayUsd)}</div>
@@ -49,7 +63,7 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
               ? "record a balance below to see this"
               : runway === null
                 ? "nothing is being spent"
-                : `runs out around ${fmtDateTime(plan.runwayUntil)} · warns at ${s.warnDays} d`}
+                : `on the remaining ${fmtUsd(bal?.currentUsd ?? 0)} · out around ${fmtDateTime(plan.runwayUntil)} · warns at ${s.warnDays} d`}
           </div>
         </div>
       </div>
@@ -62,14 +76,21 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
           accounts in any case. So read the remaining credit off{" "}
           <a href="https://platform.claude.com/settings/billing" target="_blank" rel="noreferrer">Console → Billing</a> and
           record it here. Everything above is computed from our own <code>run_costs</code>, which has the advantage of
-          being attributable per account. Recording a new balance resets the warning clock.
+          being attributable per account — which is also how <strong>Credit remaining</strong> above is worked out:
+          the figure you type here, less every dollar <code>run_costs</code> has charged since the moment you typed it.
+          Re-record it whenever you top up, or after a while, so the two ledgers stay in step. Recording a new balance
+          resets the warning clock.
         </p>
         <form action="/admin/api/ops/balance" method="post" className="stack">
           <div className="grid three">
             <div className="field">
               <label htmlFor="balance">Credit remaining (USD)</label>
               <input id="balance" name="balance" type="number" className="mono" min={0} step={0.01} defaultValue={s.anthropicBalanceUsd ?? ""} placeholder="e.g. 42.50" />
-              <div className="hint">{s.balanceAsOf ? `last recorded ${fmtDateTime(s.balanceAsOf)}` : "never recorded"}</div>
+              <div className="hint">
+                {s.balanceAsOf
+                  ? `last recorded ${fmtDateTime(s.balanceAsOf)}${bal ? ` · ${bal.ageDays < 1 ? "today" : `${bal.ageDays.toFixed(0)} d ago`}` : ""}`
+                  : "never recorded"}
+              </div>
             </div>
             <div className="field">
               <label htmlFor="warnDays">Warn at (days of runway)</label>

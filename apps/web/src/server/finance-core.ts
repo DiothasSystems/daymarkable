@@ -77,6 +77,54 @@ export function runwayDays(balanceUsd: number, burnUsd: number): number | null {
   return balanceUsd / burnUsd;
 }
 
+// ---------------------------------------------------------------- balance now
+
+export interface CurrentBalance {
+  /** What the operator typed in, and when they typed it. */
+  recordedUsd: number;
+  recordedAt: Date;
+  /** Everything run_costs has charged since that moment. */
+  spentSinceUsd: number;
+  /** The figure worth looking at: what was recorded, less what has been spent since. */
+  currentUsd: number;
+  /** How stale the recorded figure is. */
+  ageDays: number;
+  /** The arithmetic says there is nothing left. */
+  exhausted: boolean;
+  /**
+   * The arithmetic says we have spent MORE than was ever recorded, which is impossible unless a
+   * top-up went unrecorded. Worth saying out loud rather than rendering a negative balance as if
+   * it were a fact about Anthropic.
+   */
+  overspent: boolean;
+}
+
+/**
+ * The live credit balance: the recorded snapshot, drawn down by our own spend since.
+ *
+ * Anthropic publishes no balance endpoint (see `tokenPlan`), so the recorded figure is the only
+ * ground truth available and it is stale the moment it is typed. Subtracting `run_costs` from it
+ * is not a guess — it is the same ledger every other number on these screens comes from, so the
+ * two agree by construction.
+ *
+ * It can go negative, and that is information rather than a bug: it means credit was topped up
+ * without recording it. `overspent` says so, and the UI should ask for a fresh figure rather than
+ * pretend the account is $4 in the red.
+ */
+export function currentBalance(input: { recordedUsd: number; recordedAt: Date; spentSinceUsd: number; now: Date }): CurrentBalance {
+  const spent = Math.max(0, input.spentSinceUsd);
+  const currentUsd = input.recordedUsd - spent;
+  return {
+    recordedUsd: input.recordedUsd,
+    recordedAt: input.recordedAt,
+    spentSinceUsd: spent,
+    currentUsd,
+    ageDays: Math.max(0, (input.now.getTime() - input.recordedAt.getTime()) / 86_400_000),
+    exhausted: currentUsd <= 0,
+    overspent: currentUsd < 0,
+  };
+}
+
 export interface BalanceWarning {
   warn: boolean;
   /** Why, in one line, ready for the subject of the mail. */

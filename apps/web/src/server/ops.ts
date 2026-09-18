@@ -26,11 +26,13 @@ import { isPlan, type Plan } from "./billing-core";
 import {
   PLAN_PRICE_USD,
   balanceWarning,
+  currentBalance,
   billedUsd,
   burnPerDayUsd,
   expectedNightlyUsd,
   revenueUsd,
   runwayDays,
+  type CurrentBalance,
   type DailySpend,
   type Period,
   type SubscriberCount,
@@ -133,6 +135,59 @@ export async function dailySpend(days = 30): Promise<DailySpend[]> {
   return rows.map((r) => ({ day: r.day, usd: Number(r.usd) }));
 }
 
+/**
+ * Exact dollars charged since an instant. Deliberately not derived from `dailySpend`, which buckets
+ * by UTC day: a balance recorded at 14:00 would otherwise be charged for the morning's spend as
+ * well, and the current balance would read low every time it was re-recorded mid-day.
+ */
+export async function spendSinceUsd(since: Date): Promise<number> {
+  const rt = await getRuntime();
+  const [row] = await rt.db
+    .select({ usd: sql<string>`coalesce(sum(${schema.runCosts.costUsd}), 0)` })
+    .from(schema.runCosts)
+    .where(gte(schema.runCosts.createdAt, since));
+  return Number(row?.usd ?? 0);
+}
+
+/**
+ * The live balance, or null when nothing has ever been recorded. One resolver so the overview, the
+ * tokens page and the warning mail cannot drift apart — three places computing "what is left"
+ * separately is three places to get it wrong.
+ */
+export async function resolveBalance(settings?: OpsSettings): Promise<CurrentBalance | null> {
+  const s = settings ?? (await getOpsSettings());
+  if (s.anthropicBalanceUsd === null || s.balanceAsOf === null) return null;
+  return currentBalance({
+    recordedUsd: s.anthropicBalanceUsd,
+    recordedAt: s.balanceAsOf,
+    spentSinceUsd: await spendSinceUsd(s.balanceAsOf),
+    now: new Date(),
+  });
+}
+
+/** What the overview card needs, and nothing more — it must not pay for the whole token plan. */
+export interface BalanceSummary {
+  balance: CurrentBalance | null;
+  burnPerDayUsd: number;
+  runwayDays: number | null;
+  warnDays: number;
+  low: boolean;
+}
+
+export async function balanceSummary(): Promise<BalanceSummary> {
+  const settings = await getOpsSettings();
+  const [balance, days] = await Promise.all([resolveBalance(settings), dailySpend(30)]);
+  const burn = burnPerDayUsd(days, 7);
+  const runway = balance === null ? null : runwayDays(balance.currentUsd, burn);
+  return {
+    balance,
+    burnPerDayUsd: burn,
+    runwayDays: runway,
+    warnDays: settings.warnDays,
+    low: runway !== null && runway <= settings.warnDays,
+  };
+}
+
 export interface ModelSpendRow {
   model: string;
   mode: string;
@@ -185,6 +240,8 @@ export interface TokenPlan {
   /** Per active account, so the projection can be scaled when accounts are added. */
   expectedPerAccountUsd: number;
   activeAccounts: number;
+  /** The recorded snapshot drawn down by spend since. Null until a balance is recorded. */
+  balance: CurrentBalance | null;
   runwayDays: number | null;
   runwayUntil: Date | null;
   projectedMonthUsd: number;
@@ -207,9 +264,14 @@ export async function tokenPlan(): Promise<TokenPlan> {
   const activeAccounts = Number(active?.n ?? 0);
   const burn = burnPerDayUsd(days, 7);
   const nightly = expectedNightlyUsd(days, 14);
-  const runway = settings.anthropicBalanceUsd === null ? null : runwayDays(settings.anthropicBalanceUsd, burn);
+  const balance = await resolveBalance(settings);
+  // Runway from the CURRENT balance, not the recorded one. Using the snapshot would overstate the
+  // runway by exactly as much as has been spent since it was typed in, and grow more wrong daily —
+  // which is the one direction a runway figure must never err in.
+  const runway = balance === null ? null : runwayDays(balance.currentUsd, burn);
   return {
     settings,
+    balance,
     days,
     burnPerDayUsd: burn,
     expectedNightlyUsd: nightly,
@@ -230,10 +292,10 @@ export async function tokenPlan(): Promise<TokenPlan> {
 export async function checkBalanceWarning(log: (m: string) => void = () => {}): Promise<"sent" | "not_due" | "no_provider"> {
   const rt = await getRuntime();
   const settings = await getOpsSettings();
-  const days = await dailySpend(30);
+  const [days, balance] = await Promise.all([dailySpend(30), resolveBalance(settings)]);
   const burn = burnPerDayUsd(days, 7);
   const decision = balanceWarning({
-    balanceUsd: settings.anthropicBalanceUsd,
+    balanceUsd: balance === null ? null : balance.currentUsd,
     burnUsd: burn,
     warnDays: settings.warnDays,
     lastWarnedAt: settings.lastWarnedAt,
@@ -245,7 +307,8 @@ export async function checkBalanceWarning(log: (m: string) => void = () => {}): 
   const lines = [
     decision.reason,
     "",
-    `Balance recorded: $${(settings.anthropicBalanceUsd ?? 0).toFixed(2)}${settings.balanceAsOf ? ` (as of ${settings.balanceAsOf.toISOString().slice(0, 10)})` : ""}`,
+    `Balance now: $${(balance?.currentUsd ?? 0).toFixed(2)}`,
+    `Recorded: $${(settings.anthropicBalanceUsd ?? 0).toFixed(2)}${settings.balanceAsOf ? ` on ${settings.balanceAsOf.toISOString().slice(0, 10)}` : ""}, less $${(balance?.spentSinceUsd ?? 0).toFixed(2)} spent since`,
     `Burn rate: $${burn.toFixed(4)} per day over the last 7 spending days`,
     `Runway: ${runway}`,
     `Warn threshold: ${settings.warnDays} days`,
