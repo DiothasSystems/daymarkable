@@ -219,12 +219,22 @@ input/output tokens and dollar cost per model per stage in `run_costs`, and
 models change.
 
 **`NEWS_MODEL` is separate from `DECODE_MODEL`, and must stay separate.** The brief and the
-crossword's words run on it, defaulting to Sonnet 5. Which model reads handwriting is a
-cost-versus-accuracy choice; which model runs a web search is a question of capability, and getting
-that one wrong is a hard failure rather than a degradation — Haiku 4.5 returns
-`400 ... does not support programmatic tool calling. The following tools have allowed_callers that
-require it: web_search`. While the two were one setting, a host tuned down to a cheaper decoder
-silently lost its daily brief every night.
+crossword's words run on it, defaulting to **Haiku 4.5** — the cheapest model, and a defensible
+choice here because summarising search results is not the job Haiku was measured worst at. That
+finding was about reading handwriting off a page image, which is why `decodeModel` must not follow
+this one down. Haiku needs the BASIC `web_search_20250305` tool: the 2026 variant does dynamic
+filtering, which runs code execution underneath and so needs programmatic tool calling that Haiku
+does not have (`400 ... The following tools have allowed_callers that require it: web_search`).
+`webSearchToolType()` picks per model; an unknown id gets the basic variant, because the failure is
+hard rather than graceful.
+
+**The brief's cost is dominated by search RESULTS, not search fees.** Measured 2026-09-18 on Haiku,
+five topics: $0.0909 a night, of which $0.05 is the five search fees and most of the rest is 35,709
+input tokens of results. Two things got it there from $0.1873 for a SINGLE topic on Sonnet: one
+search per topic instead of a flat eight (`MAX_SEARCHES`), and no prompt cache — a 1h cache cannot be
+read by a nightly job, so every night paid a cache write at 2x input and never read it back ($0.1230
+cached vs $0.0909 uncached, same brief). Re-measure with `pnpm news:cost` before committing to a
+price; at $10/month a daily brief is about 28% of one subscription.
 
 ## Per-user accuracy
 

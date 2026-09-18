@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_TOPICS, headlineCount, parseSections, sanitizeTopics } from "./daily.js";
+import { MAX_SEARCHES, MAX_TOPICS, headlineCount, parseSections, sanitizeTopics, webSearchToolType } from "./daily.js";
 
 describe("sanitizeTopics", () => {
   it("keeps the customer's own words and collapses whitespace", () => {
@@ -89,5 +89,30 @@ describe("parseSections", () => {
     expect(parseSections("", topics).error).toMatch(/no JSON/);
     expect(parseSections("{ not json", topics).error).toMatch(/no JSON|parse failed/);
     expect(parseSections('{"ok":true}', topics).error).toMatch(/no sections array/);
+  });
+});
+
+describe("what the brief costs", () => {
+  /**
+   * Haiku has no programmatic tool calling, and the 2026 web-search variant needs it — a real 400,
+   * not a degradation. Every model here must be asked for a tool it can actually use.
+   */
+  it("asks each model for a web-search tool it supports", () => {
+    expect(webSearchToolType("claude-haiku-4-5")).toBe("web_search_20250305");
+    expect(webSearchToolType("claude-haiku-4-5-20251001")).toBe("web_search_20250305");
+    expect(webSearchToolType("claude-sonnet-5")).toBe("web_search_20260209");
+    expect(webSearchToolType("claude-opus-5")).toBe("web_search_20260209");
+    // An unknown or future id gets the variant that works everywhere rather than the one that 400s.
+    expect(webSearchToolType("something-new")).toBe("web_search_20250305");
+  });
+
+  /**
+   * One search per topic, capped. The flat eight-search budget was how a single-topic brief spent
+   * nineteen cents: it used the whole allowance on one subject, and the results come back as input
+   * tokens.
+   */
+  it("caps the search budget at five, one per topic", () => {
+    expect(MAX_SEARCHES).toBe(5);
+    expect(MAX_TOPICS).toBe(5);
   });
 });

@@ -56,7 +56,7 @@ export function loadConfig(): RunnerConfig {
     deviceToken: env.RMAPI_DEVICE_TOKEN || null,
     anthropicApiKey: env.ANTHROPIC_API_KEY || null,
     decodeModel: env.DECODE_MODEL || "claude-sonnet-5",
-    newsModel: env.NEWS_MODEL || "claude-sonnet-5",
+    newsModel: env.NEWS_MODEL || "claude-haiku-4-5",
     escalationModel: env.DECODE_ESCALATION_MODEL === "" ? null : (env.DECODE_ESCALATION_MODEL ?? "claude-opus-5"),
     confidenceThreshold: Number(env.DECODE_CONFIDENCE_THRESHOLD ?? "0.7"),
     batchTimeoutMinutes: Number(env.DECODE_BATCH_TIMEOUT_MINUTES ?? "45"),
