@@ -11,7 +11,8 @@
     "build": "tsc -b",
     "compare": "tsx src/compare.ts",
     "notes:check": "tsx src/notes-check.ts",
-    "make:puzzles": "tsx src/make-puzzles.ts"
+    "make:puzzles": "tsx src/make-puzzles.ts",
+    "news:cost": "tsx src/news-cost.ts"
   },
   "dependencies": {
     "@daymarkable/compose": "workspace:*",

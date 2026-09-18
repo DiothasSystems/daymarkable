@@ -23,6 +23,7 @@
     "web:start": "pnpm --filter @daymarkable/web start",
     "compare": "pnpm --filter @daymarkable/runner compare",
     "make:puzzles": "pnpm --filter @daymarkable/runner make:puzzles",
+    "news:cost": "pnpm --filter @daymarkable/runner news:cost",
     "test:mobile": "pnpm --filter @daymarkable/mobile test"
   },
   "devDependencies": {
