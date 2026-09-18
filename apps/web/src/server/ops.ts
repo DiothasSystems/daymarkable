@@ -9,7 +9,7 @@
 import "server-only";
 import os from "node:os";
 import { statfs } from "node:fs/promises";
-import { and, desc, eq, gte, schema, sql } from "@daymarkable/db";
+import { and, desc, eq, gte, isNotNull, isNull, schema, sql } from "@daymarkable/db";
 import { describeOptions, type OptionGroup } from "./admin-core";
 import {
   capacityUsers,
@@ -393,6 +393,13 @@ export interface ExpenseSummary {
   byModel: ModelSpendRow[];
   /** Per-account spend this month, heaviest first, so an unprofitable writer is visible. */
   byUser: { userId: string; email: string; plan: string | null; usd: number; pages: number }[];
+  /**
+   * Spend this month that belongs to no customer: the shared daily crossword. Reported separately
+   * rather than folded into `byUser`, because it is neither one person's cost nor invisible — the
+   * money was spent, and the per-account rows above deliberately do not add up to the total without
+   * it.
+   */
+  house: { stage: string; usd: number }[];
   days: DailySpend[];
 }
 
@@ -419,10 +426,17 @@ export async function expenseSummary(): Promise<ExpenseSummary> {
     .where(gte(schema.runCosts.createdAt, monthStart))
     .groupBy(schema.runCosts.userId, schema.users.email, schema.users.plan)
     .orderBy(sql`sum(${schema.runCosts.costUsd}) desc`);
+  const house = await rt.db
+    .select({ stage: schema.runCosts.stage, usd: sql<string>`sum(${schema.runCosts.costUsd})` })
+    .from(schema.runCosts)
+    .where(and(isNull(schema.runCosts.userId), gte(schema.runCosts.createdAt, monthStart)))
+    .groupBy(schema.runCosts.stage)
+    .orderBy(sql`sum(${schema.runCosts.costUsd}) desc`);
   return {
     periods: PERIODS.map((period) => ({ period, usd: totalFor(PERIOD_DAYS[period]) })),
     byModel: await spendByModel(30),
-    byUser: byUser.map((r) => ({ ...r, usd: Number(r.usd), pages: Number(r.pages) })),
+    byUser: byUser.map((r) => ({ ...r, usd: Number(r.usd), pages: Number(r.pages), userId: r.userId! })),
+    house: house.map((r) => ({ stage: r.stage, usd: Number(r.usd) })),
     days: days.slice(0, 30),
   };
 }
@@ -467,7 +481,10 @@ export async function userDailyCosts(userId: string, days = 30): Promise<UserDay
       models: sql<string>`coalesce(string_agg(distinct ${schema.runCosts.model}, ', '), '')`,
     })
     .from(schema.runs)
-    .leftJoin(schema.runCosts, eq(schema.runCosts.runId, schema.runs.id))
+    // Joined on the COST's owner as well as the run's. Without the second condition a house cost —
+    // the shared crossword, paid for by whichever run reached midnight first — would be counted
+    // against that customer here, which is the distortion booking it to the house exists to avoid.
+    .leftJoin(schema.runCosts, and(eq(schema.runCosts.runId, schema.runs.id), eq(schema.runCosts.userId, userId)))
     .where(eq(schema.runs.userId, userId))
     .groupBy(schema.runs.localDate)
     .orderBy(desc(schema.runs.localDate))
@@ -593,8 +610,10 @@ export async function tokensPerDayByUser(): Promise<Map<string, number>> {
       days: sql<string>`greatest(count(distinct date_trunc('day', ${schema.runCosts.createdAt})), 1)`,
     })
     .from(schema.runCosts)
+    // House spend has no user, and a null key in a per-user map is a bug waiting to be indexed.
+    .where(isNotNull(schema.runCosts.userId))
     .groupBy(schema.runCosts.userId);
-  return new Map(rows.map((r) => [r.userId, Number(r.tokens) / Number(r.days)] as const));
+  return new Map(rows.map((r) => [r.userId!, Number(r.tokens) / Number(r.days)] as const));
 }
 
 // ---------------------------------------------------------------- capacity

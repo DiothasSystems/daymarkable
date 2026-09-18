@@ -93,8 +93,27 @@ export default async function AdminExpenses() {
               );
             })}
             {e.byUser.length === 0 ? <tr><td colSpan={6} className="muted">No spend this month.</td></tr> : null}
+            {e.house.map((h) => (
+              <tr key={h.stage}>
+                <td>
+                  <strong>House</strong> <span className="meta">· {h.stage}</span>
+                  <div className="meta">shared across every subscriber, charged to none of them</div>
+                </td>
+                <td><span className="meta">—</span></td>
+                <td className="mono"><span className="meta">—</span></td>
+                <td>{fmtUsd(h.usd)}</td>
+                <td><span className="meta">—</span></td>
+                <td><span className="meta">not a customer</span></td>
+              </tr>
+            ))}
           </tbody>
         </table>
+        <p className="muted" style={{ fontSize: 13, marginTop: 12, marginBottom: 0 }}>
+          The account rows above do not add up to the month&apos;s total on their own, and that is deliberate. The daily
+          crossword is generated once and given to everybody, so it is booked to the house rather than to whichever
+          account&apos;s run happened to reach midnight first — charging it to them would make one arbitrary customer read
+          as expensive to serve. It is still counted in the burn rate and the credit drawdown, because it was still spent.
+        </p>
       </div>
     </AdminShell>
   );

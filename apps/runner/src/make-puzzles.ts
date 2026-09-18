@@ -63,7 +63,7 @@ async function main(): Promise<void> {
     }
     const spec = specFor(isoWeekday(date));
     process.stdout.write(`${date}  crossword, asking for ${spec.ask} words for a ${spec.target}-answer ${spec.cols}x${spec.rows} grid ... `);
-    const result = await crosswordWords(client, { ask: spec.ask, model: config.decodeModel, log: () => {} });
+    const result = await crosswordWords(client, { ask: spec.ask, model: config.newsModel, log: () => {} });
     spend += result.costUsd;
     if (result.error) {
       console.log(`FAILED: ${result.error}`);

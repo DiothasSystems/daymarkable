@@ -188,7 +188,20 @@ export const runCosts = pgTable(
   {
     id: serial("id").primaryKey(),
     runId: uuid("run_id").notNull().references(() => runs.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull(),
+    /**
+     * Whose cost this is — or NULL for the house.
+     *
+     * NULL means the spend was not caused by any one customer and must not be attributed to one:
+     * the shared daily crossword is generated once and given to every subscriber, so charging it to
+     * whichever account's run happened to fire first would read as that person being expensive to
+     * serve. `run_id` still points at the run that paid, so the spend is traceable; it is the
+     * ATTRIBUTION that is house, not the provenance.
+     *
+     * Per-user queries filter `user_id = $1`, which excludes NULL in SQL, so they exclude house
+     * spend without having to know it exists. Whole-estate queries do not filter by user and so
+     * still count it. That is the safe direction for the default to fail in.
+     */
+    userId: uuid("user_id"),
     stage: text("stage").notNull(),
     model: text("model").notNull(),
     mode: text("mode").notNull(),

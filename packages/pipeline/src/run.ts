@@ -45,6 +45,8 @@ export interface PipelineDeps {
   newsClient?: import("@anthropic-ai/sdk").default;
   mail: MailProvider;
   decodeModel: string;
+  /** The model for the news brief and the crossword's words — see RunnerConfig.newsModel. */
+  newsModel: string;
   log: (msg: string) => void;
   now?: () => DateTime;
 }
@@ -161,12 +163,12 @@ async function buildDailyUpdate(
     return null;
   }
   if (!deps.newsClient) return null;
-  const update = await gatherDailyUpdate(topics, deps.newsClient, { model: deps.decodeModel, log });
+  const update = await gatherDailyUpdate(topics, deps.newsClient, { model: deps.newsModel, log });
   if (update.searches > 0 || update.usage.output_tokens > 0) {
     // Recorded as its own stage so /admin/expenses separates the brief from reading pages — this
     // is the cost that happens whether or not the customer wrote anything.
     stats.costUsd += await repo.recordCosts(db2(deps), runId, user.id, "news", [
-      { ...update.usage, model: deps.decodeModel, mode: "standard" as const, pages: update.searches, cost_usd: update.costUsd },
+      { ...update.usage, model: deps.newsModel, mode: "standard" as const, pages: update.searches, cost_usd: update.costUsd },
     ]);
   }
   if (update.error) log(`news: no brief this morning (${update.error})`);
@@ -223,19 +225,21 @@ async function crosswordWordsFor(
     log("crossword: no Anthropic client, using the built-in general-knowledge pool");
     return GENERAL_KNOWLEDGE;
   }
-  const result = await crosswordWords(deps.newsClient, { ask: spec.ask, model: deps.decodeModel, log });
+  const result = await crosswordWords(deps.newsClient, { ask: spec.ask, model: deps.newsModel, log });
   if (result.usage.output_tokens > 0) {
-    // Recorded against the run that happened to pay for it, under its own stage. Every other
-    // account's run that day reads the row for nothing, which is the point.
-    stats.costUsd += await repo.recordCosts(db2(deps), runId, userId, "puzzle", [
-      { ...result.usage, model: deps.decodeModel, mode: "standard" as const, pages: 1, cost_usd: result.costUsd },
+    // Booked to the HOUSE, not to this customer. This run paid for it only because it was first to
+    // reach midnight; every other account that day reads the row for nothing, so charging it here
+    // would make one arbitrary customer look expensive to serve. It is not added to the run's own
+    // stats for the same reason — `stats.costUsd` is what this account cost.
+    await repo.recordHouseCosts(db2(deps), runId, "puzzle", [
+      { ...result.usage, model: deps.newsModel, mode: "standard" as const, pages: 1, cost_usd: result.costUsd },
     ]);
   }
   if (result.error || result.words.length === 0) {
     log(`crossword: the model gave no usable words (${result.error ?? "empty"}), using the built-in pool`);
     return GENERAL_KNOWLEDGE;
   }
-  return repo.claimDailyPuzzleWords(db2(deps), localDate, "crossword", result.words, deps.decodeModel);
+  return repo.claimDailyPuzzleWords(db2(deps), localDate, "crossword", result.words, deps.newsModel);
 }
 
 /**

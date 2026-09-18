@@ -90,7 +90,8 @@ unchanged.
 - Postgres via Drizzle ORM; migrations in `packages/db`. Queue: pg-boss (Phase 2).
 - Env vars in `.env` locally, and in `/root/daymarkable/.env` on the production VPS, beside the
   compose file that reads it (never committed): `RMAPI_DEVICE_TOKEN`, `ANTHROPIC_API_KEY`, `DATABASE_URL`,
-  `RENDER_SERVICE_URL`, `EMAIL_API_KEY`, `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` (bcrypt —
+  `RENDER_SERVICE_URL`, `EMAIL_API_KEY`, `NEWS_MODEL` (the model for the brief and the
+  crossword's words; NOT `DECODE_MODEL` — see Model usage), `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` (bcrypt —
   never store the plaintext admin password), `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`
   (Phase 2), `GOOGLE_OAUTH_CLIENT_ID/SECRET`, `MS_GRAPH_CLIENT_ID/SECRET` (calendar vars
   unused until their phase). Production host is Hostinger (VPS/Docker Compose).
@@ -184,6 +185,16 @@ unchanged.
     whole page because the squares have to be big enough to write a letter in by hand, which leaves
     nowhere for fifty clues to sit beside it.
 
+    Its cost is booked to the HOUSE, not to a customer: `run_costs.user_id` is nullable and null
+    means nobody. The account whose run reached midnight first paid for it, and charging it to them
+    would make one arbitrary customer read as expensive to serve — about 1.5c a night on the three
+    crossword days, which is the per-user economics `/admin/users/<id>` exists to show truthfully.
+    Per-user queries filter `user_id = $1`, which excludes null in SQL and so excludes house spend
+    for free; a query that joins through `runs.user_id` must ALSO name the cost's owner, or the house
+    row comes back in through the run that paid. Estate-wide figures (burn rate, runway, the balance
+    drawdown) still count it, because the money was still spent, and `/admin/expenses` lists it on
+    its own row — so the per-account rows deliberately do not sum to the month's total.
+
 ## Testing
 
 - Fixture-first: `fixtures/pages/*.png` (rendered real pages) with `expected.json`
@@ -206,6 +217,14 @@ zod-validated, versioned. **Model is a config value, not a constant** — every 
 input/output tokens and dollar cost per model per stage in `run_costs`, and
 `pnpm compare --days 7` renders a side-by-side transcription report to re-check the choice as
 models change.
+
+**`NEWS_MODEL` is separate from `DECODE_MODEL`, and must stay separate.** The brief and the
+crossword's words run on it, defaulting to Sonnet 5. Which model reads handwriting is a
+cost-versus-accuracy choice; which model runs a web search is a question of capability, and getting
+that one wrong is a hard failure rather than a degradation — Haiku 4.5 returns
+`400 ... does not support programmatic tool calling. The following tools have allowed_callers that
+require it: web_search`. While the two were one setting, a host tuned down to a cheaper decoder
+silently lost its daily brief every night.
 
 ## Per-user accuracy
 

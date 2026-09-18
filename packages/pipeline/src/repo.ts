@@ -207,8 +207,10 @@ export async function unpurgedPreviousRuns(db: Db, userId: string, currentRunId:
  * One row per (model, mode). `pages` is that model's own page count, not the run's — stamping the
  * run total on every row made the per-model figures in the admin cost view unreadable, because
  * an escalation that touched three pages looked identical to one that touched fifty.
+ *
+ * A null `userId` books the spend to the house — see `recordHouseCosts`.
  */
-export async function recordCosts(db: Db, runId: string, userId: string, stage: string, usages: Iterable<DecodeStageUsage>): Promise<number> {
+export async function recordCosts(db: Db, runId: string, userId: string | null, stage: string, usages: Iterable<DecodeStageUsage>): Promise<number> {
   let total = 0;
   for (const u of usages) {
     total += u.cost_usd;
@@ -227,6 +229,23 @@ export async function recordCosts(db: Db, runId: string, userId: string, stage: 
     });
   }
   return total;
+}
+
+/**
+ * Spend that belongs to nobody in particular.
+ *
+ * The shared daily crossword is generated once and given to every subscriber, so the account whose
+ * run happened to fire first that night must not carry its cost — at a hundred subscribers, one
+ * unlucky customer would read about 1.5 cents a night more expensive on Mondays, Wednesdays and
+ * Fridays while the other ninety-nine read free, which is exactly the per-user economics the admin
+ * cost review exists to show truthfully.
+ *
+ * The run that paid is still recorded, so the spend can be traced back; only the attribution is
+ * house. It stays in every estate-wide total — burn rate, runway, the balance drawdown — because the
+ * money was genuinely spent.
+ */
+export async function recordHouseCosts(db: Db, runId: string, stage: string, usages: Iterable<DecodeStageUsage>): Promise<number> {
+  return recordCosts(db, runId, null, stage, usages);
 }
 
 // ---------------------------------------------------------------- snapshots

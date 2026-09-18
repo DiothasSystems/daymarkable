@@ -46,6 +46,7 @@ beforeAll(async () => {
     decoder: new FixtureDecoder(FIXTURES),
     mail,
     decodeModel: "fixture-model",
+    newsModel: "fixture-model",
     log: (m) => logs.push(m),
     now: () => DateTime.fromISO("2026-09-02T07:05:00Z"),
   };

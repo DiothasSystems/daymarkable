@@ -101,6 +101,7 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
       decoder: new FixtureDecoder(FIXTURE_ROOT),
       mail: rt.mail,
       decodeModel: "fixture-model",
+      newsModel: "fixture-model",
       log,
     };
   }
@@ -133,5 +134,5 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
   // The brief needs its own Anthropic client: it uses the web-search tool, which the decoder does
   // not, and a fixture run has no key at all and simply skips the brief.
   const newsClient = rt.config.anthropicApiKey ? anthropicClient(rt.config.anthropicApiKey) : undefined;
-  return { db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet: await tabletFor(rt, userId), renderer, decoder, ...(newsClient ? { newsClient } : {}), mail: rt.mail, decodeModel: model, log };
+  return { db: rt.db, sealer: rt.sealer, cache: rt.cache, tablet: await tabletFor(rt, userId), renderer, decoder, ...(newsClient ? { newsClient } : {}), mail: rt.mail, decodeModel: model, newsModel: rt.config.newsModel, log };
 }

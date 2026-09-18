@@ -25,6 +25,18 @@ export interface RunnerConfig {
   deviceToken: string | null;
   anthropicApiKey: string | null;
   decodeModel: string;
+  /**
+   * The model for the jobs that are not reading handwriting: the news brief and the crossword's
+   * words. Deliberately NOT `decodeModel`.
+   *
+   * Two different questions were being answered by one setting. Which model reads a page is a
+   * cost-versus-accuracy choice about handwriting; which model runs a web search is a question of
+   * capability, and getting it wrong is not a degradation but a hard failure — a real 400 from the
+   * API: "claude-haiku-4-5 does not support programmatic tool calling. The following tools have
+   * allowed_callers that require it: web_search". A host tuned down to a cheaper decoder would have
+   * silently lost its daily brief every night.
+   */
+  newsModel: string;
   escalationModel: string | null;
   confidenceThreshold: number;
   /** Give up on the Batch API discount after this long and finish on the standard API. */
@@ -44,6 +56,7 @@ export function loadConfig(): RunnerConfig {
     deviceToken: env.RMAPI_DEVICE_TOKEN || null,
     anthropicApiKey: env.ANTHROPIC_API_KEY || null,
     decodeModel: env.DECODE_MODEL || "claude-sonnet-5",
+    newsModel: env.NEWS_MODEL || "claude-sonnet-5",
     escalationModel: env.DECODE_ESCALATION_MODEL === "" ? null : (env.DECODE_ESCALATION_MODEL ?? "claude-opus-5"),
     confidenceThreshold: Number(env.DECODE_CONFIDENCE_THRESHOLD ?? "0.7"),
     batchTimeoutMinutes: Number(env.DECODE_BATCH_TIMEOUT_MINUTES ?? "45"),

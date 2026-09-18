@@ -1,0 +1,1 @@
+ALTER TABLE "run_costs" ALTER COLUMN "user_id" DROP NOT NULL;

@@ -32,7 +32,7 @@ beforeAll(async () => {
   tablet = new FixtureTabletProvider(FIXTURES, path.join(tmp, "tablet"), new Date());
   userId = (await repo.ensureUser(handle.db, "rep@example.com", "America/New_York")).id;
   await runPipeline(
-    { db: handle.db, sealer, cache, tablet, renderer: new FixtureRenderer(FIXTURES), decoder: new FixtureDecoder(FIXTURES), mail: new MemoryProvider(), decodeModel: "fixture-model", log: () => {}, now: () => DateTime.fromISO("2026-09-02T07:05:00Z") },
+    { db: handle.db, sealer, cache, tablet, renderer: new FixtureRenderer(FIXTURES), decoder: new FixtureDecoder(FIXTURES), mail: new MemoryProvider(), decodeModel: "fixture-model", newsModel: "fixture-model", log: () => {}, now: () => DateTime.fromISO("2026-09-02T07:05:00Z") },
     { userId, kind: "nightly", requestedVia: "test" },
   );
 });
