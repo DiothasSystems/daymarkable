@@ -645,3 +645,31 @@ export const featureRequests = pgTable(
   },
   (t) => [index("feature_requests_status").on(t.status, t.createdAt)],
 );
+
+/**
+ * The night's puzzle words, generated once and shared by every subscriber.
+ *
+ * The sudoku and the word search need no row here: they are pure functions of (local date, kind), so
+ * every account's run computes the identical grid without being told. The crossword's answers come
+ * from a model, which is not deterministic, so the FIRST run of a given date writes them here and
+ * every run after it reads them. That is what makes one puzzle per day rather than one per customer,
+ * and it is also what makes a retried night reproduce its own crossword (rule 4) rather than a new
+ * one.
+ *
+ * `words` holds the model's whole candidate list, not the placed subset — the layout is deterministic
+ * from the list plus the date's seed, so storing the list is enough to rebuild the identical grid,
+ * and keeping the unplaced ones means the shape can change without a fresh model call.
+ */
+export const dailyPuzzles = pgTable(
+  "daily_puzzles",
+  {
+    /** The local date the puzzle is FOR, as YYYY-MM-DD. Not a timestamp: it is a calendar day. */
+    localDate: text("local_date").notNull(),
+    kind: text("kind").notNull(),
+    words: jsonb("words").$type<Array<{ answer: string; clue: string }>>().notNull(),
+    /** Which model wrote them, so a change of model is visible in the record. */
+    model: text("model").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.localDate, t.kind] })],
+);

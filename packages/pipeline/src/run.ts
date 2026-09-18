@@ -9,16 +9,21 @@ import { mergeRun, buildOutputSet, buildWeekNotes, notesWeekStart, type MergePag
 import { composeActionList, composeDailyPuzzle, composeDailyUpdate, composeMeetingNotes, composePlanner, inkCoverage, parseInkSvg, type PuzzleInput } from "@daymarkable/compose";
 import { crosswordWords, gatherDailyUpdate } from "@daymarkable/news";
 import {
+  GENERAL_KNOWLEDGE,
   GENERAL_WORDS,
-  MIN_PLACED,
   buildCrossword,
   cluesByDirection,
   generateSudoku,
   generateWordSearch,
+  isoWeekday,
+  minPlaced,
   puzzleFor,
   seedFor,
+  seededCrossword,
   solutionCells,
+  specFor,
   validateCrossword,
+  type CrosswordSpec,
 } from "@daymarkable/puzzles";
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
 import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
@@ -180,52 +185,86 @@ function db2(deps: PipelineDeps): Db {
 }
 
 /**
+ * The candidate words for a date's crossword: from the database if some run already fetched them,
+ * from a model if this is the first run of the date, and from the built-in pool if the model cannot
+ * be reached at all.
+ *
+ * One puzzle per day for every subscriber, so this is the only part of the puzzle that needs
+ * storing — the sudoku and the word search are pure functions of the date and come out identical
+ * everywhere without being told. Storing the words also settles rule 4 properly: a retried night
+ * reads back the same list and rebuilds the same grid, where the first version would have asked
+ * again and produced a different puzzle.
+ */
+async function crosswordWordsFor(
+  deps: PipelineDeps,
+  spec: CrosswordSpec,
+  localDate: string,
+  userId: string,
+  runId: string,
+  stats: RunStats,
+  log: (m: string) => void,
+): Promise<readonly repo.CrosswordWordRow[]> {
+  const stored = await repo.getDailyPuzzleWords(db2(deps), localDate, "crossword");
+  if (stored && stored.length > 0) {
+    log(`crossword: ${stored.length} words already generated for ${localDate}, shared`);
+    return stored;
+  }
+  const seeded = seededCrossword(localDate);
+  if (seeded) {
+    // Generated ahead of time with `pnpm make:puzzles` and committed, so this week's puzzles were
+    // reviewed before anyone's tablet saw them. Stored on first use as well, so the record of what was
+    // printed on a date is in one place whether the words came from the seed file or the model.
+    log(`crossword: ${seeded.length} words from the committed set for ${localDate}`);
+    return repo.claimDailyPuzzleWords(db2(deps), localDate, "crossword", seeded, "seeded");
+  }
+  if (!deps.newsClient) {
+    // Fixture runs and any environment without a key. The pool is fixed, so the puzzle is still the
+    // same for everybody; it is only less varied than one a model wrote.
+    log("crossword: no Anthropic client, using the built-in general-knowledge pool");
+    return GENERAL_KNOWLEDGE;
+  }
+  const result = await crosswordWords(deps.newsClient, { ask: spec.ask, model: deps.decodeModel, log });
+  if (result.usage.output_tokens > 0) {
+    // Recorded against the run that happened to pay for it, under its own stage. Every other
+    // account's run that day reads the row for nothing, which is the point.
+    stats.costUsd += await repo.recordCosts(db2(deps), runId, userId, "puzzle", [
+      { ...result.usage, model: deps.decodeModel, mode: "standard" as const, pages: 1, cost_usd: result.costUsd },
+    ]);
+  }
+  if (result.error || result.words.length === 0) {
+    log(`crossword: the model gave no usable words (${result.error ?? "empty"}), using the built-in pool`);
+    return GENERAL_KNOWLEDGE;
+  }
+  return repo.claimDailyPuzzleWords(db2(deps), localDate, "crossword", result.words, deps.decodeModel);
+}
+
+/**
  * A crossword, or null when one cannot be had tonight.
  *
- * Three ways it returns null, and all three end with a word search on the page rather than a bad
- * crossword: the model did not answer, the words it gave will not interlock into enough of a grid,
- * or — the one that must never reach paper — the finished grid contains a run of letters that is
- * not a clued answer. The layout cannot produce that by construction, so the check is a belt on top
- * of the braces; if it ever fires, something is wrong and printing is the worse option.
+ * Two ways it returns null, and both end with a word search on the page rather than a bad crossword:
+ * too few of the words would interlock to fill the day's grid, or — the one that must never reach
+ * paper — the finished grid contains a run of letters that is not a clued answer. The layout cannot
+ * produce that by construction, so the check is a belt on top of the braces; if it ever fires,
+ * something is wrong and printing is the worse option.
  *
- * A fixture run has no client and so always gets the word search, which is what keeps `pnpm dev:run`
- * working without a key.
- *
- * On rule 4: the GRID is seeded by (user, local-date), but the WORDS come from a model, so a
- * re-run of the same night produces a different crossword. That is deliberate rather than
- * overlooked. The cache is keyed by run id, so a retry cannot read the previous attempt's words
- * without new cross-run plumbing, and the property rule 4 protects is intact either way: this
- * notebook is replaced whole rather than appended to, so a re-run cannot duplicate anything, and
- * both pages are generated from one layout so the solution always matches the puzzle printed
- * beside it. The cost of asking again is one Sonnet call.
+ * The grid's shape and answer count come from the weekday: 25 on Monday, 35 on Wednesday, 50 on
+ * Friday, each in the smallest grid that holds them, because grid squares are the room the solver
+ * has to write in. See CROSSWORD_SPECS.
  */
 async function buildCrosswordInput(
   deps: PipelineDeps,
-  user: repo.UserRow,
   localDate: string,
+  userId: string,
   runId: string,
   stats: RunStats,
   log: (m: string) => void,
 ): Promise<PuzzleInput | null> {
-  if (!deps.newsClient) return null;
-  const result = await crosswordWords(deps.newsClient, {
-    model: deps.decodeModel,
-    topics: user.settings.dailyUpdate.topics,
-    lexicon: user.settings.lexicon,
-    log,
-  });
-  if (result.usage.output_tokens > 0) {
-    stats.costUsd += await repo.recordCosts(db2(deps), runId, user.id, "puzzle", [
-      { ...result.usage, model: deps.decodeModel, mode: "standard" as const, pages: 1, cost_usd: result.costUsd },
-    ]);
-  }
-  if (result.error) {
-    log(`crossword: no words tonight (${result.error})`);
-    return null;
-  }
-  const cw = buildCrossword(result.words, seedFor(user.id, localDate, "crossword"));
-  if (cw.placed.length < MIN_PLACED) {
-    log(`crossword: only ${cw.placed.length} of ${result.words.length} words would interlock, needs ${MIN_PLACED}`);
+  const spec = specFor(isoWeekday(localDate));
+  const words = await crosswordWordsFor(deps, spec, localDate, userId, runId, stats, log);
+  const cw = buildCrossword(words, seedFor(localDate, "crossword"), spec);
+  const floor = minPlaced(spec);
+  if (cw.placed.length < floor) {
+    log(`crossword: only ${cw.placed.length} of ${words.length} words interlocked, needs ${floor} of a target ${spec.target}`);
     return null;
   }
   const check = validateCrossword(cw);
@@ -236,10 +275,11 @@ async function buildCrosswordInput(
   const { across, down } = cluesByDirection(cw);
   const numbers = new Map<string, number>();
   for (const p of cw.placed) numbers.set(`${p.row},${p.col}`, p.number);
-  log(`crossword: ${cw.placed.length} answers placed (${across.length} across, ${down.length} down), ${cw.skipped.length} unused`);
+  log(`crossword: ${cw.placed.length}/${spec.target} answers in ${cw.cols}x${cw.rows} (${across.length} across, ${down.length} down)`);
   return {
     kind: "crossword",
-    size: cw.size,
+    cols: cw.cols,
+    rows: cw.rows,
     grid: cw.grid,
     numbers,
     across: across.map((p) => ({ number: p.number, clue: p.clue, answer: p.answer })),
@@ -253,14 +293,12 @@ function sudokuInput(seed: number): PuzzleInput {
 }
 
 /**
- * The word search is built from what the customer already told us about themselves — the topics
- * they follow and the vocabulary their pages taught us — so it is their puzzle rather than a
- * generic one. A general list covers an account that has said nothing.
+ * General words only. This used to be built from the customer's own topics and lexicon, which made
+ * it their puzzle rather than a generic one — but one puzzle is now produced per day and given to
+ * every subscriber, and a shared grid cannot be about one person's projects.
  */
-function wordSearchInput(seed: number, topics: readonly string[], lexicon: readonly string[]): PuzzleInput {
-  const own = [...topics.flatMap((t) => t.split(/\s+/)), ...lexicon];
-  const words = own.length >= 8 ? own : [...own, ...GENERAL_WORDS];
-  const ws = generateWordSearch(words, seed);
+function wordSearchInput(seed: number): PuzzleInput {
+  const ws = generateWordSearch(GENERAL_WORDS, seed);
   return { kind: "word_search", size: ws.size, grid: ws.grid, words: ws.placed.map((p) => p.word), solutionCells: solutionCells(ws) };
 }
 
@@ -623,7 +661,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       let puzzle: PuzzleInput | null = null;
 
       if (kind === "crossword") {
-        puzzle = await buildCrosswordInput(deps, user, localDate, run.id, stats, log);
+        puzzle = await buildCrosswordInput(deps, localDate, user.id, run.id, stats, log);
         if (!puzzle) {
           // A thin layout or a model that did not answer: print a word search instead rather than
           // a crossword nobody can solve, and say so on the page.
@@ -632,12 +670,12 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         }
       }
       if (!puzzle) {
-        const seed = seedFor(user.id, localDate, kind);
-        puzzle = kind === "sudoku" ? sudokuInput(seed) : wordSearchInput(seed, settings.dailyUpdate.topics, user.settings.lexicon);
+        const seed = seedFor(localDate, kind);
+        puzzle = kind === "sudoku" ? sudokuInput(seed) : wordSearchInput(seed);
       }
       const composed = await composeDailyPuzzle({ puzzle, date: localDate, generatedAt, runLabel, insteadOf });
       outputs.push({ kind: "daily_puzzle" as const, name: "Daily Puzzle", composed });
-      log(`puzzle: ${kind}${insteadOf ? ` (standing in for ${insteadOf})` : ""}, 2 pages`);
+      log(`puzzle: ${kind}${insteadOf ? ` (standing in for ${insteadOf})` : ""}, ${composed.pageCount} pages`);
     }
     const printed: PrintedItem[] = [];
     for (const o of outputs) {

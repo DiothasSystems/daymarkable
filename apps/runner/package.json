@@ -10,13 +10,16 @@
     "dump": "tsx src/dump.ts",
     "build": "tsc -b",
     "compare": "tsx src/compare.ts",
-    "notes:check": "tsx src/notes-check.ts"
+    "notes:check": "tsx src/notes-check.ts",
+    "make:puzzles": "tsx src/make-puzzles.ts"
   },
   "dependencies": {
     "@daymarkable/compose": "workspace:*",
     "@daymarkable/core": "workspace:*",
     "@daymarkable/db": "workspace:*",
     "@daymarkable/decode": "workspace:*",
+    "@daymarkable/news": "workspace:*",
+    "@daymarkable/puzzles": "workspace:*",
     "@daymarkable/pipeline": "workspace:*",
     "@daymarkable/tablet": "workspace:*",
     "luxon": "^3.6.1"

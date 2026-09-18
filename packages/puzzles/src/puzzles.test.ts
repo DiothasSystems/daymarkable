@@ -48,12 +48,16 @@ describe("schedule", () => {
     expect(new Set(mondays).size).toBeGreaterThan(1);
   });
 
+  /**
+   * The seed is the date and the kind, and deliberately NOT the account: one puzzle is produced each
+   * day and given to every subscriber. That is also what lets the sudoku and the word search need no
+   * storage — every account's run computes the identical grid from the date alone.
+   */
   it("gives the same day the same puzzle, and different days different ones (rule 4)", () => {
-    const a = seedFor("user-1", "2026-09-15", "sudoku");
-    expect(seedFor("user-1", "2026-09-15", "sudoku")).toBe(a);
-    expect(seedFor("user-1", "2026-09-16", "sudoku")).not.toBe(a);
-    expect(seedFor("user-2", "2026-09-15", "sudoku")).not.toBe(a);
-    expect(seedFor("user-1", "2026-09-15", "word_search")).not.toBe(a);
+    const a = seedFor("2026-09-15", "sudoku");
+    expect(seedFor("2026-09-15", "sudoku")).toBe(a);
+    expect(seedFor("2026-09-16", "sudoku")).not.toBe(a);
+    expect(seedFor("2026-09-15", "word_search")).not.toBe(a);
   });
 
   it("shuffles reproducibly for a seed", () => {
@@ -64,7 +68,7 @@ describe("schedule", () => {
 });
 
 describe("sudoku", () => {
-  const s = generateSudoku(seedFor("u", "2026-09-17", "sudoku"));
+  const s = generateSudoku(seedFor("2026-09-17", "sudoku"));
 
   it("produces a complete, legal solution", () => {
     expect(s.solution.filter((c) => c === 0)).toHaveLength(0);
@@ -106,7 +110,7 @@ describe("sudoku", () => {
 
 describe("word search", () => {
   const words = ["BROADBAND", "PLUME", "FIRMWARE", "LATENCY", "ROUTER", "MESH", "UPLINK", "SPECTRUM"];
-  const ws = generateWordSearch(words, seedFor("u", "2026-09-15", "word_search"));
+  const ws = generateWordSearch(words, seedFor("2026-09-15", "word_search"));
 
   it("places words so they read in the grid in the direction recorded", () => {
     expect(ws.placed.length).toBeGreaterThan(4);

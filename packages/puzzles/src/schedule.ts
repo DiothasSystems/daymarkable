@@ -81,10 +81,17 @@ export function rng(seed: number): () => number {
   };
 }
 
-/** Seed from the things that should decide a puzzle: who it is for, and which day. */
-export function seedFor(userId: string, localDate: string, kind: PuzzleKind): number {
+/**
+ * Seed from the only things that should decide a puzzle: which day it is for, and which kind.
+ *
+ * Deliberately NOT the account. One puzzle is produced per day and given to every subscriber, so
+ * two customers comparing notes over the same Tuesday word search are looking at the same grid. It
+ * also means the sudoku and the word search need no storage at all — every run computes the
+ * identical puzzle from the date, without being told what anyone else computed.
+ */
+export function seedFor(localDate: string, kind: PuzzleKind): number {
   let h = 2166136261;
-  for (const ch of `${userId}|${localDate}|${kind}`) {
+  for (const ch of `${localDate}|${kind}`) {
     h ^= ch.charCodeAt(0);
     h = Math.imul(h, 16777619);
   }

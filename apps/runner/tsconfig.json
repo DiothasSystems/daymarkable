@@ -8,6 +8,8 @@
     { "path": "../../packages/decode" },
     { "path": "../../packages/compose" },
     { "path": "../../packages/db" },
-    { "path": "../../packages/pipeline" }
+    { "path": "../../packages/pipeline" },
+    { "path": "../../packages/news" },
+    { "path": "../../packages/puzzles" }
   ]
 }

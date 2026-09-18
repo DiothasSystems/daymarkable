@@ -135,9 +135,15 @@ importers:
       '@daymarkable/decode':
         specifier: workspace:*
         version: link:../../packages/decode
+      '@daymarkable/news':
+        specifier: workspace:*
+        version: link:../../packages/news
       '@daymarkable/pipeline':
         specifier: workspace:*
         version: link:../../packages/pipeline
+      '@daymarkable/puzzles':
+        specifier: workspace:*
+        version: link:../../packages/puzzles
       '@daymarkable/tablet':
         specifier: workspace:*
         version: link:../../packages/tablet

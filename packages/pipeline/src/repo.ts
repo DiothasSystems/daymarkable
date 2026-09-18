@@ -603,3 +603,38 @@ export async function replacePrintedItems(db: Db, userId: string, runId: string,
     await db.insert(schema.printedItems).values(printed.map((p) => ({ userId, runId, pageCode: p.pageCode, itemCode: p.itemCode, itemType: p.itemType, itemId: p.itemId })));
   }
 }
+
+/**
+ * The shared crossword words for a local date, generated once and read by every account's run.
+ *
+ * `claim` is written so two runs starting in the same minute cannot produce two different puzzles:
+ * the insert does nothing on conflict, and the row is read back afterwards, so whichever run lost the
+ * race uses the winner's words rather than its own. Without that, two customers in different time
+ * zones hitting midnight together would get different grids for the same day — which is the one
+ * thing "one puzzle for everybody" must not do.
+ */
+export async function getDailyPuzzleWords(db: Db, localDate: string, kind: string): Promise<CrosswordWordRow[] | null> {
+  const row = await db.query.dailyPuzzles.findFirst({
+    where: and(eq(schema.dailyPuzzles.localDate, localDate), eq(schema.dailyPuzzles.kind, kind)),
+  });
+  return row?.words ?? null;
+}
+
+export interface CrosswordWordRow {
+  answer: string;
+  clue: string;
+}
+
+export async function claimDailyPuzzleWords(
+  db: Db,
+  localDate: string,
+  kind: string,
+  words: readonly CrosswordWordRow[],
+  model: string,
+): Promise<CrosswordWordRow[]> {
+  await db
+    .insert(schema.dailyPuzzles)
+    .values({ localDate, kind, words: [...words], model })
+    .onConflictDoNothing();
+  return (await getDailyPuzzleWords(db, localDate, kind)) ?? [...words];
+}
