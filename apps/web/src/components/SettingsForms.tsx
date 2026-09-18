@@ -395,7 +395,7 @@ export function DailyUpdateSettings({ initial }: { initial: { enabled: boolean; 
       <label className="check">
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
         <span>
-          Send me a daily brief
+          Send me the dayLy Update
           <div className="hint">Off means no news notebook at all. Nothing else changes.</div>
         </span>
       </label>
@@ -451,21 +451,22 @@ export function DailyUpdateSettings({ initial }: { initial: { enabled: boolean; 
   );
 }
 
-/** The two-page puzzle. Nothing to configure but on or off — the week is the week. */
+/** Nothing to configure but on or off — the week is the week, and it is the same week for everyone. */
 export function DailyPuzzleSettings({ initial }: { initial: { enabled: boolean } }) {
   const [on, setOn] = useState(initial.enabled);
   const { state, error, save } = useSaver(async (v: boolean) => trpc.account.updateSettings.mutate({ dailyPuzzle: { enabled: v } }));
   return (
     <div className="stack">
       <p className="muted" style={{ fontSize: 14 }}>
-        A puzzle a day, two pages: the puzzle, then its solution on the page behind it. Crosswords Monday, Wednesday
-        and Friday; word search Tuesday and Saturday; sudoku Thursday and Sunday. The word search is built from your
-        own vocabulary, so it is about the things you actually write about.
+        A puzzle a day, with its solution on the page behind it. Crosswords Monday, Wednesday and Friday — 25, 35 and
+        50 answers as the week goes on, each on a page of its own with the clues overleaf; word search Tuesday and
+        Saturday; sudoku Thursday and Sunday. One puzzle is made each day and everybody gets the same one, so it is
+        general knowledge rather than your own vocabulary — and two people can compare notes on the same grid.
       </p>
       <label className="check">
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
         <span>
-          Send me the daily puzzle
+          Send me the dayLy Puzzle
           <div className="hint">Generated here, not fetched — it costs nothing and works whether or not you wrote anything that day.</div>
         </span>
       </label>

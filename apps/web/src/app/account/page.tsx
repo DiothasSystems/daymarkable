@@ -74,11 +74,11 @@ export default async function AccountPage() {
           />
         </section>
         <section className="card">
-          <h2>Daily brief</h2>
+          <h2>dayLy Update</h2>
           <DailyUpdateSettings initial={account.settings.dailyUpdate} />
         </section>
         <section className="card">
-          <h2>Daily puzzle</h2>
+          <h2>dayLy Puzzle</h2>
           <DailyPuzzleSettings initial={account.settings.dailyPuzzle} />
         </section>
         <section className="card">
