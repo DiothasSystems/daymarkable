@@ -205,6 +205,40 @@ export class Canvas {
   }
 
   /**
+   * A stroked ellipse at any angle — the loop drawn round a found word on an answer key.
+   *
+   * Built as four cubic segments in the page's own px coordinates and rotated point by point, rather
+   * than leaning on a rotate option: everything else on these pages is positioned in top-origin px,
+   * and a shape that follows a different convention is a shape that lands somewhere surprising.
+   *
+   * `angle` is measured in the same frame as everything else here — x right, y DOWN — so a word
+   * running down-and-right has a positive angle, which is what `atan2(dy, dx)` gives for it.
+   */
+  oval(cx: number, cy: number, a: number, b: number, angle: number, opts: { stroke?: RGB; thickness?: number } = {}): void {
+    // 0.5523 is the usual constant for approximating a quarter circle with a cubic; at this size the
+    // difference from a true ellipse is far under the width of the line drawing it.
+    const k = 0.5523;
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const at = (lx: number, ly: number): string => `${(lx * cos - ly * sin).toFixed(2)} ${(lx * sin + ly * cos).toFixed(2)}`;
+    const d = [
+      `M ${at(a, 0)}`,
+      `C ${at(a, k * b)} ${at(k * a, b)} ${at(0, b)}`,
+      `C ${at(-k * a, b)} ${at(-a, k * b)} ${at(-a, 0)}`,
+      `C ${at(-a, -k * b)} ${at(-k * a, -b)} ${at(0, -b)}`,
+      `C ${at(k * a, -b)} ${at(a, -k * b)} ${at(a, 0)}`,
+      "Z",
+    ].join(" ");
+    this.page.drawSvgPath(d, {
+      x: px(cx),
+      y: this.y(cy),
+      scale: px(1),
+      borderColor: opts.stroke ?? INK,
+      borderWidth: px(opts.thickness ?? 4),
+    });
+  }
+
+  /**
    * The wordmark, set as the brand sets it: Source Serif Bold, with "day" and "Markable" carrying
    * different weight of colour.
    *

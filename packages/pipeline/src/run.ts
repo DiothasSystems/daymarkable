@@ -20,7 +20,6 @@ import {
   puzzleFor,
   seedFor,
   seededCrossword,
-  solutionCells,
   specFor,
   validateCrossword,
   type CrosswordSpec,
@@ -340,7 +339,9 @@ function sudokuInput(seed: number): PuzzleInput {
  */
 function wordSearchInput(seed: number): PuzzleInput {
   const ws = generateWordSearch(GENERAL_WORDS, seed);
-  return { kind: "word_search", size: ws.size, grid: ws.grid, words: ws.placed.map((p) => p.word), solutionCells: solutionCells(ws) };
+  // The placements, not the set of occupied squares: the answer key draws a loop round each word and
+  // a loop needs to know which way the word runs.
+  return { kind: "word_search", size: ws.size, grid: ws.grid, words: ws.placed.map((p) => p.word), placements: ws.placed };
 }
 
 function emptyStats(): RunStats {

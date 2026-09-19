@@ -21,13 +21,30 @@ export interface SudokuPuzzleInput {
   difficulty: string;
 }
 
+/** Where one word sits in the grid: a start square and a step, which is a line on the page. */
+export interface WordSearchPlacement {
+  word: string;
+  row: number;
+  col: number;
+  dRow: number;
+  dCol: number;
+}
+
 export interface WordSearchPuzzleInput {
   kind: "word_search";
   size: number;
   grid: string[][];
   words: string[];
-  /** "row,col" of every cell a placed word occupies. */
-  solutionCells: Set<string>;
+  /**
+   * Where each answer runs, not merely which squares it touches.
+   *
+   * The answer key used to shade the cells of found words, and shading is the wrong instrument: the
+   * e-ink shade is #F1EFE7 against #FBFBF9 paper, a difference of four values that a reMarkable
+   * screen does not resolve at all. The key looked identical to the puzzle. A loop round each answer
+   * is what a word search answer key has always done, and it needs the direction, not just the set of
+   * squares.
+   */
+  placements: WordSearchPlacement[];
 }
 
 export interface CrosswordClue {
@@ -109,7 +126,7 @@ export async function composeDailyPuzzle(input: DailyPuzzleInput): Promise<Compo
   } else if (input.puzzle.kind === "crossword") {
     drawCrossword(s, input.puzzle, true);
   } else {
-    drawWordGrid(s, input.puzzle.grid, input.puzzle.size, input.puzzle.solutionCells);
+    drawWordGrid(s, input.puzzle.grid, input.puzzle.size, input.puzzle.placements);
     drawWordList(s, input.puzzle.words);
   }
 
@@ -117,6 +134,43 @@ export async function composeDailyPuzzle(input: DailyPuzzleInput): Promise<Compo
   return { pdf: await doc.save(), pageCount: doc.getPageCount(), printed: ctx.printed };
 }
 
+
+/** One loop on the answer key: where it sits, how big, and which way it is turned. */
+export interface WordLoop {
+  cx: number;
+  cy: number;
+  /** Half-length along the word, including the overhang past the first and last letters. */
+  a: number;
+  /** Half-height across it. */
+  b: number;
+  /** Radians, in the page's frame — x right, y DOWN. */
+  angle: number;
+}
+
+/**
+ * The loops for an answer key, as geometry.
+ *
+ * Separated from the drawing so it can be checked: whether a loop is centred on its word and turned
+ * to match is arithmetic, and arithmetic is testable, whereas "did a curve reach the PDF" is an
+ * archaeology exercise against a compressed content stream.
+ */
+export function wordLoops(placements: readonly WordSearchPlacement[], left: number, top: number, cell: number): WordLoop[] {
+  const centre = (row: number, col: number) => ({ x: left + (col + 0.5) * cell, y: top + (row + 0.5) * cell });
+  return placements.map((p) => {
+    const a0 = centre(p.row, p.col);
+    const a1 = centre(p.row + p.dRow * (p.word.length - 1), p.col + p.dCol * (p.word.length - 1));
+    const dx = a1.x - a0.x;
+    const dy = a1.y - a0.y;
+    return {
+      cx: (a0.x + a1.x) / 2,
+      cy: (a0.y + a1.y) / 2,
+      a: Math.hypot(dx, dy) / 2 + cell * 0.42,
+      b: cell * 0.42,
+      // A one-letter word has no direction; atan2(0, 0) is 0, which draws a circle round it.
+      angle: Math.atan2(dy, dx),
+    };
+  });
+}
 
 /**
  * The crossword grid, filling the page. A square with no letter is black — a crossword's black
@@ -197,8 +251,9 @@ function drawClues(s: Section, cw: CrosswordPuzzleInput): void {
 }
 
 /**
- * `givens` marks which cells were printed on the puzzle page. On the solution they are shaded, so
- * the answer reads as the answer rather than as a second, different puzzle.
+ * `givens` marks which cells were printed on the puzzle page. On the solution those digits are set in
+ * grey and the solved ones in ink, so the answer reads as the answer rather than as a second,
+ * identical-looking puzzle.
  */
 function drawSudoku(s: Section, grid: number[], givens: number[] | null): void {
   const size = Math.min(CONTENT_W, 1100);
@@ -219,7 +274,15 @@ function drawSudoku(s: Section, grid: number[], givens: number[] | null): void {
         const text = String(value);
         const fontSize = cell * 0.55;
         const w = s.canvas.textWidth(text, s.canvas.fonts.uiSemibold, fontSize);
-        s.canvas.text(text, x + (cell - w) / 2, y + cell * 0.72, { font: s.canvas.fonts.uiSemibold, size: fontSize, color: INK });
+        // On the answer key the digits the solver had to WORK OUT are the ones worth seeing, so the
+        // givens step back to grey. The shading behind them says the same thing, but #F1EFE7 against
+        // #FBFBF9 paper is four values apart and a reMarkable does not resolve it — the same reason
+        // the word search key needed loops rather than shaded cells.
+        s.canvas.text(text, x + (cell - w) / 2, y + cell * 0.72, {
+          font: s.canvas.fonts.uiSemibold,
+          size: fontSize,
+          color: isGiven ? SECONDARY : INK,
+        });
       }
     }
   }
@@ -232,7 +295,14 @@ function drawSudoku(s: Section, grid: number[], givens: number[] | null): void {
   s.y = top + size + 40;
 }
 
-function drawWordGrid(s: Section, grid: string[][], size: number, found: Set<string> | null): void {
+/**
+ * The grid, and on the answer key a loop round every word.
+ *
+ * `placements` null means the puzzle page: letters only, nothing marked. Given placements this is the
+ * answer key, and each word gets an ellipse drawn round it at whatever angle it runs — the eight
+ * directions include both diagonals and backwards, so the loops are not all horizontal.
+ */
+function drawWordGrid(s: Section, grid: string[][], size: number, placements: WordSearchPlacement[] | null): void {
   // Smaller than the sudoku's grid on purpose: this page also carries the word list, and two
   // pages is the whole contract of this document.
   const width = Math.min(CONTENT_W, 980);
@@ -241,21 +311,30 @@ function drawWordGrid(s: Section, grid: string[][], size: number, found: Set<str
   const top = s.y + 40;
   s.ensure(width + 120);
 
+  // Every square in an answer, so a letter that is part of one reads as ink and the filler does not.
+  const inAnswer = new Set<string>();
+  for (const p of placements ?? []) {
+    for (let i = 0; i < p.word.length; i++) inAnswer.add(`${p.row + p.dRow * i},${p.col + p.dCol * i}`);
+  }
+
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       const x = left + c * cell;
       const y = top + r * cell;
-      const inAnswer = found?.has(`${r},${c}`) ?? false;
-      if (inAnswer) s.canvas.rect(x, y, cell, cell, { fill: SHADE });
       const letter = grid[r]![c]!;
       const fontSize = cell * 0.52;
       const w = s.canvas.textWidth(letter, s.canvas.fonts.uiSemibold, fontSize);
       s.canvas.text(letter, x + (cell - w) / 2, y + cell * 0.7, {
         font: s.canvas.fonts.uiSemibold,
         size: fontSize,
-        color: inAnswer ? INK : SECONDARY,
+        color: inAnswer.has(`${r},${c}`) ? INK : SECONDARY,
       });
     }
+  }
+
+  // Loops last, over the letters, so a line never has a letter sitting on top of it.
+  for (const loop of wordLoops(placements ?? [], left, top, cell)) {
+    s.canvas.oval(loop.cx, loop.cy, loop.a, loop.b, loop.angle, { stroke: INK, thickness: 4 });
   }
   s.y = top + width + 40;
 }
