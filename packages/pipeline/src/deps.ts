@@ -6,7 +6,7 @@
  */
 import path from "node:path";
 import { RemarkableCloudProvider, type TabletProvider } from "@daymarkable/tablet";
-import { AnthropicDecoder, ESCALATION_DECODE_MODEL, anthropicClient, resolveDecodeModel, validateConventions, type Decoder } from "@daymarkable/decode";
+import { resolveEscalationModel, clampEscalationThreshold, AnthropicDecoder, ESCALATION_DECODE_MODEL, anthropicClient, resolveDecodeModel, validateConventions, type Decoder } from "@daymarkable/decode";
 import { Sealer, generateKey, openDb, type Db, type DbHandle } from "@daymarkable/db";
 import { mailProviderFromEnv, type MailProvider } from "@daymarkable/mail";
 import { DateTime } from "luxon";
@@ -112,9 +112,15 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
   if (resolved.replaced) log(`decode model: ${resolved.replaced}`);
   const model = resolved.model;
   // null here means escalation is switched off on purpose — keep it off, only guard a real name.
+  // An escalation model that equals the baseline is the other case: not a choice, an accident that
+  // silently disables the second pass. resolveEscalationModel says which of the two this is.
   const wantEscalation = user.settings.escalationModel ?? rt.config.escalationModel;
-  const escalation = wantEscalation === null ? { model: null, replaced: null } : resolveDecodeModel(wantEscalation, ESCALATION_DECODE_MODEL);
+  const escalation = resolveEscalationModel(wantEscalation, model);
   if (escalation.replaced) log(`escalation model: ${escalation.replaced}`);
+  const escalationThreshold = clampEscalationThreshold(
+    user.settings.escalationThreshold,
+    await repo.defaultEscalationThreshold(rt.db),
+  );
   const renderer: Renderer = new HttpRenderer(rt.config.renderServiceUrl);
   await (renderer as HttpRenderer).check();
   // Per-user accuracy context, all of it prompt-cached: their vocabulary and, once they have
@@ -124,6 +130,7 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
     model,
     escalationModel: escalation.model,
     confidenceThreshold: user.settings.confidenceThreshold,
+    escalationThreshold,
     conventions: validateConventions(user.settings.conventions),
     lexicon: user.settings.lexicon,
     calibration,
@@ -131,6 +138,7 @@ export async function pipelineDepsFor(rt: Runtime, userId: string, log = rt.log)
     log,
   });
   if (calibration) log(`decode context: calibration sample + ${user.settings.lexicon.length} lexicon term(s)`);
+  log(`decode: ${model}, escalation ${escalation.model ?? "off"}${escalation.model ? ` below ${escalationThreshold}` : ""}`);
   // The brief needs its own Anthropic client: it uses the web-search tool, which the decoder does
   // not, and a fixture run has no key at all and simply skips the brief.
   const newsClient = rt.config.anthropicApiKey ? anthropicClient(rt.config.anthropicApiKey) : undefined;

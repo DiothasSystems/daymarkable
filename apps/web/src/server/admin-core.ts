@@ -6,6 +6,7 @@
  */
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { ESCALATION_THRESHOLD_MAX, ESCALATION_THRESHOLD_MIN } from "@daymarkable/decode";
 
 export const ADMIN_SESSION_TTL_MS = 60 * 60_000; // one hour, then log in again
 export const ADMIN_MAX_FAILURES_PER_IP = 5;
@@ -92,6 +93,8 @@ export const TUNING_MAX = 0.95;
 
 export interface TuningPatch {
   confidenceThreshold: number;
+  /** Null clears the override, so the account follows the operator default again. */
+  escalationThreshold: number | null;
   decodeModel: string | null;
   escalationModel: string | null;
 }
@@ -100,6 +103,12 @@ export function validateTuning(patch: TuningPatch, isRetired: (model: string) =>
   if (!Number.isFinite(patch.confidenceThreshold)) return { ok: false, message: "Confidence threshold must be a number" };
   if (patch.confidenceThreshold < TUNING_MIN || patch.confidenceThreshold > TUNING_MAX) {
     return { ok: false, message: `Confidence threshold must be between ${TUNING_MIN} and ${TUNING_MAX}` };
+  }
+  if (patch.escalationThreshold !== null) {
+    if (!Number.isFinite(patch.escalationThreshold)) return { ok: false, message: "Escalation threshold must be a number" };
+    if (patch.escalationThreshold < ESCALATION_THRESHOLD_MIN || patch.escalationThreshold > ESCALATION_THRESHOLD_MAX) {
+      return { ok: false, message: `Escalation threshold must be between ${ESCALATION_THRESHOLD_MIN} and ${ESCALATION_THRESHOLD_MAX}` };
+    }
   }
   // Say so rather than accepting a retired model and quietly substituting a good one, so the
   // stored value always means what it says.

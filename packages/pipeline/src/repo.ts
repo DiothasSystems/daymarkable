@@ -19,7 +19,7 @@ import {
   type Sealer,
   type UserSettings,
 } from "@daymarkable/db";
-import { STARTER_CONVENTIONS } from "@daymarkable/decode";
+import { clampEscalationThreshold, STARTER_CONVENTIONS } from "@daymarkable/decode";
 
 /** Everything dayMarkable writes back, as the documents registry knows it. */
 export type DocumentKind = "planner" | "action_list" | "meeting_notes" | "daily_update" | "daily_puzzle";
@@ -43,6 +43,8 @@ export function defaultSettings(): UserSettings {
     dailyPuzzle: { enabled: true },
     pendingDelivery: null,
     confidenceThreshold: 0.7,
+    // Null, not a number: the operator's default applies until somebody overrides it for this account.
+    escalationThreshold: null,
     autoSendInvites: false,
     decodeModel: null,
     escalationModel: null,
@@ -660,4 +662,15 @@ export async function claimDailyPuzzleWords(
     .values({ localDate, kind, words: [...words], model })
     .onConflictDoNothing();
   return (await getDailyPuzzleWords(db, localDate, kind)) ?? [...words];
+}
+
+/**
+ * The operator's default escalation threshold.
+ *
+ * One row, read per run. Falls back to the code default when the row has never been written — a
+ * fresh database must still escalate sensibly rather than not at all.
+ */
+export async function defaultEscalationThreshold(db: Db): Promise<number> {
+  const row = await db.query.opsSettings.findFirst();
+  return clampEscalationThreshold(row ? Number(row.defaultEscalationThreshold) : null);
 }

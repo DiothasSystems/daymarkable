@@ -10,6 +10,7 @@ import "server-only";
 import os from "node:os";
 import { statfs } from "node:fs/promises";
 import { and, desc, eq, gte, isNotNull, isNull, schema, sql } from "@daymarkable/db";
+import { ESCALATION_THRESHOLD_MAX, ESCALATION_THRESHOLD_MIN, clampEscalationThreshold } from "@daymarkable/decode";
 import { describeOptions, type OptionGroup } from "./admin-core";
 import {
   capacityUsers,
@@ -62,6 +63,8 @@ export interface OpsSettings {
   warnDays: number;
   warnEmail: string;
   lastWarnedAt: Date | null;
+  /** The escalation threshold every account follows unless it has an override of its own. */
+  defaultEscalationThreshold: number;
 }
 
 const SINGLETON = "singleton";
@@ -77,6 +80,7 @@ export async function getOpsSettings(): Promise<OpsSettings> {
     warnDays: row?.warnDays ?? 14,
     warnEmail: row?.warnEmail ?? "diothassystems@gmail.com",
     lastWarnedAt: row?.lastWarnedAt ?? null,
+    defaultEscalationThreshold: clampEscalationThreshold(row ? Number(row.defaultEscalationThreshold) : null),
   };
 }
 
@@ -119,6 +123,24 @@ export async function setNewUserFeatures(patch: { news?: boolean; puzzle?: boole
   };
   await rt.db.insert(schema.opsSettings).values(values).onConflictDoUpdate({ target: schema.opsSettings.id, set: values });
   await audit("admin.features.newUsers", { ...patch });
+}
+
+/**
+ * Set the escalation threshold for every account that has not overridden it.
+ *
+ * Takes effect on the next run — nothing is recomputed, because a page already read is already read.
+ * Audited like every other operator action (rule 13): it changes what customers are charged for and
+ * how accurately their pages are read, which is not a setting to change without a record.
+ */
+export async function setDefaultEscalationThreshold(value: number): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (!Number.isFinite(value) || value < ESCALATION_THRESHOLD_MIN || value > ESCALATION_THRESHOLD_MAX) {
+    return { ok: false, message: `Escalation threshold must be between ${ESCALATION_THRESHOLD_MIN} and ${ESCALATION_THRESHOLD_MAX}` };
+  }
+  const rt = await getRuntime();
+  const values = { id: SINGLETON, defaultEscalationThreshold: value.toFixed(3), updatedAt: new Date() };
+  await rt.db.insert(schema.opsSettings).values(values).onConflictDoUpdate({ target: schema.opsSettings.id, set: values });
+  await audit("admin.decode.escalationThreshold", { value });
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------- spend

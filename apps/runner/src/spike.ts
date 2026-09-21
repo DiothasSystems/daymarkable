@@ -17,7 +17,7 @@ import path from "node:path";
 import { DateTime } from "luxon";
 import { assembleDailySheet, type DecodedPage } from "@daymarkable/core";
 import { composeDailySheet } from "@daymarkable/compose";
-import { AnthropicDecoder, totalUsage, type DecodePageInput, type DecodePageResult } from "@daymarkable/decode";
+import { AnthropicDecoder, DEFAULT_ESCALATION_THRESHOLD, totalUsage, type DecodePageInput, type DecodePageResult } from "@daymarkable/decode";
 import {
   RemarkableCloudProvider,
   TabletProviderError,
@@ -190,6 +190,7 @@ async function cmdExtract(name: string): Promise<void> {
     model: cfg.decodeModel,
     escalationModel: cfg.escalationModel,
     confidenceThreshold: cfg.confidenceThreshold,
+    escalationThreshold: DEFAULT_ESCALATION_THRESHOLD,
     conventions: cfg.conventions,
   });
   const started = Date.now();

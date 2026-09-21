@@ -110,8 +110,14 @@ unchanged.
    TypeScript in `packages/core`. Never ask the model to manage task state.
 2. **Only changed pages are processed.** Document- and page-hash diffing against the last
    run's snapshot is correctness, not optimization — it's also the unit-economics lever.
-3. **Low confidence → Inbox.** Items under the confidence threshold go to the planner's
-   "Inbox — confirm these" section, never silently onto the action list.
+3. **Low confidence → Inbox.** Items under `settings.confidenceThreshold` go to the planner's
+   "Inbox — confirm these" section, never silently onto the action list. This is NOT the escalation
+   threshold: one value used to do both jobs, which tied "re-read this page on Opus" to "put this on
+   the action list without asking" — two decisions with opposite risks. Escalation trades money for
+   accuracy and the customer never sees it; the Inbox trades their attention for safety and they do.
+   `settings.escalationThreshold` (null = follow `ops_settings.default_escalation_threshold`,
+   itself 0.5 and set on /admin/tokens) decides the second pass; an account's override is set on its
+   own admin page. 0 never escalates.
 4. **Idempotent runs.** A nightly run is keyed by (user, local-date); re-running it must
    produce the same planner, not duplicates.
 5. **Privacy invariants: 1-day rolling cache, 24h max retention.** Each run KEEPS its own
@@ -245,8 +251,13 @@ unchanged.
 
 ## Model usage
 
-**Claude Sonnet 5 is the baseline decoder**, escalating to **Opus 5** only on low-confidence
-pages. (Measured on the founder's own handwriting in September 2026: Sonnet read most
+**Claude Sonnet 5 is the baseline decoder**, escalating to **Opus 5** only on pages read below the
+escalation threshold (rule 3). Haiku is not merely discouraged as a decoder — `RETIRED_DECODE_MODELS`
+in `packages/decode/models.ts` refuses it whatever `DECODE_MODEL`, a rotation list or a per-user
+override says, and logs the substitution, because the only symptom of a stale config would be a week
+of worse transcriptions. An escalation model that resolves to the SAME model as the baseline cannot
+escalate anything, so `resolveEscalationModel` treats that as the config accident it always is and
+uses Opus; switching escalation off is spelled `DECODE_ESCALATION_MODEL=` (empty). (Measured on the founder's own handwriting in September 2026: Sonnet read most
 accurately, Opus was close behind, Haiku 4.5 was clearly worst and is no longer used.)
 Nightly runs go through the **Batch API** (50% discount; midnight has no latency pressure);
 on-demand syncs use the standard API. Prompt caching carries the system prompt, the user's

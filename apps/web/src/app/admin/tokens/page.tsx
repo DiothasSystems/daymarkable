@@ -108,6 +108,31 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>
+        <p className="kicker">Opus escalation · all accounts</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          A page the baseline reads with less confidence than this is read again on the escalation model. It is the
+          main quality-for-money dial: raising it re-reads more pages and costs more, lowering it trusts the first pass
+          further. <strong>0 never escalates.</strong>
+        </p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          Separate from the Inbox threshold on each account, which decides whether an ITEM is confirmed before it
+          reaches the Action List. The two used to be one number, which meant trusting the decoder more also meant
+          asking the customer less — two decisions with opposite risks. An account can override this from its own page;
+          this is the default for everyone who has not.
+        </p>
+        <form action="/admin/api/ops/escalation" method="post" className="stack">
+          <div className="grid three">
+            <div className="field">
+              <label htmlFor="threshold">Escalate below</label>
+              <input id="threshold" name="threshold" type="number" className="mono" min={0} max={0.95} step={0.05} defaultValue={s.defaultEscalationThreshold} />
+              <div className="hint">0 to 0.95 · applies from the next run</div>
+            </div>
+          </div>
+          <div className="row"><button type="submit">Save</button></div>
+        </form>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
         <p className="kicker">Daily extras · for new accounts</p>
         <p className="muted" style={{ fontSize: 13 }}>
           The brief costs a web search per topic plus tokens, every night, whether or not the customer wrote anything —

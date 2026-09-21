@@ -1,0 +1,1 @@
+ALTER TABLE "ops_settings" ADD COLUMN "default_escalation_threshold" numeric(4, 3) DEFAULT '0.500' NOT NULL;

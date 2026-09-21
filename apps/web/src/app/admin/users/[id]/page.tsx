@@ -236,14 +236,36 @@ export default async function AdminUserDetail({ params, searchParams }: { params
       <div className="card" style={{ marginBottom: 24 }}>
         <p className="kicker">Decode tuning · operator only</p>
         <p className="muted" style={{ fontSize: 13 }}>
-          The customer cannot change these. Items read below the threshold go to the Inbox for confirmation instead of
-          onto the Action List, so raising it trades more confirmation work for fewer wrong items. Leave a model box
-          empty to use the host default. Every change here is audited below.
+          The customer cannot change these. The two thresholds do different jobs and are deliberately separate:{" "}
+          <strong>escalate below</strong> decides whether a PAGE is read a second time on the escalation model, trading
+          money for accuracy invisibly; <strong>inbox threshold</strong> decides whether an ITEM is confirmed before it
+          reaches the Action List, trading the customer&apos;s attention for safety. Leave a model box empty to use the
+          host default. Every change here is audited below.
         </p>
         <form action={`/admin/api/users/${u.id}/tuning`} method="post" className="stack">
-          <div className="grid three">
+          <div className="grid four">
             <div className="field">
-              <label htmlFor="confidenceThreshold">Confidence threshold</label>
+              <label htmlFor="escalationThreshold">Escalate below</label>
+              <input
+                id="escalationThreshold"
+                name="escalationThreshold"
+                type="number"
+                className="mono"
+                min={0}
+                max={0.95}
+                step={0.05}
+                placeholder={`default ${detail.tuning.defaultEscalationThreshold}`}
+                defaultValue={detail.tuning.escalationThreshold ?? ""}
+              />
+              <div className="hint">
+                {detail.tuning.escalationThreshold === null
+                  ? `following the default of ${detail.tuning.defaultEscalationThreshold}`
+                  : `overriding the default of ${detail.tuning.defaultEscalationThreshold}`}
+                 · empty to follow it, 0 never escalates
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="confidenceThreshold">Inbox threshold</label>
               <input
                 id="confidenceThreshold"
                 name="confidenceThreshold"
@@ -254,7 +276,7 @@ export default async function AdminUserDetail({ params, searchParams }: { params
                 step={0.05}
                 defaultValue={detail.tuning.confidenceThreshold}
               />
-              <div className="hint">{TUNING_MIN} to {TUNING_MAX}</div>
+              <div className="hint">{TUNING_MIN} to {TUNING_MAX} · items read below this are confirmed in the Inbox</div>
             </div>
             <div className="field">
               <label htmlFor="decodeModel">Decode model override</label>

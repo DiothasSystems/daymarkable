@@ -10,8 +10,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const form = await req.formData();
   const decode = String(form.get("decodeModel") ?? "").trim();
   const escalation = String(form.get("escalationModel") ?? "").trim();
+  // An empty box clears the override rather than meaning zero — zero is a real setting here (never
+  // escalate), so the two cannot share a representation.
+  const escalationThreshold = String(form.get("escalationThreshold") ?? "").trim();
   const r = await updateDecodeTuning(id, {
     confidenceThreshold: Number(form.get("confidenceThreshold")),
+    escalationThreshold: escalationThreshold === "" ? null : Number(escalationThreshold),
     decodeModel: decode || null,
     escalationModel: escalation || null,
   });

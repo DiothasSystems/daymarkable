@@ -158,6 +158,7 @@ function decoderWith(client: unknown, batchTimeoutMinutes: number): AnthropicDec
       model: "claude-sonnet-5",
       escalationModel: null,
       confidenceThreshold: 0.7,
+    escalationThreshold: 0.5,
       conventions: STARTER_CONVENTIONS,
       batchTimeoutMinutes,
     },
@@ -243,5 +244,52 @@ describe("batch decoding", () => {
     expect(cancelled).toBe(0);
     expect(results.map((r) => r.key)).toEqual(["a", "b"]);
     expect(results.flatMap((r) => r.usage.map((u) => u.mode))).toEqual(["batch", "batch"]);
+  });
+});
+
+describe("what decides a second pass", () => {
+  const page = (confidence: number, needs = false) => ({
+    key: "p1",
+    extraction: { page_kind: "notes", overall_confidence: confidence, needs_escalation: needs } as never,
+    raw: "",
+    error: null,
+    usage: [],
+    escalated: false,
+  });
+
+  /**
+   * The whole point of splitting the two numbers. A page read at 0.6 is confident enough not to be
+   * re-read on Opus, and an ITEM read at 0.6 is still not confident enough to land on the action
+   * list unasked. One value could not say both.
+   */
+  it("uses the escalation threshold, not the Inbox one", () => {
+    const decoder = new AnthropicDecoder({
+      model: "claude-sonnet-5",
+      escalationModel: "claude-opus-5",
+      confidenceThreshold: 0.7,
+      escalationThreshold: 0.5,
+      conventions: STARTER_CONVENTIONS,
+      batchTimeoutMinutes: 45,
+    });
+    const needs = (r: unknown) => (decoder as unknown as { needsEscalation(x: unknown): boolean }).needsEscalation(r);
+    expect(needs(page(0.4))).toBe(true);
+    // Between the two thresholds: no second pass, but the Inbox still gets the item.
+    expect(needs(page(0.6))).toBe(false);
+    expect(needs(page(0.9))).toBe(false);
+    // The model asking for it beats the number either way.
+    expect(needs(page(0.9, true))).toBe(true);
+  });
+
+  it("never escalates when the threshold is zero", () => {
+    const decoder = new AnthropicDecoder({
+      model: "claude-sonnet-5",
+      escalationModel: "claude-opus-5",
+      confidenceThreshold: 0.7,
+      escalationThreshold: 0,
+      conventions: STARTER_CONVENTIONS,
+      batchTimeoutMinutes: 45,
+    });
+    const needs = (r: unknown) => (decoder as unknown as { needsEscalation(x: unknown): boolean }).needsEscalation(r);
+    expect(needs(page(0.01))).toBe(false);
   });
 });

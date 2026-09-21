@@ -9,7 +9,14 @@ export interface DecodeConfig {
   model: string;
   /** Re-run low-confidence pages on this model; null disables escalation. */
   escalationModel: string | null;
+  /** Rule 3: below this an ITEM goes to the Inbox. Not what decides a second pass. */
   confidenceThreshold: number;
+  /**
+   * Below this a PAGE is read again on the escalation model. Separate from the Inbox threshold
+   * because the two trade different things — money against accuracy, versus the customer's attention
+   * against safety — and one number could only ever be right for one of them.
+   */
+  escalationThreshold: number;
   conventions: UserInkConventions;
   /** Names and acronyms this writer uses; injected into the cached system prompt. */
   lexicon?: readonly string[];
@@ -174,7 +181,7 @@ export class AnthropicDecoder implements Decoder {
     if (!this.config.escalationModel || this.config.escalationModel === this.config.model) return false;
     if (!r.extraction) return true;
     if (r.extraction.page_kind === "blank") return false;
-    return r.extraction.needs_escalation || r.extraction.overall_confidence < this.config.confidenceThreshold;
+    return r.extraction.needs_escalation || r.extraction.overall_confidence < this.config.escalationThreshold;
   }
 
   async decodePages(pages: readonly DecodePageInput[], mode: DecodeMode): Promise<DecodePageResult[]> {

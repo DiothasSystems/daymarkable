@@ -23,7 +23,7 @@ import { getRuntime } from "./runtime";
 import { audit, clientIp } from "./audit";
 import { billingConfigured, cancelSubscription, refundAmount, subscriptionSnapshot } from "./billing";
 import { proratedRefund } from "./finance-core";
-import { calibrationByUser, confidenceByUser, tokensPerDayByUser } from "./ops";
+import { calibrationByUser, confidenceByUser, getOpsSettings, tokensPerDayByUser } from "./ops";
 // Re-exported so the existing admin routes keep importing these from here.
 export { audit, clientIp } from "./audit";
 
@@ -209,6 +209,9 @@ export async function getUserDetail(userId: string) {
   const settings = (await repo.getUser(rt.db, userId)).settings;
   const tuning = {
     confidenceThreshold: settings.confidenceThreshold,
+    /** Null means this account follows the operator default, which is shown beside the box. */
+    escalationThreshold: settings.escalationThreshold ?? null,
+    defaultEscalationThreshold: (await getOpsSettings()).defaultEscalationThreshold,
     decodeModel: settings.decodeModel,
     escalationModel: settings.escalationModel,
   };
@@ -235,6 +238,7 @@ export async function updateDecodeTuning(userId: string, patch: TuningPatch): Pr
   if (!valid.ok) return valid;
   const before = {
     confidenceThreshold: user.settings.confidenceThreshold,
+    escalationThreshold: user.settings.escalationThreshold ?? null,
     decodeModel: user.settings.decodeModel,
     escalationModel: user.settings.escalationModel,
   };

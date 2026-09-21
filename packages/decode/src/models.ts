@@ -38,3 +38,37 @@ export function resolveDecodeModel(requested: string | null | undefined, fallbac
   const to = isRetiredDecodeModel(fallback) ? BASELINE_DECODE_MODEL : fallback;
   return { model: to, replaced: `${want} is retired (measured worst on handwriting); using ${to}` };
 }
+
+/** The operator default when nobody has set one: half. Overridable per account and on /admin/tokens. */
+export const DEFAULT_ESCALATION_THRESHOLD = 0.5;
+/** Zero means never escalate; anything above 0.95 would escalate almost every page. */
+export const ESCALATION_THRESHOLD_MIN = 0;
+export const ESCALATION_THRESHOLD_MAX = 0.95;
+
+export function clampEscalationThreshold(value: number | null | undefined, fallback = DEFAULT_ESCALATION_THRESHOLD): number {
+  if (value === null || value === undefined || !Number.isFinite(value)) return fallback;
+  return Math.min(ESCALATION_THRESHOLD_MAX, Math.max(ESCALATION_THRESHOLD_MIN, value));
+}
+
+/**
+ * The escalation model to actually use, given the baseline that was resolved.
+ *
+ * An escalation model EQUAL to the baseline cannot escalate anything — a second pass on the same
+ * model is the same answer at twice the price — so it is always a configuration accident rather than
+ * an intention. It happened here: `DECODE_ESCALATION_MODEL=claude-sonnet-5` was set while the
+ * baseline was Haiku, then Haiku was retired and silently replaced by Sonnet, and escalation
+ * switched itself off with nothing to show for it. Deliberately disabling escalation is spelled
+ * `DECODE_ESCALATION_MODEL=` (empty), which arrives here as null and is left alone.
+ */
+export function resolveEscalationModel(requested: string | null, baseline: string): { model: string | null; replaced: string | null } {
+  if (requested === null) return { model: null, replaced: null };
+  const resolved = resolveDecodeModel(requested, ESCALATION_DECODE_MODEL);
+  if (resolved.model !== baseline) return resolved;
+  if (ESCALATION_DECODE_MODEL === baseline) {
+    return { model: null, replaced: `escalation model matches the baseline ${baseline}; escalation is off` };
+  }
+  return {
+    model: ESCALATION_DECODE_MODEL,
+    replaced: `escalation model ${resolved.model} is the baseline, which cannot escalate; using ${ESCALATION_DECODE_MODEL}`,
+  };
+}

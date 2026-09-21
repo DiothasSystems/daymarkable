@@ -89,7 +89,23 @@ export interface UserSettings {
   /** The two-page puzzle: page one the puzzle, page two its solution. */
   dailyPuzzle: { enabled: boolean };
   pendingDelivery: string | null;
+  /**
+   * Rule 3's threshold: an item read below this goes to the planner's Inbox to be confirmed rather
+   * than straight onto the Action List.
+   *
+   * NOT the escalation threshold. One value used to do both jobs, which meant lowering the bar for
+   * "re-read this page on Opus" also lowered the bar for "put this on the action list without
+   * asking" — two decisions with opposite risks, tied together by accident.
+   */
   confidenceThreshold: number;
+  /**
+   * Below this, a page is read a second time on the escalation model. Null uses the operator's
+   * default from `ops_settings.default_escalation_threshold`.
+   *
+   * Separate from the Inbox threshold above on purpose. Escalation trades money for accuracy and is
+   * invisible to the customer; the Inbox trades the customer's attention for safety and is not.
+   */
+  escalationThreshold?: number | null;
   autoSendInvites: boolean;
   /** Decode model config for this user (null = global default from env). */
   decodeModel: string | null;
@@ -662,6 +678,14 @@ export const opsSettings = pgTable("ops_settings", {
    */
   newsForNewUsers: boolean("news_for_new_users").notNull().default(true),
   puzzleForNewUsers: boolean("puzzle_for_new_users").notNull().default(true),
+  /**
+   * The confidence below which a page is re-read on the escalation model, for every account that has
+   * no override of its own.
+   *
+   * Here rather than in the environment because it is a dial an operator turns while watching what
+   * nights cost, and a dial that needs a deploy is a dial nobody turns.
+   */
+  defaultEscalationThreshold: numeric("default_escalation_threshold", { precision: 4, scale: 3 }).notNull().default("0.500"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

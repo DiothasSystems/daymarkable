@@ -45,7 +45,7 @@ describe("rate limiting", () => {
 
 describe("validateTuning", () => {
   const retired = (m: string) => m === "claude-haiku-4-5";
-  const ok = { confidenceThreshold: 0.7, decodeModel: null, escalationModel: null };
+  const ok = { confidenceThreshold: 0.7, escalationThreshold: null, decodeModel: null, escalationModel: null };
 
   it("accepts a threshold inside the range and no overrides", () => {
     expect(validateTuning(ok, retired, "claude-sonnet-5")).toEqual({ ok: true });
