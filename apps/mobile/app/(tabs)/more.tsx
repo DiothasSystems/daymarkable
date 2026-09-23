@@ -1,14 +1,19 @@
 /**
- * Everything that is not a list: the night's documents, Sync now, how well it read, what you
- * want changed, and the way out.
+ * Everything that is not a list: Sync now, how well it read, what you want changed, and the way out.
+ *
+ * The night's notebooks are NOT offered here. They used to be, as PDFs; the app holds the same
+ * material as live data on the three tabs beside this one, and those are better on a phone in
+ * every way that matters — they reflow, and their items can be ticked and edited where they are
+ * read. Duplicating them as buttons here only offered a worse copy of what the tab bar already
+ * reaches. The printed page is for the tablet.
  *
  * Two things are deliberately absent and must stay that way:
  *
  *   No price, no purchase, no link to one (rule 14). Subscription lives on the web, and the app
  *   does not learn what anything costs — the Subscription button below opens the web's own
- *   billing page in a WebView, which is where every figure and every card field stays.
+ *   page in a WebView, which is where every figure and every card field stays.
  *
- *   No regeneration. Documents are read from the 1-day cache; a view never makes work (rule 12).
+ *   No regeneration. A view never makes work (rule 12).
  */
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
@@ -17,8 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trpc } from "@/api";
 import { Feedback } from "@/components/Feedback";
 import { SyncNow } from "@/components/SyncNow";
-import { Button, Card, Empty, ErrorNote, Label, Loading } from "@/components/ui";
-import { dayTitle } from "@/format";
+import { Button, Card, ErrorNote, Label, Loading } from "@/components/ui";
 import { useSession } from "@/session";
 import { useQuery, useReloadOnReturn } from "@/useApi";
 import { space, type } from "@/theme";
@@ -26,32 +30,6 @@ import { space, type } from "@/theme";
 type Docs = Awaited<ReturnType<typeof trpc.documents.list.query>>;
 type Quota = Awaited<ReturnType<typeof trpc.runs.quota.query>>;
 type Me = Awaited<ReturnType<typeof trpc.auth.me.query>>;
-
-/**
- * What the night produced, and where to read it on a phone.
- *
- * The phone does not open the PDFs, and this is the reason the card still exists rather than the
- * buttons simply being deleted. Each notebook has a screen here that holds the same material as
- * live data — the action list is the Actions tab, the planner is the Calendar tab, the meeting
- * notes are the Notes tab — and those screens are better than the page in every way that matters
- * on a phone: they reflow, they are searchable, and their items can be ticked and edited, which a
- * PDF handed to whatever viewer is installed cannot be. The printed page is for the tablet.
- *
- * The dayLy Update and the dayLy Puzzle are absent for a different reason: they have no native
- * screen and are not meant to. The puzzle is three pages of grid to be written on with a stylus
- * and the brief is a page to read at breakfast; neither survives being a phone document. They stay
- * on the tablet.
- *
- * The web viewer still serves every document — this is the app declining to, not the run changing.
- */
-/** The kind comes from the server's own union, so a notebook named wrongly here will not compile. */
-type DocumentKind = Docs["documents"][number]["kind"];
-
-const NOTEBOOKS: readonly { kind: DocumentKind; title: string; href: "/actions" | "/calendar" | "/notes" }[] = [
-  { kind: "action_list", title: "Action List", href: "/actions" },
-  { kind: "planner", title: "Planner", href: "/calendar" },
-  { kind: "meeting_notes", title: "Meeting Notes", href: "/notes" },
-];
 
 export default function More() {
   const insets = useSafeAreaInsets();
@@ -79,10 +57,6 @@ export default function More() {
   if (docs.loading) return <Loading />;
 
   const run = docs.data?.run ?? null;
-  // Only offer a notebook the night actually produced: a link to an empty Notes tab reads as a
-  // broken feature, where its absence reads as "no meetings yesterday", which is the truth.
-  const produced = new Set((docs.data?.documents ?? []).map((d) => d.kind));
-  const shown = NOTEBOOKS.filter((n) => produced.has(n.kind));
 
   return (
     <ScrollView
@@ -104,25 +78,6 @@ export default function More() {
             automatic run.
           </Text>
           <SyncNow quota={quota.data} onFinished={() => void refreshAll()} />
-        </Card>
-
-        <Card>
-          <Label style={{ marginBottom: space.sm }}>
-            {run ? `FROM ${dayTitle(run.localDate).toUpperCase()}` : "YOUR NOTEBOOKS"}
-          </Label>
-          {!shown.length ? (
-            <Empty>Nothing read yet. Press Sync now, or wait for the run just after midnight.</Empty>
-          ) : (
-            <View style={{ gap: space.sm }}>
-              {shown.map((n) => (
-                <Button key={n.kind} title={`Open ${n.title}`} variant="secondary" onPress={() => router.push(n.href)} />
-              ))}
-              <Text style={[type.small, { marginTop: space.xs }]}>
-                The printed pages went to your tablet. Kept for a day and then deleted — that is the
-                whole of what dayMarkable stores.
-              </Text>
-            </View>
-          )}
         </Card>
 
         <Feedback runId={run?.id ?? null} />

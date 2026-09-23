@@ -28,14 +28,35 @@ import { publicUrl, serviceUrl } from "@/lib/hosts";
 
 export const HANDOFF_TTL_MS = 60_000;
 
-/** The only pages the app may open this way, and where each one lives. */
+/**
+ * The only pages the app may open this way, and where each one lives.
+ *
+ * Every pane happens to sit on the service host today. The public branch is kept rather than
+ * simplified away: the public host is where anything bought lives (rule 14), so the next pane that
+ * needs it finds the machinery already here. `pane()` is what keeps the host a widened type, so
+ * that stays a live choice rather than a comparison TypeScript narrows to never.
+ */
+type PaneHost = "service" | "public";
+const pane = (path: string, host: PaneHost = "service") => ({ path, host });
+
 export const PANES = {
-  setup: { path: "/setup", host: "service" },
-  settings: { path: "/settings", host: "service" },
-  support: { path: "/support", host: "service" },
-  /** Payment is a web page and only a web page (rule 14); the app never shows a price. */
-  billing: { path: "/billing", host: "public" },
-} as const;
+  setup: pane("/setup"),
+  /**
+   * `/account`, not `/settings` — there is no /settings page and never has been, only
+   * /settings/verify-delivery, which is a route handler for a link in an email. The app's Settings
+   * button opened a 404 for as long as it existed.
+   */
+  settings: pane("/account"),
+  support: pane("/support"),
+  /**
+   * Managing an existing subscription, which is /subscription on the service host — NOT /billing,
+   * the checkout page on the public host. /billing redirects away anyone who does not need to check
+   * out, so every account that had already paid was bounced out of it and the button looked broken.
+   * Buying is still web-only and still shows the price there; this pane deliberately does not
+   * (rule 14).
+   */
+  billing: pane("/subscription"),
+};
 
 export type Pane = keyof typeof PANES;
 export const PANE_NAMES = Object.keys(PANES) as [Pane, ...Pane[]];

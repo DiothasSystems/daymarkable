@@ -75,8 +75,20 @@ describe("web handoff", () => {
     expect(isPane(null)).toBe(false);
   });
 
-  it("keeps payment on the public host, where the web's own billing pages live (rule 14)", () => {
-    expect(PANES.billing.host).toBe("public");
-    expect(PANES.settings.host).toBe("service");
+  it("opens pages that exist: the account page, not the /settings route handler", () => {
+    // There is no /settings PAGE - only /settings/verify-delivery, a route handler for a link in
+    // an email - so this pane pointed the app at a 404 for as long as it existed. The assertion is
+    // on the path rather than on a rendered page because that is the whole of what went wrong.
+    expect(PANES.settings.path).toBe("/account");
+  });
+
+  it("sends the subscription pane to management, not to checkout (rule 14)", () => {
+    // /billing is where a plan is BOUGHT: public host, prices on it, and it redirects away anyone
+    // who does not need to check out - which is every account that has one and might want to look
+    // at it. Managing an existing subscription is its own page on the service host, and carries no
+    // price, so nothing the app can open shows a figure.
+    expect(PANES.billing.path).toBe("/subscription");
+    expect(PANES.billing.host).toBe("service");
+    expect(Object.values(PANES).every((p) => p.path !== "/billing")).toBe(true);
   });
 });
