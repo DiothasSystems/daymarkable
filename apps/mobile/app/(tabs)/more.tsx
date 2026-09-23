@@ -87,8 +87,12 @@ export default function More() {
           {/* The web's own pages, signed in (app/web/[pane].tsx). One copy of each form, and no
               price anywhere in this app — subscription included (rule 14). */}
           <View style={{ gap: space.sm }}>
+            {/* No "Your tablet and conventions" button. /setup redirects an onboarded account
+                straight to /account (apps/web/src/app/setup/page.tsx), so it was a second button
+                to the page Settings already opens. The setup pane itself stays: app/index.tsx
+                sends an account that has NOT onboarded into that wizard, which is the one time
+                the page shows anything of its own. */}
             <Button title="Settings" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "settings" } })} />
-            <Button title="Your tablet and conventions" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "setup" } })} />
             <Button title="Subscription" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "billing" } })} />
             <Button title="Support" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "support" } })} />
           </View>
