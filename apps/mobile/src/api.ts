@@ -45,14 +45,6 @@ export const trpc = createTRPCClient<AppRouter>({
   ],
 });
 
-/** The document routes are plain HTTP, so they carry the header themselves. */
-export async function authorizedFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const session = await readStoredSession();
-  const headers = new Headers(init.headers);
-  if (session) headers.set("authorization", `Bearer ${session}`);
-  return fetch(`${API_URL}${path}`, { ...init, headers });
-}
-
 /**
  * What to put in front of the user when a call fails. Never a stack, never a tRPC shape.
  *

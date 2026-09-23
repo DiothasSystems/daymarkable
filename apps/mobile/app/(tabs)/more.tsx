@@ -16,7 +16,6 @@ import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trpc } from "@/api";
 import { Feedback } from "@/components/Feedback";
-import { OpenDocument } from "@/components/OpenDocument";
 import { SyncNow } from "@/components/SyncNow";
 import { Button, Card, Empty, ErrorNote, Label, Loading } from "@/components/ui";
 import { dayTitle } from "@/format";
@@ -29,23 +28,30 @@ type Quota = Awaited<ReturnType<typeof trpc.runs.quota.query>>;
 type Me = Awaited<ReturnType<typeof trpc.auth.me.query>>;
 
 /**
- * The documents the app offers, and the whole of them.
+ * What the night produced, and where to read it on a phone.
  *
- * A run also produces the dayLy Update and the dayLy Puzzle. Those stay on the tablet and off the
- * phone: the puzzle is three pages of grid meant to be written on with a stylus, the brief is a
- * page to read at breakfast, and neither is any use handed to a phone's PDF viewer. The app opens
- * a document by downloading the bytes and passing them to whatever else is installed
- * (OpenDocument.tsx), which is a poor experience for a big page and a pointless one for a puzzle
- * nobody can fill in.
+ * The phone does not open the PDFs, and this is the reason the card still exists rather than the
+ * buttons simply being deleted. Each notebook has a screen here that holds the same material as
+ * live data — the action list is the Actions tab, the planner is the Calendar tab, the meeting
+ * notes are the Notes tab — and those screens are better than the page in every way that matters
+ * on a phone: they reflow, they are searchable, and their items can be ticked and edited, which a
+ * PDF handed to whatever viewer is installed cannot be. The printed page is for the tablet.
  *
- * The web viewer still lists everything — this is the app declining to, not the run changing.
- * Keyed by kind so a new document kind is absent until someone decides it belongs here.
+ * The dayLy Update and the dayLy Puzzle are absent for a different reason: they have no native
+ * screen and are not meant to. The puzzle is three pages of grid to be written on with a stylus
+ * and the brief is a page to read at breakfast; neither survives being a phone document. They stay
+ * on the tablet.
+ *
+ * The web viewer still serves every document — this is the app declining to, not the run changing.
  */
-const DOC_NAMES: Record<string, string> = {
-  planner: "Planner",
-  action_list: "Action List",
-  meeting_notes: "Meeting Notes",
-};
+/** The kind comes from the server's own union, so a notebook named wrongly here will not compile. */
+type DocumentKind = Docs["documents"][number]["kind"];
+
+const NOTEBOOKS: readonly { kind: DocumentKind; title: string; href: "/actions" | "/calendar" | "/notes" }[] = [
+  { kind: "action_list", title: "Action List", href: "/actions" },
+  { kind: "planner", title: "Planner", href: "/calendar" },
+  { kind: "meeting_notes", title: "Meeting Notes", href: "/notes" },
+];
 
 export default function More() {
   const insets = useSafeAreaInsets();
@@ -73,7 +79,10 @@ export default function More() {
   if (docs.loading) return <Loading />;
 
   const run = docs.data?.run ?? null;
-  const shown = (docs.data?.documents ?? []).filter((d) => d.kind in DOC_NAMES);
+  // Only offer a notebook the night actually produced: a link to an empty Notes tab reads as a
+  // broken feature, where its absence reads as "no meetings yesterday", which is the truth.
+  const produced = new Set((docs.data?.documents ?? []).map((d) => d.kind));
+  const shown = NOTEBOOKS.filter((n) => produced.has(n.kind));
 
   return (
     <ScrollView
@@ -99,17 +108,18 @@ export default function More() {
 
         <Card>
           <Label style={{ marginBottom: space.sm }}>
-            {run ? `FROM ${dayTitle(run.localDate).toUpperCase()}` : "DOCUMENTS"}
+            {run ? `FROM ${dayTitle(run.localDate).toUpperCase()}` : "YOUR NOTEBOOKS"}
           </Label>
           {!shown.length ? (
-            <Empty>No documents yet. Press Sync now, or wait for the run just after midnight.</Empty>
+            <Empty>Nothing read yet. Press Sync now, or wait for the run just after midnight.</Empty>
           ) : (
             <View style={{ gap: space.sm }}>
-              {shown.map((d) => (
-                <OpenDocument key={d.id} id={d.id} name={DOC_NAMES[d.kind]!} available={d.cached} />
+              {shown.map((n) => (
+                <Button key={n.kind} title={`Open ${n.title}`} variant="secondary" onPress={() => router.push(n.href)} />
               ))}
               <Text style={[type.small, { marginTop: space.xs }]}>
-                Kept for a day and then deleted — that is the whole of what dayMarkable stores.
+                The printed pages went to your tablet. Kept for a day and then deleted — that is the
+                whole of what dayMarkable stores.
               </Text>
             </View>
           )}
