@@ -484,9 +484,19 @@ export function DailyPuzzleSettings({ initial }: { initial: { enabled: boolean }
  * The inbound calendar address.
  *
  * One address per account, and no mailbox behind it — the token in front of the @ is only how the
- * service knows whose planner a forwarded invite belongs on. The copy has to carry two facts the
+ * service knows whose planner a forwarded invite belongs on. The copy has to carry three facts the
  * customer would otherwise learn the hard way: forward from the account's own email address or the
- * invite is refused, and rotating the address retires the old one immediately.
+ * invite is refused, rotating the address retires the old one immediately, and "forward" means the
+ * EMAIL rather than the meeting.
+ *
+ * That last one is the only one of the three with a witness. Forwarding the message from an inbox is
+ * seen by nobody, but Outlook's calendar view has a Forward of its own that can send the organiser a
+ * Meeting Forward Notification naming the address it went to, and Google's "Add guests" writes the
+ * address into ATTENDEE for every person on the invitation. Neither exposes anything the customer
+ * wrote — a forward never reaches back into the organiser's calendar and nothing here replies (rule
+ * 7) — but both hand a third party the token, which is the leak rule 17 says to expect and the
+ * reason the rotate button is there. A customer who assumed this was private finds out by having
+ * told the room.
  */
 export function CalendarInbox({ initial, loginEmail }: { initial: string | null; loginEmail: string }) {
   const [address, setAddress] = useState(initial);
@@ -525,6 +535,13 @@ export function CalendarInbox({ initial, loginEmail }: { initial: string | null;
             <div className="hint">
               Forward from <strong>{loginEmail}</strong>. Invites from any other address are refused — the address above
               travels in mail headers and forwarding chains, so on its own it is not proof of who sent something.
+            </div>
+            {/* Its own point, not a continuation of the sender rule above — 4px would read as one blob. */}
+            <div className="hint" style={{ marginTop: 10 }}>
+              Forward the <strong>email</strong>, not the meeting. Outlook&apos;s calendar view has a Forward of its own
+              that can tell the organiser where you sent it; forwarding the message from your inbox tells nobody. On
+              Google, use Forward rather than Add guests — adding a guest would put this address on the invitation for
+              everyone on it to see.
             </div>
           </div>
           <div className="row">
