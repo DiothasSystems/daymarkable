@@ -18,6 +18,23 @@
   Neither alone is enough; the failure simply moves to the next module. Together they bring the
   longest object path under Windows' 260-character limit.
 
+  Moving buildDir has a casualty: the CMake side never hears about it. React Native's generated
+  Android-autolinking.cmake add_subdirectory()s <module>/android/build/generated/source/codegen/jni
+  for every autolinked module, and Reanimated and Worklets hardcode ${CMAKE_SOURCE_DIR}/build in
+  their own CMakeLists. Gradle writes the codegen to C:\dmb\b\<name>\generated; CMake looks under
+  node_modules and finds nothing:
+
+      fatal error: 'react/renderer/components/rnreanimated/Props.h' file not found
+      add_subdirectory given source ".../datetimepicker/android/build/generated/source/codegen/jni/"
+      which is not an existing directory
+
+  So every subproject gets a junction from the path CMake insists on to the path the output is
+  actually at. That is done in the gradle patch, which is the one place that knows both a module's
+  own directory and the name its relocated build dir was given.
+
+  A junction survives prebuild (which does not touch node_modules) but not a package reinstall, so
+  it is re-made every run like the patch itself.
+
   NOTE: this file is deliberately plain ASCII. PowerShell 5.1 reads .ps1 as ANSI unless the file
   carries a BOM, so a stray em dash becomes mojibake and the script fails to parse.
 
@@ -67,7 +84,29 @@ $patch = @'
 // Re-applied by scripts/android-build.ps1 after every prebuild. See that script for why.
 def shortRoot = new File("C:/dmb")
 subprojects { sub ->
-  sub.buildDir = new File(shortRoot, "b/" + sub.name)
+  def relocated = new File(shortRoot, "b/" + sub.name)
+  sub.buildDir = relocated
+
+  // Point the module's own build/ at the relocated one.
+  //
+  // React Native's generated Android-autolinking.cmake add_subdirectory()s
+  // <module>/android/build/generated/source/codegen/jni for every autolinked module, and
+  // Reanimated and Worklets hardcode ${CMAKE_SOURCE_DIR}/build in their CMakeLists. None of them
+  // ask Gradle where the build directory went, so moving it leaves them looking at a path nothing
+  // writes to any more. A junction is what makes both answers the same directory.
+  //
+  // This is done here rather than in the PowerShell because here is the one place that knows both
+  // halves: the module's own directory and the name its relocated build dir was given.
+  def legacy = new File(sub.projectDir, "build")
+  if (!legacy.exists()) {
+    relocated.mkdirs()
+    def make = ["cmd", "/c", "mklink", "/J", legacy.absolutePath, relocated.absolutePath].execute()
+    make.waitFor()
+    if (make.exitValue() != 0) {
+      throw new GradleException("could not link ${legacy} to ${relocated}: ${make.err.text}")
+    }
+  }
+
   def relocateCxx = {
     try {
       sub.android.externalNativeBuild.cmake.buildStagingDirectory = new File(shortRoot, "c/" + sub.name)
@@ -86,6 +125,18 @@ if ($content -notmatch [regex]::Escape($anchor)) { throw "android/build.gradle h
 # WriteAllText with a BOM-less encoder: PowerShell 5.1's `-Encoding utf8` emits a BOM, and
 # Gradle refuses the file with "Unexpected character" on line 1.
 [System.IO.File]::WriteAllText($gradleFile, $content.Replace($anchor, $patch + $anchor), (New-Object System.Text.UTF8Encoding $false))
+
+# The gradle patch junctions <module>/android/build to the relocated build dir, but only when
+# nothing is there. A REAL directory left by an older build would satisfy that test and then
+# shadow the junction with codegen headers nothing regenerates any more - which is the
+# stale-but-load-bearing state that made this failure so confusing the first time it appeared.
+Write-Host "== clearing unrelocated build dirs under node_modules" -ForegroundColor Cyan
+$stale = Get-ChildItem (Join-Path $repo "node_modules") -Directory -Filter build -Recurse -Depth 3 -ErrorAction SilentlyContinue |
+  Where-Object { $_.FullName -like "*\android\build" -and $_.LinkType -ne "Junction" }
+foreach ($s in $stale) {
+  Remove-Item -Recurse -Force $s.FullName
+  Write-Host "  $($s.FullName)"
+}
 
 Write-Host "== assembleRelease ($Abi, API $ApiUrl)" -ForegroundColor Cyan
 Push-Location (Join-Path $mobile "android")
