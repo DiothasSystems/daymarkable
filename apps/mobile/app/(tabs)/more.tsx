@@ -28,6 +28,19 @@ type Docs = Awaited<ReturnType<typeof trpc.documents.list.query>>;
 type Quota = Awaited<ReturnType<typeof trpc.runs.quota.query>>;
 type Me = Awaited<ReturnType<typeof trpc.auth.me.query>>;
 
+/**
+ * The documents the app offers, and the whole of them.
+ *
+ * A run also produces the dayLy Update and the dayLy Puzzle. Those stay on the tablet and off the
+ * phone: the puzzle is three pages of grid meant to be written on with a stylus, the brief is a
+ * page to read at breakfast, and neither is any use handed to a phone's PDF viewer. The app opens
+ * a document by downloading the bytes and passing them to whatever else is installed
+ * (OpenDocument.tsx), which is a poor experience for a big page and a pointless one for a puzzle
+ * nobody can fill in.
+ *
+ * The web viewer still lists everything — this is the app declining to, not the run changing.
+ * Keyed by kind so a new document kind is absent until someone decides it belongs here.
+ */
 const DOC_NAMES: Record<string, string> = {
   planner: "Planner",
   action_list: "Action List",
@@ -60,6 +73,7 @@ export default function More() {
   if (docs.loading) return <Loading />;
 
   const run = docs.data?.run ?? null;
+  const shown = (docs.data?.documents ?? []).filter((d) => d.kind in DOC_NAMES);
 
   return (
     <ScrollView
@@ -87,12 +101,12 @@ export default function More() {
           <Label style={{ marginBottom: space.sm }}>
             {run ? `FROM ${dayTitle(run.localDate).toUpperCase()}` : "DOCUMENTS"}
           </Label>
-          {!docs.data?.documents.length ? (
+          {!shown.length ? (
             <Empty>No documents yet. Press Sync now, or wait for the run just after midnight.</Empty>
           ) : (
             <View style={{ gap: space.sm }}>
-              {docs.data.documents.map((d) => (
-                <OpenDocument key={d.id} id={d.id} name={DOC_NAMES[d.kind] ?? d.name} available={d.cached} />
+              {shown.map((d) => (
+                <OpenDocument key={d.id} id={d.id} name={DOC_NAMES[d.kind]!} available={d.cached} />
               ))}
               <Text style={[type.small, { marginTop: space.xs }]}>
                 Kept for a day and then deleted — that is the whole of what dayMarkable stores.

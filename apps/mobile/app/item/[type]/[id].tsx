@@ -24,7 +24,7 @@ import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "r
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, trpc } from "@/api";
 import { Choice, DateField, Field, TextField, TimeField } from "@/components/fields";
-import { Button, Card, ErrorNote, Label, Loading } from "@/components/ui";
+import { BackBar, Button, Card, ErrorNote, Label, Loading } from "@/components/ui";
 import { useQuery } from "@/useApi";
 import { color, font, space, type } from "@/theme";
 
@@ -46,6 +46,13 @@ const KINDS: readonly { value: Kind; label: string }[] = [
   { value: "action", label: "Action" },
   { value: "follow_up", label: "Follow-up" },
 ];
+
+/** What the back bar says this screen is. Keyed by the route param, so it is known before the fetch. */
+const TITLES: Record<ItemType, string> = {
+  task: "Edit action",
+  event: "Edit calendar entry",
+  meeting: "Edit meeting note",
+};
 
 const RECURRENCES: readonly { value: Repeat; label: string }[] = [
   { value: "", label: "Once" },
@@ -157,22 +164,31 @@ export default function ItemEditor() {
     );
   }, [draft, router]);
 
-  if (q.loading || !draft) return <Loading />;
-  if (q.error) return <ErrorNote>{q.error}</ErrorNote>;
+  /**
+   * The bar sits outside every early return below, because the screens that most need a way out
+   * are the ones that failed to load — an item that will not fetch would otherwise be a spinner
+   * or an error line with nothing to press.
+   */
+  const frame = (children: React.ReactNode) => (
+    <View style={{ flex: 1, paddingTop: insets.top }}>
+      <BackBar title={TITLES[routeType] ?? "Edit"} onBack={() => router.back()} />
+      {children}
+    </View>
+  );
+
+  if (q.error) return frame(<ErrorNote>{q.error}</ErrorNote>);
+  if (q.loading || !draft) return frame(<Loading />);
 
   /** Only an item that came off a page can have been misread. A typed one has no reading to fix. */
   const cameOffAPage = draft.itemType === "event" ? draft.origin === "ink" : !!draft.source.notebook;
   const readingOf = draft.itemType === "task" ? draft.text : draft.itemType === "event" ? draft.title : draft.topic;
 
-  return (
+  return frame(
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
-        contentContainerStyle={{ padding: space.lg, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xxl }}
+        contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl }}
         keyboardShouldPersistTaps="handled"
       >
-        <Label>{draft.itemType === "task" ? "ACTION" : draft.itemType === "event" ? "CALENDAR" : "MEETING NOTE"}</Label>
-        <Text style={[type.title, { marginTop: space.xs, marginBottom: space.lg }]}>Edit</Text>
-
         {error ? <ErrorNote>{error}</ErrorNote> : null}
 
         {draft.itemType === "task" ? (
@@ -296,7 +312,7 @@ export default function ItemEditor() {
           </View>
         ) : null}
       </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAvoidingView>,
   );
 }
 

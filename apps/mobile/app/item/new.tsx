@@ -11,11 +11,11 @@
  */
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, trpc } from "@/api";
 import { Choice, DateField, Field, TextField, TimeField } from "@/components/fields";
-import { Button, ErrorNote, Label } from "@/components/ui";
+import { BackBar, Button, ErrorNote } from "@/components/ui";
 import { space, type as text } from "@/theme";
 
 type NewType = "task" | "event";
@@ -68,16 +68,13 @@ export default function NewItem() {
   }, [words, kind, on, at, until, where, priority, router]);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView
-        contentContainerStyle={{ padding: space.lg, paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xxl }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Label>{kind === "event" ? "CALENDAR" : "ACTION"}</Label>
-        <Text style={[text.title, { marginTop: space.xs, marginBottom: space.lg }]}>
-          {kind === "event" ? "New entry" : "New action"}
-        </Text>
-
+    <View style={{ flex: 1, paddingTop: insets.top }}>
+      <BackBar title={kind === "event" ? "New calendar entry" : "New action"} onBack={() => router.back()} />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView
+          contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl }}
+          keyboardShouldPersistTaps="handled"
+        >
         {error ? <ErrorNote>{error}</ErrorNote> : null}
 
         <Field label={kind === "event" ? "TITLE" : "ACTION"}>
@@ -126,7 +123,8 @@ export default function NewItem() {
         ) : null}
 
         <Button title={folded ? "Back to the list" : "Add"} onPress={() => (folded ? router.back() : void create())} busy={busy} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }

@@ -5,12 +5,43 @@
  * No payment procedures live here (rule 14): billing is web-page only.
  */
 import { TRPCError } from "@trpc/server";
+import { DrizzleQueryError } from "drizzle-orm";
 import { z } from "zod";
 import { claimMobileSession, handoffUrl, logout, requestMagicLink } from "./auth";
 import { PANE_NAMES } from "./handoff";
 import * as svc from "./services";
 import { joinWaitlist } from "./waitlist";
 import { protectedProcedure, publicProcedure, router } from "./trpc";
+
+/**
+ * Turn a thrown service error into the answer the caller should get.
+ *
+ * The services throw `new Error("a sentence for the user")` for the things a user can actually do
+ * something about — too short, too many in an hour, that code is not a pairing code. Those are
+ * BAD_REQUEST and the message is the point of them.
+ *
+ * A database failure is not that, and must not be dressed as it. Drizzle's message is the whole
+ * failed statement, so handing it on put this in front of someone asking for a feature:
+ *
+ *     Failed query: select "id", "user_id", "kind", "body", "status", ... from "feature_requests"
+ *
+ * which tells them nothing they can act on, tells them their request was refused when in truth it
+ * was never stored, and puts the schema on a phone screen. So it becomes a plain 500, and the
+ * statement goes to the server log where whoever can fix it will look. Rule 5 is why the log gets
+ * the query and not the body: the query is ours, the body is theirs.
+ */
+function serviceError(err: unknown, where: string): TRPCError {
+  if (err instanceof DrizzleQueryError) {
+    // The CAUSE is the half worth having. Drizzle's own message is the statement it tried, which
+    // says what was asked and never why it was refused; Postgres' error underneath it is the one
+    // that names a missing relation or a bad type. Chasing this without the cause meant reading a
+    // perfectly good SELECT and guessing.
+    const cause = err.cause as Error | undefined;
+    console.error(`[trpc] ${where}: database error: ${cause?.message ?? "no cause"} | ${err.message}`);
+    return new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Something on our side failed. It has been logged — please try again shortly." });
+  }
+  return new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+}
 
 export const appRouter = router({
   auth: router({
@@ -58,7 +89,7 @@ export const appRouter = router({
       try {
         return await svc.pairTablet(ctx.user.id, input.code);
       } catch (err) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        throw serviceError(err, "account.pairTablet");
       }
     }),
     tabletFolders: protectedProcedure.query(({ ctx }) => svc.listTabletFolders(ctx.user.id)),
@@ -68,7 +99,7 @@ export const appRouter = router({
       try {
         return await svc.setDeliveryEmail(ctx.user.id, input.email);
       } catch (err) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        throw serviceError(err, "account.setDeliveryEmail");
       }
     }),
   }),
@@ -82,14 +113,14 @@ export const appRouter = router({
         try {
           return await svc.getCalendar(ctx.user.id, input.from, input.to);
         } catch (err) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+          throw serviceError(err, "documents.calendar");
         }
       }),
     republish: protectedProcedure.mutation(async ({ ctx }) => {
       try {
         return await svc.republish(ctx.user.id);
       } catch (err) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        throw serviceError(err, "documents.republish");
       }
     }),
     // Tick an item off or drop it — the same transitions a pen makes on a printed page.
@@ -103,7 +134,7 @@ export const appRouter = router({
         try {
           return await svc.decideItem(ctx.user.id, input.itemType, input.itemId, input.action);
         } catch (err) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+          throw serviceError(err, "documents.decide");
         }
       }),
   }),
@@ -125,14 +156,14 @@ export const appRouter = router({
       try {
         return await svc.createCalibrationSheet(ctx.user.id, input);
       } catch (err) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        throw serviceError(err, "calibration.create");
       }
     }),
     calibrate: protectedProcedure.mutation(async ({ ctx }) => {
       try {
         return await svc.calibrateNow(ctx.user.id);
       } catch (err) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        throw serviceError(err, "calibration.calibrate");
       }
     }),
     skip: protectedProcedure.mutation(({ ctx }) => svc.skipCalibration(ctx.user.id)),
@@ -154,7 +185,7 @@ export const appRouter = router({
         try {
           return await svc.submitRequest(ctx.user.id, input.kind, input.body);
         } catch (err) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+          throw serviceError(err, "requests.submit");
         }
       }),
   }),
@@ -185,14 +216,14 @@ export const appRouter = router({
       try {
         return await svc.updateItem(ctx.user.id, input);
       } catch (err) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        throw serviceError(err, "items.update");
       }
     }),
     create: protectedProcedure.input(svc.newItemSchema).mutation(async ({ ctx, input }) => {
       try {
         return await svc.createItem(ctx.user.id, input);
       } catch (err) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+        throw serviceError(err, "items.create");
       }
     }),
   }),
@@ -203,7 +234,7 @@ export const appRouter = router({
         try {
           return await svc.correctItem(ctx.user.id, input.itemType, input.itemId, input.text);
         } catch (err) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: (err as Error).message });
+          throw serviceError(err, "corrections.fix");
         }
       }),
     history: protectedProcedure.query(({ ctx }) => svc.correctionHistory(ctx.user.id)),

@@ -5,6 +5,46 @@
 import { ActivityIndicator, Pressable, Text, View, type TextStyle, type ViewStyle } from "react-native";
 import { TOUCH_TARGET, card, color, font, radius, space, type } from "@/theme";
 
+/**
+ * The way back from a screen that was pushed onto another.
+ *
+ * Every screen in this app draws its own chrome — the stack runs with `headerShown: false`, so
+ * there is no platform back arrow to inherit. Android's gesture and hardware back still work, and
+ * so does the iOS edge swipe, but a screen that shows no way out reads as a dead end however many
+ * invisible ones it has. The editor in particular is reached by tapping a list row, which is the
+ * exact place a person expects an arrow to be waiting.
+ *
+ * Fixed above the scroll rather than scrolled with it: leaving is not something to have to scroll
+ * back up for.
+ */
+export function BackBar({ title, onBack, right }: { title: string; onBack(): void; right?: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: space.sm,
+        paddingBottom: space.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: color.border,
+      }}
+    >
+      <Pressable
+        onPress={onBack}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.5 : 1 })}
+      >
+        <Text style={{ fontSize: 26, color: color.midnight, lineHeight: 30 }}>‹</Text>
+      </Pressable>
+      <Text style={[type.heading, { flex: 1 }]} numberOfLines={1}>
+        {title}
+      </Text>
+      {right}
+    </View>
+  );
+}
+
 /** Uppercase mono section label — SYNCED 07:12, OPEN ACTIONS, INBOX. */
 export function Label({ children, style }: { children: React.ReactNode; style?: TextStyle }) {
   return <Text style={[type.label, style]}>{children}</Text>;

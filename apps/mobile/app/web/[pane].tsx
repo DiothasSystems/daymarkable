@@ -18,12 +18,12 @@
  */
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 import { API_URL, errorMessage, trpc } from "@/api";
-import { Button, ErrorNote } from "@/components/ui";
-import { TOUCH_TARGET, color, font, space, type } from "@/theme";
+import { BackBar, Button, ErrorNote } from "@/components/ui";
+import { color, font, space, type } from "@/theme";
 
 type Pane = "setup" | "settings" | "support" | "billing";
 
@@ -75,27 +75,11 @@ export default function WebPane() {
 
   return (
     <View style={{ flex: 1, backgroundColor: color.parchment, paddingTop: insets.top }}>
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: space.sm,
-          paddingBottom: space.sm,
-          borderBottomWidth: 1,
-          borderBottomColor: color.border,
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.5 : 1 })}
-        >
-          <Text style={{ fontSize: 26, color: color.midnight, lineHeight: 30 }}>‹</Text>
-        </Pressable>
-        <Text style={[type.heading, { flex: 1 }]}>{TITLES[pane] ?? "dayMarkable"}</Text>
-        {loading && url ? <ActivityIndicator color={color.gold} style={{ marginRight: space.md }} /> : null}
-      </View>
+      <BackBar
+        title={TITLES[pane] ?? "dayMarkable"}
+        onBack={() => router.back()}
+        right={loading && url ? <ActivityIndicator color={color.gold} style={{ marginRight: space.md }} /> : null}
+      />
 
       {error ? (
         <View style={{ padding: space.lg, gap: space.md }}>
