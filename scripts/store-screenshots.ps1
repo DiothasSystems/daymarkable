@@ -41,7 +41,7 @@ $repo = Split-Path -Parent $PSScriptRoot
 if (-not $Out) { $Out = Join-Path $repo "apps\mobile\store\screenshots" }
 $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "$env:LOCALAPPDATA\Android\Sdk" }
 $adb = Join-Path $sdk "platform-tools\adb.exe"
-$pkg = "com.diothas.daymarkable"
+$pkg = "com.diothassystems.daymarkable"
 
 if (-not (Test-Path $adb)) { throw "No adb at $adb. Set ANDROID_HOME." }
 if ((& $adb devices | Select-String "\sdevice$").Count -ne 1) {
