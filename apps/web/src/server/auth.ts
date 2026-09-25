@@ -2,14 +2,17 @@ import "server-only";
 import { getOpsSettings } from "./ops";
 import { createHash, randomBytes } from "node:crypto";
 import { and, eq, gt, isNull, schema } from "@daymarkable/db";
-import { buildSignInMail } from "@daymarkable/mail";
+import { buildPasswordChangedMail, buildSetPasswordMail, buildSignInMail } from "@daymarkable/mail";
 import { defaultSettings } from "@daymarkable/pipeline";
+import { DateTime } from "luxon";
 import { cookies } from "next/headers";
 import { normalizeEmail } from "@/lib/email";
 import { publicUrl, sessionCookieDomain } from "@/lib/hosts";
 import { getRuntime } from "./runtime";
 import { maySignIn } from "./access";
-import { bearerFrom, bindSession, claimDeviceLogin, decoyPollSecret, isMobileLogin, startDeviceLogin, type ClaimResult } from "./device-login";
+import { clientIp } from "./audit";
+import { bearerFrom, bindSession, claimDeviceLogin, isMobileLogin, startDeviceLogin, type ClaimResult } from "./device-login";
+import { PASSWORD_LINK_TTL_MS, checkCredentials, mintPasswordToken, passwordTokenEmail, setPasswordWithToken } from "./sign-in";
 import { createHandoff, type Pane } from "./handoff";
 import { markJoined } from "./waitlist";
 
@@ -32,44 +35,49 @@ export interface SessionUser {
   settings: typeof schema.users.$inferSelect.settings;
 }
 
-export interface MagicLinkResult {
-  ok: true;
-  /** Only in development when no email provider is configured. */
-  devLink?: string;
+export type MagicLinkResult =
+  | {
+      ok: true;
+      /** Only in development when no email provider is configured. */
+      devLink?: string;
+      /** Native clients only: what the app polls `auth.claim` with (device-login.ts). */
+      pollSecret?: string;
+    }
   /**
-   * Native clients only: what the app polls `auth.claim` with (device-login.ts). Always present
-   * for a mobile request, even when no link was sent — see `decoyPollSecret`.
+   * Every way of being wrong is "credentials" — a wrong password, no password yet, no account, an
+   * address that may not sign in — because the reply reaches whoever typed the address (rule 15).
+   * "locked" is the one other answer, and it gives nothing away either: it follows five wrong tries.
    */
-  pollSecret?: string;
-}
+  | { ok: false; reason: "credentials" }
+  | { ok: false; reason: "locked"; retryAfterMinutes: number };
 
 export type LoginClient = "web" | "mobile";
 
-export async function requestMagicLink(rawEmail: string, client: LoginClient = "web"): Promise<MagicLinkResult> {
+/** Where "forgot your password" lives, for the mails that point at it. */
+export const resetUrl = () => `${publicUrl()}/login?reset=1`;
+
+/**
+ * Sign-in, step one: the password. Only when it is right is a link minted and mailed — the link is
+ * step two, and still the only thing that creates a session (/auth/verify).
+ */
+export async function requestMagicLink(rawEmail: string, password: string, client: LoginClient = "web"): Promise<MagicLinkResult> {
   const mobile = client === "mobile";
   const email = normalizeEmail(rawEmail);
-  // The reply must not vary with whether an address may sign in — for the app either, which is
-  // why a mobile caller always leaves with a secret, even one that will never become ready.
-  const silent = (): MagicLinkResult => (mobile ? { ok: true, pollSecret: decoyPollSecret() } : { ok: true });
-  if (!email) return silent();
-  // Who may sign in is decided in one place; this one only obeys it, and says nothing either
-  // way, because the reply here reaches whoever typed the address rather than its owner.
-  //
-  // The SERVER log is a different audience. Without this line "no link was sent because that
-  // address may not sign in" and "no link arrived because the mail provider is misconfigured"
-  // look identical from the outside, and the first is by far the more common. The operator
-  // reading their own logs is allowed to know which; the person who typed the address is not.
-  if (!(await maySignIn(email))) {
-    console.log(`[web] no sign-in link for ${email}: that address may not sign in (invite it at /admin/waitlist)`);
-    return silent();
-  }
+  if (!email || !password) return { ok: false, reason: "credentials" };
   const rt = await getRuntime();
+  const check = await checkCredentials(rt.db, email, password, await clientIp(), maySignIn);
+  if (!check.ok) {
+    // The SERVER log is a different audience from the person at the form: the operator may know
+    // why, the typist may not. Never the password, only the address and the outcome.
+    console.log(`[web] sign-in refused for ${email}: ${check.reason}`);
+    return check.reason === "locked" ? { ok: false, reason: "locked", retryAfterMinutes: Math.max(1, Math.ceil(check.retryAfterMs / 60_000)) } : { ok: false, reason: "credentials" };
+  }
   const token = randomBytes(32).toString("base64url");
   const tokenHash = sha256(token);
   await rt.db.insert(schema.loginTokens).values({ tokenHash, email, expiresAt: new Date(Date.now() + LINK_TTL_MS) });
   const pollSecret = mobile ? await startDeviceLogin(rt.db, tokenHash) : undefined;
   const link = `${publicUrl()}/auth/verify?token=${token}`;
-  const res = await rt.mail.send(buildSignInMail(email, link, tokenHash, LINK_TTL_MS / 60_000));
+  const res = await rt.mail.send(buildSignInMail(email, link, tokenHash, LINK_TTL_MS / 60_000, resetUrl()));
   if (res.status === "skipped") {
     // No email provider configured. The link goes to the server log so the operator can still
     // sign in (bootstrapping a fresh host); it is only returned to the browser outside production.
@@ -88,19 +96,10 @@ export async function verifyMagicLink(token: string): Promise<SessionUser | null
   const row = await rt.db.query.loginTokens.findFirst({ where: and(eq(schema.loginTokens.tokenHash, sha256(token)), isNull(schema.loginTokens.usedAt), gt(schema.loginTokens.expiresAt, new Date())) });
   if (!row) return null;
   await rt.db.update(schema.loginTokens).set({ usedAt: new Date() }).where(eq(schema.loginTokens.tokenHash, row.tokenHash));
-  let user = await rt.db.query.users.findFirst({ where: eq(schema.users.email, row.email) });
-  if (!user) {
-    const tz = process.env.USER_TIMEZONE || "America/New_York";
-    // The operator kill switches apply here, at creation, and only here: an account that already
-    // exists keeps whatever is in its own settings whatever the switches now say.
-    const ops = await getOpsSettings();
-    const settings = defaultSettings();
-    if (!ops.newsForNewUsers) settings.dailyUpdate = { ...settings.dailyUpdate, enabled: false };
-    if (!ops.puzzleForNewUsers) settings.dailyPuzzle = { ...settings.dailyPuzzle, enabled: false };
-    [user] = await rt.db.insert(schema.users).values({ email: row.email, timezone: tz, settings }).returning();
-    // They were invited and have now turned up, so the waiting list row stops being a promise.
-    await markJoined(row.email);
-  }
+  // A login link is only ever minted after a correct password, and a password lives on an account,
+  // so the account exists. Accounts now begin when their first password is set (createAccount).
+  const user = await rt.db.query.users.findFirst({ where: eq(schema.users.email, row.email) });
+  if (!user) return null;
   const id = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   // A phone was waiting on this link, or it was not. Either way the browser that opened it gets
@@ -112,6 +111,77 @@ export async function verifyMagicLink(token: string): Promise<SessionUser | null
   const jar = await cookies();
   jar.set(SESSION_COOKIE, id, { ...cookieScope(), expires: expiresAt });
   return toSessionUser(user!);
+}
+
+/**
+ * Open the account for an invited address. Called when its first password is set, because a
+ * password has to live on an account before it can be checked — this used to happen on the first
+ * sign-in link, which a password now stands in front of.
+ */
+export async function createAccount(email: string): Promise<{ id: string; passwordHash: string | null }> {
+  const rt = await getRuntime();
+  const tz = process.env.USER_TIMEZONE || "America/New_York";
+  // The operator kill switches apply here, at creation, and only here: an account that already
+  // exists keeps whatever is in its own settings whatever the switches now say.
+  const ops = await getOpsSettings();
+  const settings = defaultSettings();
+  if (!ops.newsForNewUsers) settings.dailyUpdate = { ...settings.dailyUpdate, enabled: false };
+  if (!ops.puzzleForNewUsers) settings.dailyPuzzle = { ...settings.dailyPuzzle, enabled: false };
+  const [user] = await rt.db.insert(schema.users).values({ email, timezone: tz, settings }).returning();
+  // They were invited and have now turned up, so the waiting list row stops being a promise.
+  await markJoined(email);
+  return user!;
+}
+
+/**
+ * "Set or reset your password": mail a link to choose one. Says the same thing whatever happens —
+ * whether the address may sign in, whether it has had its three links this hour — for the same
+ * reason the sign-in form does (rule 15).
+ */
+export async function requestPasswordLink(rawEmail: string): Promise<{ ok: true; devLink?: string }> {
+  const email = normalizeEmail(rawEmail);
+  if (!email) return { ok: true };
+  if (!(await maySignIn(email))) {
+    console.log(`[web] no password link for ${email}: that address may not sign in (invite it at /admin/waitlist)`);
+    return { ok: true };
+  }
+  const rt = await getRuntime();
+  const minted = await mintPasswordToken(rt.db, email);
+  if (!minted) {
+    console.log(`[web] no password link for ${email}: its hourly limit is used`);
+    return { ok: true };
+  }
+  const link = `${publicUrl()}/auth/set-password?token=${minted.token}`;
+  const res = await rt.mail.send(buildSetPasswordMail(email, link, minted.tokenHash, PASSWORD_LINK_TTL_MS / 60_000));
+  if (res.status === "skipped") {
+    console.log(`[web] password link for ${email}: ${link}`);
+    return process.env.NODE_ENV === "production" ? { ok: true } : { ok: true, devLink: link };
+  }
+  if (res.status === "failed") console.error(`[web] password email to ${email} failed: ${res.error}`);
+  if (res.status === "sent") console.log(`[web] password link mailed to ${email} via ${rt.mail.name}`);
+  return { ok: true };
+}
+
+/** The address a set-password link is for, or null once it is spent or expired (sign-in.ts). */
+export async function passwordLinkEmail(token: string): Promise<string | null> {
+  const rt = await getRuntime();
+  return passwordTokenEmail(rt.db, token);
+}
+
+/**
+ * Choose a password from the emailed link. Signs nobody in — the caller sends them to sign in with
+ * it — and tells the owner it happened, every time.
+ */
+export async function setPassword(token: string, password: string): Promise<{ ok: true; replaced: boolean } | { ok: false; message: string }> {
+  const rt = await getRuntime();
+  const r = await setPasswordWithToken(rt.db, token, password, { maySignIn, createAccount });
+  if (!r.ok) return { ok: false, message: r.message };
+  const user = await rt.db.query.users.findFirst({ where: eq(schema.users.id, r.userId) });
+  const when = DateTime.now().setZone(user?.timezone || "UTC").toFormat("d LLL yyyy, HH:mm ZZZZ");
+  const res = await rt.mail.send(buildPasswordChangedMail(r.email, { replaced: r.replaced, when, resetUrl: resetUrl(), signedOutEverywhere: r.replaced }));
+  if (res.status === "failed") console.error(`[web] password-changed notice to ${r.email} failed: ${res.error}`);
+  console.log(`[web] password ${r.replaced ? "changed" : "set"} for ${r.email}${r.created ? " (account opened)" : ""}${r.replaced ? "; every session signed out" : ""}`);
+  return { ok: true, replaced: r.replaced };
 }
 
 function toSessionUser(u: typeof schema.users.$inferSelect): SessionUser {

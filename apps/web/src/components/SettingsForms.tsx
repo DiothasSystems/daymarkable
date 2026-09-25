@@ -478,6 +478,55 @@ export function DailyPuzzleSettings({ initial }: { initial: { enabled: boolean }
   );
 }
 
+// ------------------------------------------------------------ password
+
+/**
+ * Changing the password happens by emailed link, not by typing the old one here. A signed-in
+ * browser left open is exactly the situation where "type your current password" matters least and
+ * the mailbox matters most — and one path for setting, resetting and changing means one path to get
+ * right (server/sign-in.ts). The link does not sign anyone in; choosing a new password signs every
+ * device out, this one included.
+ */
+export function PasswordSettings({ email, setAt }: { email: string; setAt: Date | string | null }) {
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const when = setAt ? new Date(setAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : null;
+
+  async function send() {
+    setState("sending");
+    setError(null);
+    try {
+      await trpc.auth.requestPasswordLink.mutate({ email });
+      setState("sent");
+    } catch (err) {
+      setError(errorMessage(err));
+      setState("error");
+    }
+  }
+
+  return (
+    <div className="stack">
+      <p className="muted" style={{ fontSize: 14 }}>
+        Signing in takes your password, then a link we email to <strong>{email}</strong>.{" "}
+        {when ? `Your password was last set on ${when}.` : "You have not set a password yet."}
+      </p>
+      {state === "sent" ? (
+        <div className="notice ok">
+          A link to {when ? "change" : "set"} your password is on its way to {email}. It lasts 30 minutes.
+          {when ? " Changing it signs out every device, this one included." : null}
+        </div>
+      ) : (
+        <div className="row">
+          <button className="secondary" onClick={() => void send()} disabled={state === "sending"}>
+            {state === "sending" ? "Sending…" : when ? "Email me a link to change it" : "Email me a link to set one"}
+          </button>
+          {state === "error" ? <small className="notice bad">{error}</small> : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ------------------------------------------------------------ forwarding meetings in
 
 /**

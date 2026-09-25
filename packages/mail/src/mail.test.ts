@@ -1,6 +1,6 @@
 import type { Meeting } from "@daymarkable/core";
 import { describe, expect, it } from "vitest";
-import { buildSignInMail } from "./authMail.js";
+import { buildPasswordChangedMail, buildSetPasswordMail, buildSignInMail } from "./authMail.js";
 import { buildDeliveryMail, buildDeliveryVerificationMail } from "./deliveryMail.js";
 import { buildMeetingMail, meetingSubject } from "./meetingMail.js";
 import { DEFAULT_FROM, MemoryProvider, ResendProvider, mailProviderFromEnv } from "./provider.js";
@@ -118,6 +118,54 @@ describe("sign-in mail", () => {
     const mail = buildSignInMail('x"<b>y@example.com', LINK, "h");
     expect(mail.html).not.toContain("<b>");
     expect(mail.html).toContain("&lt;b&gt;");
+  });
+
+  /**
+   * This mail only goes out after the right password, so an unexpected one means the password is
+   * known to someone else. It has to say that, and say where to fix it.
+   */
+  it("tells the reader what an unexpected one means, and where to reset", () => {
+    const mail = buildSignInMail("jim@example.com", LINK, "h", 15, "https://scriptumiq.com/login?reset=1");
+    expect(mail.text).toMatch(/someone else has your password/i);
+    expect(mail.text).toContain("https://scriptumiq.com/login?reset=1");
+  });
+});
+
+describe("password mail", () => {
+  const SET = "https://scriptumiq.com/auth/set-password?token=xyz";
+  const RESET = "https://scriptumiq.com/login?reset=1";
+
+  it("sends the set-password link written out, once per token", () => {
+    const mail = buildSetPasswordMail("jim@example.com", SET, "hash-9", 30);
+    expect(mail.subject).toBe("Set your ScriptumIQ password");
+    expect(mail.idempotencyKey).toBe("password-link:hash-9");
+    expect(mail.html).toContain(`>${SET}</a>`);
+    expect(mail.text).toContain("30 minutes");
+    // Choosing a password is not signing in; the mail must not promise that it is.
+    expect(mail.text).toMatch(/sign in with your new password/i);
+  });
+
+  it("tells the owner when the password changes, and how to take it back", () => {
+    const changed = buildPasswordChangedMail("jim@example.com", { replaced: true, when: "2026-09-25 09:14 UTC", resetUrl: RESET, signedOutEverywhere: true });
+    expect(changed.subject).toBe("Your ScriptumIQ password was changed");
+    expect(changed.text).toContain(RESET);
+    expect(changed.text).toMatch(/signed out/i);
+    const first = buildPasswordChangedMail("jim@example.com", { replaced: false, when: "2026-09-25 09:14 UTC", resetUrl: RESET, signedOutEverywhere: false });
+    expect(first.subject).toBe("Your ScriptumIQ password is set");
+    expect(first.text).not.toMatch(/signed out/i);
+  });
+
+  it("looks like the sign-in mail: plain, nothing that reads as a promotion", () => {
+    for (const { html } of [
+      buildSetPasswordMail("jim@example.com", SET, "h"),
+      buildPasswordChangedMail("jim@example.com", { replaced: true, when: "now", resetUrl: RESET, signedOutEverywhere: true }),
+    ]) {
+      expect(html).not.toMatch(/<img|<table|background(-color)?:|border-radius|padding:\s*\d/i);
+    }
+  });
+
+  it("escapes the address", () => {
+    expect(buildSetPasswordMail('x"<b>y@example.com', SET, "h").html).not.toContain("<b>");
   });
 });
 

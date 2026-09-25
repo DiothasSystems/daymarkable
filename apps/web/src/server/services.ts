@@ -51,6 +51,8 @@ export async function getAccount(userId: string) {
     conventionCatalog: CONVENTION_CATALOG,
     /** Null until the customer asks for one — see rotateCalendarAddress. */
     calendarAddress: calendarAddress(user.calendarToken),
+    /** When the password was last set, or null if it never was. Never the hash itself. */
+    passwordSetAt: user.passwordSetAt,
   };
 }
 

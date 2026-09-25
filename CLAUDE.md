@@ -258,6 +258,36 @@ unchanged.
     never go to the Inbox (rule 3). Nothing about an invite is logged: it is the customer's diary and
     rule 5 covers it as it covers a page.
 
+18. **Signing in takes the password, then the mailbox.** A customer types their address and password;
+    only when both are right is a sign-in link minted and mailed, and the link is what creates the
+    session. The invariant, which every change here must keep: **a session is created in exactly one
+    place, /auth/verify, from a login link, and a login link is minted in exactly one place, after a
+    correct password** (`server/sign-in.ts`, `requestMagicLink`). Setting or resetting a password is a
+    separate emailed link that signs NOBODY in — it sends them to sign in with the new password —
+    and those links live in their own table, `password_tokens`, which /auth/verify never reads, so one
+    cannot be spent as a login link however the code around it changes. An account begins when its
+    first password is set (an invited address has no account until then); nobody has a password
+    until they set one, and the operator never sees or sets it.
+
+    Every way of being wrong at the form is one answer — a wrong password, no password yet, no
+    account, an address that may not sign in — and they take the same time (a dummy hash is checked
+    when there is no real one), because the reply reaches whoever typed the address (rule 15). Five
+    wrong passwords lock an address for 15 minutes, twenty lock an IP, counted in `sign_in_attempts`
+    so a restart does not reset them; a locked attempt is not recorded, or the lock would extend
+    itself. Set-password links: three an hour per address, 30 minutes each, single-use, spent
+    atomically; a rejected password does not spend one. Setting a password spends every other
+    outstanding link for the address, login ones included; REPLACING one also signs out every
+    session, since a reset may be because someone else had it. Every set or change mails the owner a
+    notice. The sign-in mail says that an unexpected one means someone has the password.
+
+    Hashes are scrypt (N=2^15, r=8, p=3), NFKC-normalised, parameters stored in the hash so they can
+    be raised without invalidating anyone — NOT bcrypt, which the admin portal uses for its one
+    offline-made hash but which silently ignores everything past 72 bytes of a customer's passphrase.
+    A hash never leaves the server: every place a user row goes to a client builds its object field
+    by field. The email is still the root of trust for a reset — someone with the mailbox can choose
+    a new password — which is the honest limit of this scheme; what the password adds is that the
+    mailbox alone no longer signs anyone in quietly.
+
 
 ## Testing
 

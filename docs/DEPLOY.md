@@ -215,3 +215,16 @@ site simply carries on under its old address with its new name.
 What keeps the old name, and why, is listed in CLAUDE.md under "The rename". In short: the Compose
 project and volumes, the database, `/root/daymarkable` and the `DAYMARKABLE_*` variables — renaming
 any of them loses data or breaks this box, and no customer ever sees them.
+
+## 9. Passwords (from September 2026)
+
+Signing in takes a password, then an emailed link (CLAUDE.md rule 18). The deploy that brings this in
+(migration 0019, applied by the app at boot) gives nobody a password — including you — and spends any
+sign-in links that were outstanding. Existing sessions stay signed in.
+
+To get in afterwards: on the sign-in page choose **"First time, or forgot your password? Set one"**,
+open the link that arrives, choose a password, then sign in with it and open the second link. The
+phone app's sign-in screen has the same two steps; an app already signed in stays signed in.
+
+The admin portal is separate (`ADMIN_LOGIN_ID` / `ADMIN_PASSWORD_HASH`) and unaffected — it is the way
+in if mail is ever broken. Nothing an operator does sets or reveals a customer's password.

@@ -135,6 +135,14 @@ export const users = pgTable("users", {
    * settings, and null until the customer asks for one.
    */
   calendarToken: text("calendar_token").unique(),
+  /**
+   * The sign-in password, as `scrypt$<logN>$<r>$<p>$<salt>$<key>` (web server/password-core.ts).
+   * Null until the customer sets one from an emailed link; an account without one cannot sign in.
+   * Never the password itself, and never logged.
+   */
+  passwordHash: text("password_hash"),
+  /** When the password was last set or changed — shown on the account page, and in the notice. */
+  passwordSetAt: timestamp("password_set_at", { withTimezone: true }),
   settings: jsonb("settings").$type<UserSettings>().notNull(),
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
   /** Stripe, from Phase 2. Null on every Phase 0 account, which never sees a payment page. */
@@ -529,6 +537,37 @@ export const loginTokens = pgTable("login_tokens", {
   email: text("email").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Links that let an address choose a password — the first one, or a new one after forgetting it.
+ *
+ * A table of their own rather than a `purpose` column on login_tokens, so that a set-password link
+ * can never be spent at /auth/verify: that verifier reads login_tokens and nothing else, which makes
+ * "a password link signs you in" impossible by construction rather than by a WHERE clause somebody
+ * could later drop. Setting a password never creates a session; signing in still takes the password
+ * and then a login link.
+ */
+export const passwordTokens = pgTable("password_tokens", {
+  tokenHash: text("token_hash").primaryKey(),
+  email: text("email").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Every password check at sign-in, kept for the lockout decision (web server/password-core.ts):
+ * failures are counted per address and per IP over a window. Stored rather than held in memory so a
+ * restart does not hand an attacker a fresh set of guesses. Holds no password and no outcome beyond
+ * success or failure.
+ */
+export const signInAttempts = pgTable("sign_in_attempts", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  ip: text("ip").notNull(),
+  success: boolean("success").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

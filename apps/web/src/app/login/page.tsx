@@ -8,9 +8,16 @@ import { LoginForm } from "./LoginForm";
 export const metadata = { title: "Login" };
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ expired?: string }> }) {
+/**
+ * Sign-in: a password, then a link emailed to the account's address (server/sign-in.ts).
+ *
+ *   ?reset=1       open on "set or reset your password" — where the mails send people
+ *   ?password=set  a password was just chosen; sign in with it
+ *   ?expired=1     a sign-in link was spent or ran out
+ */
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ expired?: string; reset?: string; password?: string }> }) {
   if (await getSessionUser()) redirect(`${serviceUrl()}/today`);
-  const { expired } = await searchParams;
+  const { expired, reset, password } = await searchParams;
   return (
     <Shell>
       <div className="login">
@@ -22,9 +29,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="card" style={{ textAlign: "left" }}>
           <p className="kicker">Login</p>
           <h2 style={{ marginBottom: 6 }}>Your notes, decoded nightly.</h2>
-          <p className="muted" style={{ fontSize: 14 }}>Enter the email you registered. We send a one-time sign-in link; meeting notes go to the same address.</p>
-          {expired ? <div className="notice bad" style={{ marginBottom: 12 }}>That sign-in link has expired or was already used. Request a new one.</div> : null}
-          <LoginForm />
+          <p className="muted" style={{ fontSize: 14 }}>
+            Enter your email and password. We then email you a one-time link to finish signing in, so it takes both your
+            password and your mailbox.
+          </p>
+          {expired ? <div className="notice bad" style={{ marginBottom: 12 }}>That sign-in link has expired or was already used. Sign in again for a new one.</div> : null}
+          {password === "set" ? <div className="notice ok" style={{ marginBottom: 12 }}>Your password is saved. Sign in with it now.</div> : null}
+          <LoginForm initialMode={reset ? "reset" : "signin"} />
         </div>
       </div>
     </Shell>

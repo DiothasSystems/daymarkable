@@ -110,7 +110,7 @@ button.tertiary, .btn.tertiary { background: transparent; border-color: transpar
 button.tertiary:hover { background: transparent; color: var(--gold-hover); }
 button.small, .btn.small { min-height: 34px; padding: 6px 14px; font-size: 13px; }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
-input[type="text"], input[type="email"], input[type="number"], select, textarea {
+input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, textarea {
   font: inherit; padding: 10px 12px; border-radius: 4px; border: 1px solid var(--border-strong); background: #fff; color: var(--midnight); width: 100%; min-height: 42px;
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; }

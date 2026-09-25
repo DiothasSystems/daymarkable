@@ -7,7 +7,8 @@
 import { TRPCError } from "@trpc/server";
 import { DrizzleQueryError } from "drizzle-orm";
 import { z } from "zod";
-import { claimMobileSession, handoffUrl, logout, requestMagicLink } from "./auth";
+import { claimMobileSession, handoffUrl, logout, passwordLinkEmail, requestMagicLink, requestPasswordLink, setPassword } from "./auth";
+import { PASSWORD_MAX } from "./password-core";
 import { PANE_NAMES } from "./handoff";
 import * as svc from "./services";
 import { joinWaitlist } from "./waitlist";
@@ -45,9 +46,20 @@ function serviceError(err: unknown, where: string): TRPCError {
 
 export const appRouter = router({
   auth: router({
+    /**
+     * Sign-in, step one: address and password. Only a right answer mints and mails the link that
+     * finishes it (auth.ts). The password is bounded by length only here, never by the rules for a
+     * new one: a password set under older rules must keep working.
+     */
     requestLink: publicProcedure
-      .input(z.object({ email: z.string().max(200), client: z.enum(["web", "mobile"]).default("web") }))
-      .mutation(({ input }) => requestMagicLink(input.email, input.client)),
+      .input(z.object({ email: z.string().max(200), password: z.string().max(PASSWORD_MAX), client: z.enum(["web", "mobile"]).default("web") }))
+      .mutation(({ input }) => requestMagicLink(input.email, input.password, input.client)),
+    /** "Set or reset your password": mails a link to choose one. Same reply whatever happens (rule 15). */
+    requestPasswordLink: publicProcedure.input(z.object({ email: z.string().max(200) })).mutation(({ input }) => requestPasswordLink(input.email)),
+    /** Choose the password from the link. Signs nobody in: they sign in with it next. */
+    setPassword: publicProcedure
+      .input(z.object({ token: z.string().min(1).max(200), password: z.string().max(PASSWORD_MAX + 1) }))
+      .mutation(({ input }) => setPassword(input.token, input.password)),
     /**
      * Native sign-in, step three: the app trades the secret it kept for the session the emailed
      * link created (device-login.ts). Public by necessity — there is no session yet — and
