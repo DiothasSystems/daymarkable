@@ -286,10 +286,18 @@ function PrimaryButton({ label, onPress, disabled = false, outline = false }: { 
   );
 }
 
+/**
+ * The two choices under Sign in, set like the wordmark above them.
+ *
+ * `type.title` rather than a size copied out of it, so the wordmark and these stay the same size
+ * by construction — the brand's display face at 24pt, which is what makes them read as offers
+ * rather than as the small print a 15pt sans link becomes. Gold and underlined still: that is the
+ * palette's tertiary link, and the colour is what says these are choices and Sign in is the act.
+ */
 function LinkButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center", marginTop: space.sm }}>
-      <Text style={{ fontFamily: font.sans, fontSize: 15, color: color.goldText, textDecorationLine: "underline" }}>{label}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" style={{ minHeight: TOUCH_TARGET, justifyContent: "center", marginTop: space.md }}>
+      <Text style={[type.title, { color: color.goldText, textDecorationLine: "underline" }]}>{label}</Text>
     </Pressable>
   );
 }
