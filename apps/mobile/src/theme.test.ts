@@ -2,8 +2,9 @@
  * UX-001: the app uses the same visual language as the web.
  *
  * "Looks the same" is not testable, but "is built from the same numbers" is. These are the Brand
- * values in CLAUDE.md and `design/design_handoff_daymarkable/`; if someone nudges a hex here to
- * make one screen sit better, this fails rather than the two products quietly diverging.
+ * values in CLAUDE.md; if someone nudges a hex here to make one screen sit better, this fails
+ * rather than the two products quietly diverging. The rename changed the name and the artwork and
+ * left the palette alone, which is why this file did not move with it.
  */
 import { describe, expect, it } from "vitest";
 import { TOUCH_TARGET, card, color, radius, type } from "./theme.js";

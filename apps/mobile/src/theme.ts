@@ -1,8 +1,10 @@
 /**
  * The brand, transcribed for React Native.
  *
- * Source of truth is `design/design_handoff_daymarkable/` and the Brand section of CLAUDE.md;
- * these values are a copy of it, and `theme.test.ts` holds them to it. The web reads the same
+ * Source of truth is the Brand section of CLAUDE.md, whose palette and type came through the
+ * ScriptumIQ rename unchanged — `design/brand_scriptumiq/` is the artwork, and the older
+ * `design/design_handoff_daymarkable/` is kept as history because these numbers are still its
+ * numbers. These values are a copy, and `theme.test.ts` holds them to it. The web reads the same
  * numbers from CSS custom properties, which is why UX-001 ("the same visual design style as the
  * web UX") is a matter of keeping one list correct rather than of eyeballing two apps.
  *
