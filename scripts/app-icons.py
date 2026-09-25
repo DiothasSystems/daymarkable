@@ -221,6 +221,21 @@ def main() -> None:
     # four little glyphs genuinely do collapse, and this is the case the rose exists for.
     on(MIDNIGHT, 48, GOLD, 0.66).save(OUT / "favicon.png")
 
+    # The hero's pieces, for the animation the app draws over the sign-in screen
+    # (apps/mobile/src/components/Hero.tsx). The web uses the .webp slices directly; these are the
+    # same cuts as PNG, because WebP on iOS still wants extra native configuration and a splash-
+    # adjacent screen is the wrong place to discover that.
+    #
+    # The disc and the points are SEPARATE files for the same reason the web keeps them apart: the
+    # points are the only part that turns, and the ring is shaded from one side, so rotating the
+    # whole emblem would light it from the wrong direction at three stops out of four.
+    for piece, name in (("emblem-base.webp", "hero-disc.png"), ("emblem-points.webp", "hero-points.png")):
+        Image.open(BRAND / piece).convert("RGBA").resize((512, 512), Image.LANCZOS).save(OUT / name)
+    for piece, name in (("lockup-wordmark.webp", "hero-wordmark.png"), ("lockup-tagline.webp", "hero-tagline.png")):
+        img = Image.open(BRAND / piece).convert("RGBA")
+        width = 1024
+        img.resize((width, max(1, round(width * img.height / img.width))), Image.LANCZOS).save(OUT / name)
+
     STORE.mkdir(parents=True, exist_ok=True)
     feature_graphic().convert("RGB").save(STORE / "feature-graphic.png")
 

@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, trpc } from "@/api";
+import { Hero } from "@/components/Hero";
 import { useSession } from "@/session";
 import { TOUCH_TARGET, color, font, radius, space, type } from "@/theme";
 
@@ -166,6 +167,16 @@ export default function SignIn() {
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: space.xl, paddingTop: insets.top + space.xl, paddingBottom: insets.bottom + space.xl }}
         keyboardShouldPersistTaps="handled"
       >
+        {/* The scene the site opens with, scaled to the phone, and a way into the tour for the one
+            visitor who has no other: someone who installed the app before knowing what it does.
+            Only on the form - the waiting stages have their own thing to say, and a looping
+            animation over "check your mail" competes with it. */}
+        {stage === "form" ? (
+          <View style={{ marginLeft: -space.xl, marginRight: -space.xl, marginBottom: space.lg }}>
+            <Hero onPress={() => router.push("/tour")} />
+          </View>
+        ) : null}
+
         <Text style={[type.label, { marginBottom: space.sm }]}>SIGN IN</Text>
         <Text style={[type.title, { marginBottom: space.lg }]}>
           Scriptum<Text style={{ color: color.goldText }}>IQ</Text>
