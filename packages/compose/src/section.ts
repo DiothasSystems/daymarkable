@@ -17,7 +17,7 @@ export const BODY_SIZE = 36;
 export const LINE_H = 48;
 export const ROW_GAP = 27;
 /**
- * Width of the write-on WHEN / PRI field at the right of an Action List row. dayMarkable never
+ * Width of the write-on WHEN / PRI field at the right of an Action List row. ScriptumIQ never
  * invents a due date, so this is where the user assigns one by hand — or a priority mark. Wide
  * enough for "SEP 14 !" in handwriting.
  */
@@ -95,8 +95,19 @@ export function sourceRef(source: { notebook: string; pageIndex: number }): stri
 
 export type PageKindCode = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "INBOX" | "ACTIONS" | "MEETINGS" | "NEWS" | "PUZZLE";
 
+/**
+ * Printed on every page we write; what lets a tick be matched back to the item it was made against.
+ *
+ * The prefix names the product: "SIQ" for ScriptumIQ, "dM" before the rename. Nothing parses it —
+ * a tick is resolved by exact equality between the code printed here (and stored in printed_items)
+ * and the code the decoder reads back off the page — so pages printed under the old prefix go on
+ * resolving against their own rows. The decoder is told both forms (decode/prompt.ts), because the
+ * first night after the rename reads back a Planner printed the night before it.
+ */
+export const PAGE_CODE_PREFIX = "SIQ";
+
 export function pageCode(kind: PageKindCode, date: string, page: number): string {
-  return `dM/${kind}/${date}/${page}`;
+  return `${PAGE_CODE_PREFIX}/${kind}/${date}/${page}`;
 }
 
 export interface ComposeContext {
@@ -310,7 +321,7 @@ export class Section {
     lines.forEach((l, i) => this.canvas.text(l, textX, this.y + BODY_SIZE + i * LINE_H, { font, size: BODY_SIZE, color }));
     this.canvas.text(code, CONTENT_RIGHT, this.y + BODY_SIZE, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
     if (item.field) {
-      // A ruled line to write on, with whatever dayMarkable already knows printed grey on it.
+      // A ruled line to write on, with whatever ScriptumIQ already knows printed grey on it.
       const fx = CONTENT_RIGHT - codeW - FIELD_W;
       this.canvas.hline(fx, CONTENT_RIGHT - codeW - 24, this.y + BODY_SIZE + 10, 3, RULE);
       if (item.tag) this.canvas.text(item.tag, fx, this.y + BODY_SIZE, { font: f.mono, size: 24, color: TERTIARY, tracking: 0.04 });

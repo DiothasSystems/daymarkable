@@ -57,7 +57,7 @@ export function EditableItem({ itemType, itemId, text, className }: { itemType: 
             textAlign: "left",
             display: "inline",
           }}
-          title="Click to fix what dayMarkable read"
+          title="Click to fix what ScriptumIQ read"
           onClick={() => setEditing(true)}
         >
           {saved}

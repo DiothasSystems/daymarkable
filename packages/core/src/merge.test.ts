@@ -401,12 +401,12 @@ describe("a closed action is not resurrected by re-reading its page", () => {
   it("keeps a ticked-off item closed when its page is decoded again", () => {
     // The reported defect: an action was completed and crossed off, then the notebook was
     // edited elsewhere, the whole page was re-decoded, and the item came back open.
-    const r1 = mergeRun(emptyWorkingSet(), [page([task("dayMarkable email server")])], opts);
+    const r1 = mergeRun(emptyWorkingSet(), [page([task("ScriptumIQ email server")])], opts);
     const created = openActionList(r1.state)[0]!;
     created.status = "done";
     created.completedOn = opts.today;
 
-    const r2 = mergeRun(r1.state, [page([task("dayMarkable email server")])], { ...opts, today: "2026-09-03" });
+    const r2 = mergeRun(r1.state, [page([task("ScriptumIQ email server")])], { ...opts, today: "2026-09-03" });
     expect(openActionList(r2.state)).toHaveLength(0);
     expect(r2.changes.tasksCreated).toBe(0);
     expect(r2.state.tasks).toHaveLength(1);

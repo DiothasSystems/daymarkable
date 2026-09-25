@@ -1,5 +1,5 @@
 /**
- * The dayMarkable API. The Phase 1 mobile app consumes this router (AppRouter type): documents,
+ * The ScriptumIQ API. The Phase 1 mobile app consumes this router (AppRouter type): documents,
  * registry, runs, sync now (shared quota), feedback, settings. The one thing it needed that the
  * web did not is a sign-in it can complete without a cookie — `auth.claim`, see device-login.ts.
  * No payment procedures live here (rule 14): billing is web-page only.

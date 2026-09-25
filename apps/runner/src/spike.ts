@@ -7,7 +7,7 @@
  *   pnpm spike render "<name>"     render pages to PNG via the render service (PDF fallback)
  *   pnpm spike extract "<name>"    decode PNGs with Claude using the starter ink conventions
  *   pnpm spike compose "<name>"    build the Daily Sheet PDF
- *   pnpm spike upload "<name>"     upload the Daily Sheet to /dayMarkable on the tablet
+ *   pnpm spike upload "<name>"     upload the Daily Sheet to /ScriptumIQ on the tablet
  *   pnpm spike all "<name>"        download -> render -> extract -> compose -> upload
  *
  * Working files live under .daymarkable/spike (gitignored). Logs print counts, never content.
@@ -251,9 +251,9 @@ async function cmdUpload(name: string): Promise<void> {
     throw new Error(`No Daily Sheet for "${name}" — run: pnpm spike compose "${name}"`);
   }));
   const api = await provider();
-  const folder = await api.ensureFolder("/dayMarkable");
+  const folder = await api.ensureFolder("/ScriptumIQ");
   const res = await api.uploadPdf("Daily Sheet", pdf, folder, { replace: true });
-  log(`uploaded "Daily Sheet" to /dayMarkable (id ${res.id.slice(0, 8)}…). Sync the tablet to see it.`);
+  log(`uploaded "Daily Sheet" to /ScriptumIQ (id ${res.id.slice(0, 8)}…). Sync the tablet to see it.`);
 }
 
 async function main(): Promise<void> {

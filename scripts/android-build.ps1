@@ -56,7 +56,7 @@
 #>
 [CmdletBinding()]
 param(
-  [string]$ApiUrl = "https://app.daymarkable.com",
+  [string]$ApiUrl = "https://app.scriptumiq.com",
   [string]$Abi = "arm64-v8a",
   [switch]$Install
 )

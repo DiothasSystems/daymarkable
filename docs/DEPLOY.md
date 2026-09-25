@@ -1,4 +1,4 @@
-# Deploying dayMarkable to a Hostinger VPS (Phase 0)
+# Deploying ScriptumIQ to a Hostinger VPS (Phase 0)
 
 One VPS runs three containers via Docker Compose: `app` (Next.js web app with the 3AM
 scheduler inside it), `db` (Postgres 16), and `render` (the Python rmscene service). An
@@ -7,7 +7,7 @@ nothing secret is committed.
 
 ## 0. Which Hostinger product
 
-dayMarkable needs a real Linux box that runs Docker: **Hostinger VPS (KVM), not Web/Cloud
+ScriptumIQ needs a real Linux box that runs Docker: **Hostinger VPS (KVM), not Web/Cloud
 shared hosting**. Shared and "Cloud" website plans cannot run Docker, a Node server process, a
 Python service, or a 3AM scheduler.
 
@@ -23,11 +23,11 @@ ships Docker Engine + Compose. Pick the data centre closest to you (US East for 
 time). Hostinger's 1-click "Docker Manager" is optional; this runbook uses plain
 `docker compose` over SSH, which the Docker Manager can also import.
 
-Domain: `daymarkable.com` is registered. One Next.js server answers on two hostnames:
-**`daymarkable.com`** is the public site (marketing, sign-in, registration, and every payment
-page) and **`app.daymarkable.com`** is the signed-in service (Today, documents, runs, account,
+Domain: `scriptumiq.com` is registered. One Next.js server answers on two hostnames:
+**`scriptumiq.com`** is the public site (marketing, sign-in, registration, and every payment
+page) and **`app.scriptumiq.com`** is the signed-in service (Today, documents, runs, account,
 setup, admin). The app redirects any request that lands on the wrong host, the session cookie
-is scoped to `daymarkable.com` so a sign-in on the public site carries over, and `www.`
+is scoped to `scriptumiq.com` so a sign-in on the public site carries over, and `www.`
 redirects to the apex. In Hostinger's DNS zone (hPanel → Domains → DNS):
 
 ```
@@ -37,8 +37,9 @@ A     app     <VPS IPv4>     TTL 300
 AAAA  @       <VPS IPv6>     (optional; repeat for www and app)
 ```
 
-Email sending (`EMAIL_FROM`): verify `daymarkable.com` in Resend and add the DKIM/SPF/DMARC
-records Resend gives you to the same zone; send from `notes@daymarkable.com`.
+Email sending (`EMAIL_FROM`): the verified sending domain is daymarkable.com, and mail goes from
+`notes@daymarkable.com` under the name ScriptumIQ. To send from `notes@scriptumiq.com`, verify
+scriptumiq.com in Resend first and add the DKIM/SPF/DMARC records it gives you (section 8).
 
 ## 0b. Alternative host: Hetzner Cloud (cheaper, same runbook)
 
@@ -59,7 +60,7 @@ Console steps (https://console.hetzner.cloud):
    price) for the Postgres volume.
 2. **Firewall** (Networking → Firewalls): allow inbound TCP 22 from your IP, TCP 80 and 443
    from anywhere; deny everything else. The app itself only listens on `127.0.0.1:3000`.
-3. **DNS**: point `daymarkable.com`, `www`, and `app` at the server's IPv4 (and IPv6) in Hostinger's DNS
+3. **DNS**: point `scriptumiq.com`, `www`, and `app` at the server's IPv4 (and IPv6) in Hostinger's DNS
    zone, or move the zone to Hetzner DNS (free) if you prefer one console.
 4. `ssh root@<ip>`, then continue at section 2 (clone), 3 (environment), 4 (start).
 
@@ -95,7 +96,7 @@ sudo usermod -aG docker $USER && newgrp docker
 docker compose version
 ```
 
-Point `daymarkable.com`, `www`, and `app` at the VPS IP before enabling the edge profile.
+Point `scriptumiq.com`, `www`, and `app` at the VPS IP before enabling the edge profile.
 
 ## 2. Put the code on the box
 
@@ -119,9 +120,9 @@ arrived with `docker compose exec app printenv <NAME>`.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `APP_URL` | yes | `https://daymarkable.com` — the public site; magic links point here |
-| `SERVICE_URL` | production | `https://app.daymarkable.com` — the signed-in service; email CTAs and the delivery-confirmation link point here. Leave unset to run everything on `APP_URL` |
-| `APP_DOMAIN` | edge profile | `daymarkable.com`; Caddy also serves `app.` and redirects `www.` |
+| `APP_URL` | yes | `https://scriptumiq.com` — the public site; magic links point here |
+| `SERVICE_URL` | production | `https://app.scriptumiq.com` — the signed-in service; email CTAs and the delivery-confirmation link point here. Leave unset to run everything on `APP_URL` |
+| `APP_DOMAIN` | edge profile | `scriptumiq.com`; Caddy also serves `app.` and redirects `www.` |
 | `POSTGRES_PASSWORD` | yes | any long random string |
 | `DATA_ENCRYPTION_KEY` | yes | `openssl rand -base64 32`; losing it makes stored tokens and caches unreadable |
 | `ANTHROPIC_API_KEY` | yes | decode |
@@ -131,6 +132,10 @@ arrived with `docker compose exec app printenv <NAME>`.
 | `EMAIL_API_KEY`, `EMAIL_FROM` | for real email | Resend key + verified sender |
 | `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` | for `/admin` | hash via `docker compose exec app node apps/web/scripts/admin-hash.mjs '<password>'`; never store the plaintext. Quote the hash in the env file: it contains `$`, which Compose substitutes away unquoted, leaving a hash that rejects every password |
 | `DECODE_MODEL`, `DECODE_ESCALATION_MODEL`, `DECODE_MODEL_ROTATION`, `DECODE_CONFIDENCE_THRESHOLD` | no | model is config, not a constant |
+| `NEWS_MODEL` | no | the brief and the crossword's words; defaults to `claude-haiku-4-5`. Separate from `DECODE_MODEL` on purpose and must stay that way (CLAUDE.md "Model usage") |
+| `INBOUND_CALENDAR_HOST` | for forwarded invites | the subdomain the forwarding address is built from; defaults to `cal.scriptumiq.com` |
+| `RESEND_WEBHOOK_SECRET` | for forwarded invites via Resend | the `whsec_…` value Resend returns when you create the `email.received` webhook pointing at `https://app.scriptumiq.com/api/inbound/resend`. **Shown once** — copy it there and then, or delete the webhook and make another. Empty refuses every delivery |
+| `INBOUND_CALENDAR_SECRET` | only for a Worker or Lambda | shared header on `/api/inbound/calendar`, the raw-message endpoint. Not used by Resend, which cannot set custom headers. Generate with `openssl rand -hex 32`; hex avoids the `$` substitution trap that bit the admin hash. Empty leaves that endpoint inert, which is the right default |
 | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Phase 2 billing | `sk_test_…` and `whsec_…` from a Stripe sandbox while testing; live keys only when charging real cards. Both empty leaves the payment routes off. The plans are looked up by key, `daymarkable_monthly_v1` and `daymarkable_annual_v1`, so there is no price id to set per environment |
 
 ## 4. Build and start
@@ -177,3 +182,36 @@ docker compose --profile edge up -d caddy
 
 `docker compose logs app | grep scheduler` shows a tick every 15 minutes with the decision and
 reason; the first line after 03:00 local reads `run <id> started: nightly for <date>`.
+
+## 8. Moving from daymarkable.com to scriptumiq.com
+
+The product was renamed in September 2026. The box, the containers, the database and every account
+stay exactly as they are; what moves is the URL. Nothing below is destructive, and until step 4 the
+site simply carries on under its old address with its new name.
+
+1. **DNS for the new domain.** In hPanel, for scriptumiq.com, add the same records daymarkable.com
+   has: `A @`, `A www`, `A app` → the VPS address. Leave daymarkable.com's records exactly as they
+   are: it keeps answering, and redirects.
+2. **Verify scriptumiq.com with Resend** (Domains → Add) and add the DKIM/SPF/DMARC records it gives
+   you. Do not change `EMAIL_FROM` until Resend shows the domain verified — sign-in is by emailed
+   link, so an unverified sender locks every account out.
+3. **Deploy the rename:** `cd /root/daymarkable && bash scripts/vps-upgrade.sh`. The running copy of the
+   script is the OLD one (it pulls itself, but bash keeps reading the file it started with), so this
+   first run upgrades the app in place on daymarkable.com. Everything a customer sees now says
+   ScriptumIQ. The first nightly run renames the tablet's folder (see CLAUDE.md, "The rename").
+4. **Switch the domain:** once `scriptumiq.com` and `app.scriptumiq.com` resolve to the box, run
+   `cd /root/daymarkable && bash scripts/vps-upgrade.sh` again. It moves `APP_URL`, `SERVICE_URL` and
+   `APP_DOMAIN` to scriptumiq.com, sets `LEGACY_DOMAIN=daymarkable.com`, and restarts Caddy, which
+   fetches certificates for both. Its closing checks show daymarkable.com pages answering 308 to the
+   same path on scriptumiq.com, and the Stripe webhook answering there directly (a 4xx and no redirect).
+   Everyone signs in once more: a session cookie cannot cross from one registrable domain to another.
+5. **Move the sender** once step 2 shows verified: set
+   `EMAIL_FROM=ScriptumIQ <notes@scriptumiq.com>` in `/root/daymarkable/.env`, then
+   `cd /root/daymarkable && docker compose up -d app`. Send yourself a sign-in link to prove it.
+6. **Stripe:** the branding and copy in `Stripe/assets/stripe/STRIPE-BRANDING.md`. The webhook keeps
+   working on the old host (its `/api/*` is served, not redirected); point it at
+   `https://scriptumiq.com/api/stripe/webhook` when convenient. Do not touch the plans' lookup keys.
+
+What keeps the old name, and why, is listed in CLAUDE.md under "The rename". In short: the Compose
+project and volumes, the database, `/root/daymarkable` and the `DAYMARKABLE_*` variables — renaming
+any of them loses data or breaks this box, and no customer ever sees them.

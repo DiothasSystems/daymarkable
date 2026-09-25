@@ -125,7 +125,7 @@ describe("the action list", () => {
     expect(mockDecide).toHaveBeenCalledTimes(1);
   });
 
-  it("says the Inbox is dayMarkable being unsure, not a list of things to do (rule 3)", async () => {
+  it("says the Inbox is ScriptumIQ being unsure, not a list of things to do (rule 3)", async () => {
     mockRegistry.mockResolvedValue({
       ...emptyRegistry,
       inbox: [{ id: "i1", kind: "task", text: "Ring Kolb?", detail: null, confidence: 0.4, source: { notebook: "Daily", pageIndex: 0 }, status: "pending", payload: {}, createdOn: TODAY }],

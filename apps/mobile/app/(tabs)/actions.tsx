@@ -132,7 +132,7 @@ export default function Actions() {
               <Label style={{ marginBottom: space.xs }}>{`INBOX · ${r.inbox.length}`}</Label>
               {/* Rule 3: these are under the confidence threshold. They are asked about, never
                   assumed onto the list. */}
-              <Text style={[type.small, { marginBottom: space.sm }]}>dayMarkable was unsure it read these correctly.</Text>
+              <Text style={[type.small, { marginBottom: space.sm }]}>ScriptumIQ was unsure it read these correctly.</Text>
               {r.inbox.map((item, i) => (
                 <Row key={item.id} first={i === 0}>
                   <Checkbox

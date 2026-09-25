@@ -12,7 +12,7 @@
  * server for a one-time ticket and loads that (apps/web/src/server/handoff.ts). The ticket is
  * minted per visit — it is spent on arrival, so there is nothing durable in the URL bar.
  *
- * Staying inside: navigation is held to the two dayMarkable hosts. A page here can link out —
+ * Staying inside: navigation is held to our own hosts. A page here can link out —
  * Stripe, the reMarkable site during pairing — and those open in the phone's browser rather than
  * in a frame that looks like the app but is not.
  */
@@ -34,11 +34,18 @@ const TITLES: Record<Pane, string> = {
   billing: "Subscription",
 };
 
+/**
+ * Domains that are ours: the product's name, and the one it had until September 2026. The old one
+ * stays because it still answers — it redirects to the new — and a frame that refused the hop would
+ * throw a signed-in customer out to the phone's browser halfway through loading Settings.
+ */
+const OUR_DOMAINS = ["scriptumiq.com", "daymarkable.com"] as const;
+
 /** The hosts this frame will follow. Anything else is the wider web and belongs in a browser. */
 function ours(url: string): boolean {
   try {
     const host = new URL(url).host;
-    return host === new URL(API_URL).host || host.endsWith(".daymarkable.com") || host === "daymarkable.com";
+    return host === new URL(API_URL).host || OUR_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
   } catch {
     return false;
   }
@@ -66,7 +73,7 @@ export default function WebPane() {
     void open();
   }, [open]);
 
-  /** Follow dayMarkable, hand everything else to the phone's browser. */
+  /** Follow our own pages, hand everything else to the phone's browser. */
   const shouldLoad = useCallback((nav: WebViewNavigation) => {
     if (nav.url.startsWith("about:") || ours(nav.url)) return true;
     void Linking.openURL(nav.url);
@@ -76,7 +83,7 @@ export default function WebPane() {
   return (
     <View style={{ flex: 1, backgroundColor: color.parchment, paddingTop: insets.top }}>
       <BackBar
-        title={TITLES[pane] ?? "dayMarkable"}
+        title={TITLES[pane] ?? "ScriptumIQ"}
         onBack={() => router.back()}
         right={loading && url ? <ActivityIndicator color={color.gold} style={{ marginRight: space.md }} /> : null}
       />

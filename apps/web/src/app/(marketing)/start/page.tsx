@@ -7,12 +7,12 @@ import { serviceUrl } from "@/lib/hosts";
 import { getSessionUser } from "@/server/auth";
 import { WaitlistForm } from "./WaitlistForm";
 
-export const metadata: Metadata = { title: "Join the waiting list", description: "dayMarkable is in private preview. Leave your address and we will write when there is room." };
+export const metadata: Metadata = { title: "Join the waiting list", description: "ScriptumIQ is in private preview. Leave your address and we will write when there is room." };
 export const dynamic = "force-dynamic";
 
 const STEPS = [
   { title: "Your email", body: "We send a one-time sign-in link — no password to invent. Meeting notes are emailed to this same address, and only this address." },
-  { title: "Pair your tablet", body: "Enter the one-time code from my.remarkable.com/device/browser/connect. dayMarkable stores the device token encrypted and never asks for your reMarkable password." },
+  { title: "Pair your tablet", body: "Enter the one-time code from my.remarkable.com/device/browser/connect. ScriptumIQ stores the device token encrypted and never asks for your reMarkable password." },
   { title: "Choose watch folders", body: "Pick which notebooks are read each night. Ebooks and PDFs are left alone unless you say otherwise." },
   { title: "Set your timezone", body: "Runs happen a minute after midnight where you are, daylight-saving safe." },
   { title: "Register your ink conventions", body: "Tell us what an asterisk, an underline, a circled word, or a margin star means in your hand." },
@@ -47,7 +47,7 @@ export default async function StartPage() {
             <p className="kicker">Private preview</p>
             <h2 style={{ marginBottom: 6 }}>Join the waiting list.</h2>
             <p className="muted" style={{ fontSize: 14 }}>
-              dayMarkable is not open for registration yet. Every account is read by hand onto a real tablet each night, so we are
+              ScriptumIQ is not open for registration yet. Every account is read by hand onto a real tablet each night, so we are
               letting people in a few at a time. Leave your address and we will write when there is room.
             </p>
             <p style={{ fontSize: 14, fontWeight: 600, margin: "0 0 16px" }}>

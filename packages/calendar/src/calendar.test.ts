@@ -34,7 +34,7 @@ function ics(body: string, method = "REQUEST"): string {
 function outlookMessage(calendar: string, from = "jim@example.com"): string {
   return [
     `From: Jim <${from}>`,
-    "To: a1b2c3d4e5f6@cal.daymarkable.com",
+    "To: a1b2c3d4e5f6@cal.scriptumiq.com",
     "Subject: FW: Board meeting",
     "MIME-Version: 1.0",
     'Content-Type: multipart/alternative; boundary="_000_bound_"',
@@ -58,7 +58,7 @@ function outlookMessage(calendar: string, from = "jim@example.com"): string {
 function gmailMessage(calendar: string, from = "jim@example.com"): string {
   return [
     `From: ${from}`,
-    "To: a1b2c3d4e5f6@cal.daymarkable.com",
+    "To: a1b2c3d4e5f6@cal.scriptumiq.com",
     "Subject: Fwd: Standup",
     "MIME-Version: 1.0",
     'Content-Type: multipart/mixed; boundary="xx"',
@@ -111,7 +111,7 @@ describe("reading an invite out of an email", () => {
 
   /** The commonest real failure: the client forwarded a description, not the meeting. */
   it("says plainly when the forward carried no calendar at all", async () => {
-    const plain = ["From: jim@example.com", "To: a1@cal.daymarkable.com", "Subject: lunch?", "", "Tuesday at one?", ""].join("\r\n");
+    const plain = ["From: jim@example.com", "To: a1@cal.scriptumiq.com", "Subject: lunch?", "", "Tuesday at one?", ""].join("\r\n");
     const r = await readInboundMessage(plain);
     expect(r.invites).toEqual([]);
     expect(r.error).toMatch(/forwarded as plain text/);

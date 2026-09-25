@@ -53,7 +53,21 @@ describe("conventions", () => {
     const b = buildSystemPrompt({ conventions: { active: [...STARTER_CONVENTIONS.active].reverse() } });
     expect(a).toBe(b);
     expect(a).toContain("keyword:TODO");
-    expect(a).toContain("dM/<KIND>");
+    expect(a).toContain("SIQ/<KIND>");
+  });
+
+  /**
+   * The first night after the rename reads back a Planner printed the night before it, which carries
+   * "dayMarkable" and a dM/ footer code. A decoder told only about SIQ/ would not know that page as
+   * one of ours, and that night's ticks would go unread. And the code must come back EXACTLY as
+   * printed, because it is matched to its stored rows by equality — rewriting dM/ as SIQ/ would
+   * break the match as surely as ignoring it.
+   */
+  it("knows pages printed under the old name, and copies their code as printed", () => {
+    const p = buildSystemPrompt({ conventions: STARTER_CONVENTIONS });
+    expect(p).toContain("dM/DAY/");
+    expect(p).toContain("dayMarkable");
+    expect(p).toMatch(/do not rewrite dM as SIQ/);
   });
   it("validates user config", () => {
     expect(() => validateConventions({ active: [{ id: "nope", meaning: "action" }] })).toThrow();

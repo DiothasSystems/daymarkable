@@ -1,4 +1,4 @@
-"""dayMarkable render service: POST /render (.rm -> PNG) and POST /render-pdf (fallback).
+"""ScriptumIQ render service: POST /render (.rm -> PNG) and POST /render-pdf (fallback).
 
 Privacy: this service is stateless. Nothing is written to disk; bytes come in and
 PNG bytes go out. Logs carry counts and sizes only, never content (CLAUDE.md rule 5).
@@ -29,7 +29,7 @@ from render import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 log = logging.getLogger("daymarkable.render.api")
 
-app = FastAPI(title="dayMarkable render", version="0.3.0")
+app = FastAPI(title="ScriptumIQ render", version="0.3.0")
 
 
 class PageIn(BaseModel):

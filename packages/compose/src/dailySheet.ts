@@ -268,7 +268,7 @@ export async function composeDailySheet(model: DailySheetModel): Promise<Uint8Ar
   const { doc, fonts } = await newDocument();
   const printed: PrintedItem[] = [];
   writeDailySheet({ doc, fonts, date: model.date, generatedAt: model.generatedAt, runLabel: model.runLabel, printed }, model);
-  doc.setTitle(`dayMarkable Daily ${model.date}`);
+  doc.setTitle(`ScriptumIQ Daily ${model.date}`);
   return doc.save();
 }
 

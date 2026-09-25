@@ -21,7 +21,7 @@ import {
 } from "@daymarkable/db";
 import { clampEscalationThreshold, STARTER_CONVENTIONS } from "@daymarkable/decode";
 
-/** Everything dayMarkable writes back, as the documents registry knows it. */
+/** Everything ScriptumIQ writes back, as the documents registry knows it. */
 export type DocumentKind = "planner" | "action_list" | "meeting_notes" | "daily_update" | "daily_puzzle";
 
 export type UserRow = typeof schema.users.$inferSelect;

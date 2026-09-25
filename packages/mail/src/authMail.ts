@@ -1,7 +1,7 @@
 /**
  * The sign-in link.
  *
- * Deliberately plain, and the one dayMarkable mail that carries no branding at all. A styled
+ * Deliberately plain, and the one ScriptumIQ mail that carries no branding at all. A styled
  * button, a brand bar and a destination hidden behind "Sign in" are the shape mail clients read
  * as a promotion — Gmail filed the earlier version under Promotions rather than the inbox — and
  * they also stop the reader checking where the link goes before they click it. A security
@@ -25,7 +25,7 @@ export function signInIdempotencyKey(tokenHash: string): string {
 }
 
 export function buildSignInMail(to: string, link: string, tokenHash: string, expiresInMinutes = 15): OutgoingMail {
-  const opening = `Here is the sign-in link you asked for. It signs you in to dayMarkable as ${to}.`;
+  const opening = `Here is the sign-in link you asked for. It signs you in to ScriptumIQ as ${to}.`;
   const life = `The link works once, and stops working after ${expiresInMinutes} minutes.`;
   const unasked = "If you did not ask to sign in, ignore this message. The link is no use to anyone without this mailbox.";
   const html =
@@ -37,7 +37,7 @@ export function buildSignInMail(to: string, link: string, tokenHash: string, exp
     `</div>`;
   return {
     to,
-    subject: "Sign in to dayMarkable",
+    subject: "Sign in to ScriptumIQ",
     html,
     text: [opening, link, life, unasked].join("\n\n"),
     idempotencyKey: signInIdempotencyKey(tokenHash),

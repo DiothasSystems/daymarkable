@@ -1,4 +1,4 @@
-/* dayMarkable hero — the supplied artwork assembles itself over ten seconds, then holds.
+/* ScriptumIQ hero — the supplied artwork assembles itself over ten seconds, then holds.
    Every layer is a cut-out of the reference image (scripts/hero-slice.py), positioned in
    percentages of the 1143×724 frame so it lands exactly where the artwork has it. */
 
@@ -77,14 +77,15 @@
 .hero-stage[data-play="1"] .grow-r { animation: dmGrow 0.8s cubic-bezier(0.2, 0.7, 0.3, 1) var(--delay, 7.3s) both; transform-origin: 0% 50%; }
 @keyframes dmGrow { 0% { opacity: 0; transform: scaleX(0); } 30% { opacity: 1; } 100% { opacity: 1; transform: scaleX(1); } }
 
-/* The live wordmark — dayMarkable, always with the capital M. Source Serif 4 Bold only. */
+/* The live wordmark — ScriptumIQ, always with the capital M. Source Serif 4 Bold only. */
 .hero-wordmark {
   position: absolute; display: flex; white-space: nowrap; pointer-events: none; z-index: 2;
   font-family: var(--font-display); font-weight: 700; font-size: 7.6cqw; line-height: 1; letter-spacing: -0.015em;
   text-shadow: 0 0 1.2cqw rgba(0, 0, 0, 0.35);
 }
-.hero-wordmark .day { color: #c9973f; }
-.hero-wordmark .mark { color: #f7f0e3; }
+/* The lockup's split: the name in Parchment on this dark scene, the gold on "IQ". */
+.hero-wordmark .lead { color: #f7f0e3; }
+.hero-wordmark .iq { color: #c9973f; }
 .hero-wordmark .hl { position: relative; }
 
 /* 8.7–9.5 s: the exact reference frame fades over the assembled layers */

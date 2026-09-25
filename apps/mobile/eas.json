@@ -13,12 +13,12 @@
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://app.daymarkable.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://app.scriptumiq.com" }
     },
     "production": {
       "autoIncrement": true,
       "android": { "buildType": "app-bundle" },
-      "env": { "EXPO_PUBLIC_API_URL": "https://app.daymarkable.com" }
+      "env": { "EXPO_PUBLIC_API_URL": "https://app.scriptumiq.com" }
     }
   },
   "submit": {

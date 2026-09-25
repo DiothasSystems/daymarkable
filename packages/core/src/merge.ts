@@ -1,6 +1,6 @@
 /**
  * The nightly merge (docs/ARCHITECTURE.md §5). Deterministic, pure, no I/O:
- *   1. apply checkbox_updates from dayMarkable's own planner pages (ticks → done, strikes → drop,
+ *   1. apply checkbox_updates from ScriptumIQ's own planner pages (ticks → done, strikes → drop,
  *      Inbox ticks → promote, margin notes → new items)
  *   2. ingest new tasks / events / meeting requests / meetings, deduping by fuzzy text
  *      ("call dentist" twice = one task); below-threshold items go to the Inbox (rule 3)
@@ -311,7 +311,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
         continue;
       }
 
-      // A date or priority written in the row's WHEN / PRI field. dayMarkable never invents a due
+      // A date or priority written in the row's WHEN / PRI field. ScriptumIQ never invents a due
       // date, so this is how a printed action gets one. It stands on its own: a row can be dated
       // or prioritized without being ticked, and the item stays open.
       if (annotated && resolved.itemType === "task") {

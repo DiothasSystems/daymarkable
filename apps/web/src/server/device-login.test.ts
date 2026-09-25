@@ -130,7 +130,7 @@ describe("native sign-in", () => {
 });
 
 describe("bearer header", () => {
-  const withHeader = (v: string) => bearerFrom(new Request("https://app.daymarkable.com/api/trpc/x", { headers: { authorization: v } }));
+  const withHeader = (v: string) => bearerFrom(new Request("https://app.scriptumiq.com/api/trpc/x", { headers: { authorization: v } }));
 
   it("reads the session id after the scheme", () => {
     expect(withHeader("Bearer abc.123_-")).toBe("abc.123_-");
@@ -139,7 +139,7 @@ describe("bearer header", () => {
   });
 
   it("refuses anything that is not a bearer credential", () => {
-    expect(bearerFrom(new Request("https://app.daymarkable.com/x"))).toBeNull();
+    expect(bearerFrom(new Request("https://app.scriptumiq.com/x"))).toBeNull();
     expect(withHeader("")).toBeNull();
     expect(withHeader("Bearer")).toBeNull();
     expect(withHeader("Bearer ")).toBeNull();

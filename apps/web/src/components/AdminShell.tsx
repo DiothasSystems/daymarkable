@@ -6,7 +6,7 @@ export function AdminShell({ children, session, wide = false }: { children: Reac
   return (
     <div className="shell">
       <header className="topbar admin-bar on-dark">
-        <Link href="/admin" className="brand" aria-label="dayMarkable admin">
+        <Link href="/admin" className="brand" aria-label="ScriptumIQ admin">
           <CompassRose size={28} />
           <Wordmark size={20} />
           <span className="admin-tag">ADMIN</span>

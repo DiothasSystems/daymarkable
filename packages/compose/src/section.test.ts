@@ -162,7 +162,7 @@ describe("the brand lockup in the header", () => {
   it("leaves the title enough room that it cannot run under the wordmark", async () => {
     const { doc, fonts } = await newDocument();
     const canvas = addPage(doc, fonts, 1);
-    const markW = canvas.textWidth("dayMarkable", fonts.display, 34);
+    const markW = canvas.textWidth("ScriptumIQ", fonts.display, 34);
     const lockupW = 76 + 16 + markW;
     expect(lockupW).toBeLessThan(CONTENT_W / 2);
 
@@ -176,8 +176,8 @@ describe("the brand lockup in the header", () => {
     const { doc, fonts } = await newDocument();
     const canvas = addPage(doc, fonts, 1);
     const width = canvas.wordmark(100, 100, 34);
-    // "day" plus "Markable" drawn separately must measure the same as the whole word set at once,
+    // "Scriptum" plus "IQ" drawn separately must measure the same as the whole word set at once,
     // or the two halves have drifted apart on the page.
-    expect(width).toBeCloseTo(canvas.textWidth("dayMarkable", fonts.display, 34), 1);
+    expect(width).toBeCloseTo(canvas.textWidth("ScriptumIQ", fonts.display, 34), 1);
   });
 });

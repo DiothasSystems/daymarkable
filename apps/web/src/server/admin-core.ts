@@ -242,7 +242,7 @@ export function describeOptions(s: OptionSettings): OptionGroup[] {
     {
       heading: "What is written",
       rows: [
-        { label: "Notebooks land in", value: s.outputToRoot ? "Tablet root" : "/dayMarkable" },
+        { label: "Notebooks land in", value: s.outputToRoot ? "Tablet root" : "/ScriptumIQ" },
         { label: "Weekly notes archive", value: onOff(s.weeklyNotesArchive), on: s.weeklyNotesArchive ?? false },
         { label: "Meeting-note emails", value: onOff(s.email?.meetingNotes), on: s.email?.meetingNotes ?? false },
         {

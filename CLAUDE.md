@@ -1,6 +1,7 @@
-# CLAUDE.md — dayMarkable
+# CLAUDE.md — ScriptumIQ
 
-dayMarkable reads a reMarkable user's handwritten notes nightly at 00:01 local time (only files
+ScriptumIQ (called dayMarkable until September 2026 — see "The rename" below) reads a
+reMarkable user's handwritten notes nightly at 00:01 local time (only files
 modified during the day that just ended), decodes them with Claude vision using the user's
 registered ink conventions, and writes back to the tablet: a planner
 (day/week/month/quarter/year calendar templates, with the user's Outlook/Google calendar
@@ -64,22 +65,24 @@ unchanged.
   - `apps/runner` — the run pipeline (nightly AND on-demand — same job): sync → render →
     decode → merge → compose → upload → email → draft invites → rotate 1-day cache.
   - `apps/web` — Next.js, fully responsive (mobile HTML experience). One server, two hosts
-    (`src/lib/hosts.ts` + `src/proxy.ts`): the public site on `APP_URL` = daymarkable.com
+    (`src/lib/hosts.ts` + `src/proxy.ts`): the public site on `APP_URL` = scriptumiq.com
     (`src/app/(marketing)`: landing with the animated hero, `/product`, `/pricing`, `/remarkable`,
     `/start` waiting list, `/billing` checkout, `/login`, `/privacy`, `/terms`, `/support`;
     frame = `MarketingShell`), and the signed-in service on `SERVICE_URL` =
-    app.daymarkable.com (`/today`, frame = `Shell`; unset locally = same host): account setup flow, settings,
+    app.scriptumiq.com (`/today`, frame = `Shell`; unset locally = same host): account setup flow, settings,
     document viewer (calendar files, meeting notes, action list), Sync now, run history,
     conversion-quality rating, Stripe billing pages (web is the ONLY payment surface), and
     the `/admin` portal (operator-only; see rule 13). The landing hero is `HeroBuild`
     (`src/components/hero/`): the logo builds in the middle of the scene and its emblem then
     acts as the machine, with a page flying in from the tablet, the compass points ticking a
     quarter turn, and an output page landing on the pile — four conversions to a 24s loop,
-    pure CSS keyframes over inline SVG. The artwork comes from the Claude Design handoff in
-    `design/design_handoff_hero_animation/`; `python scripts/hero-logo-slices.py` cuts the
-    lockup into the three transparent pieces in `public/brand/` and writes `logo-geometry.ts`,
-    which is what keeps the emblem, wordmark and tagline aligned as in the original lockup.
-    Re-run it if that artwork changes; never hand-edit those assets. `HeroScene` in the same folder is the earlier cinematic
+    pure CSS keyframes over inline SVG. The artwork is the stacked lockup in
+    `design/brand_scriptumiq/`; `python scripts/hero-logo-slices.py` cuts it into the pieces in
+    `public/brand/` (a still disc, the compass points that turn, the wordmark, the tagline, plus
+    every static emblem and the social preview) and writes `logo-geometry.ts`, which is what keeps
+    them aligned as in the lockup. The points are cut by SHAPE — traced diamonds — because
+    ScriptumIQ's reach across the ring's gold band, where a colour key cannot tell point from
+    band; the script says how. Re-run it if that artwork changes; never hand-edit those assets. `HeroScene` in the same folder is the earlier cinematic
     hero (layers sliced by `scripts/hero-slice.py` from the artwork in
     `design/design_handoff_daymarkable/assets/hero-scene.png`); it is not rendered anywhere
     at the moment.
@@ -90,7 +93,8 @@ unchanged.
     settings and payment are the web's own responsive pages in a WebView. See docs/MOBILE_PLAN.md.
   - `services/render` — Python container (`rmscene`) exposing `POST /render` (.rm → PNG).
 - Postgres via Drizzle ORM; migrations in `packages/db`. Queue: pg-boss (Phase 2).
-- Env vars in `.env` locally, and in `/root/daymarkable/.env` on the production VPS, beside the
+- Env vars in `.env` locally, and in `/root/daymarkable/.env` on the production VPS (the old name,
+  on purpose — see "The rename"), beside the
   compose file that reads it (never committed): `RMAPI_DEVICE_TOKEN`, `ANTHROPIC_API_KEY`, `DATABASE_URL`,
   `RENDER_SERVICE_URL`, `EMAIL_API_KEY`, `INBOUND_CALENDAR_HOST`/`INBOUND_CALENDAR_SECRET`
   (the inbound invite subdomain and the shared secret the mail provider presents), `NEWS_MODEL` (the model for the brief and the
@@ -194,10 +198,10 @@ unchanged.
     whole page because the squares have to be big enough to write a letter in by hand, which leaves
     nowhere for fifty clues to sit beside it.
 
-    Both extras keep their own tablet folders: yesterday's copy is filed into `/dayMarkable/Puzzles`
-    or `/dayMarkable/dayLy Headlines` before today's replaces it, dated from the document's own
+    Both extras keep their own tablet folders: yesterday's copy is filed into `/ScriptumIQ/Puzzles`
+    or `/ScriptumIQ/Daily Headlines` before today's replaces it, dated from the document's own
     last-modified time. Nothing is deleted from them — a planner archive is spent once its ticks are
-    read, an unfinished crossword is not. Those folders join `/dayMarkable/Archive` in `KEEP_FOLDERS`,
+    read, an unfinished crossword is not. Those folders join `/ScriptumIQ/Archive` in `KEEP_FOLDERS`,
     which matters twice over: `cleanStaleOutputs` deletes anything of ours outside the output folder,
     and `selectDocuments` would otherwise feed a filled-in crossword to the decoder every night. The
     puzzle and the brief are output and NOT input forms — unlike the planner, action list and notes,
@@ -214,15 +218,30 @@ unchanged.
     its own row — so the per-account rows deliberately do not sum to the month's total.
 
 17. **Forwarded invites: the address identifies, the sender authorises.** A customer forwards a
-    meeting from Outlook or Google to `<token>@cal.daymarkable.com` and it lands on their planner.
-    NO mailbox is provisioned per account — one MX and one webhook (`/api/inbound/calendar`) serve
-    everybody, and `users.calendar_token` is only the lookup key. That token is not a credential: it
+    meeting from Outlook or Google to `<token>@cal.scriptumiq.com` and it lands on their planner.
+    NO mailbox is provisioned per account — one MX and one webhook serve everybody, and
+    `users.calendar_token` is only the lookup key. That token is not a credential: it
     travels in mail headers, forwarding chains and corporate archives, and it will leak. So a message
     is accepted only when its SENDER is an address the account has already verified (`senderAllowed`),
     and the sender is checked BEFORE the message is examined, so a probe cannot learn from the
     difference whether a token is real. The address is rotatable from settings for when it does leak.
-    The endpoint takes the RAW RFC 822 message rather than a provider's parsed JSON, so swapping
-    Cloudflare for SES does not reach past that one file.
+
+    There are TWO doors and they must stay that way. `/api/inbound/calendar` takes the RAW RFC 822
+    message behind a shared header (`INBOUND_CALENDAR_SECRET`), which is the vendor seam: anything
+    that can set its own headers — a Cloudflare Worker, an SES Lambda — uses it and a swap reaches no
+    further than that file. Resend can do neither half, which is why the seam alone was not enough:
+    its webhooks carry a Svix signature with no configurable headers, and the payload is metadata with
+    the message two calls further on. So `/api/inbound/resend` verifies a signature instead
+    (`RESEND_WEBHOOK_SECRET`, keyed on the secret's base64 payload and NOT the `whsec_` string),
+    fetches the record, downloads the raw message and hands it to the same
+    `receiveCalendarMessage`. Both doors share that function deliberately: the sender check and the
+    ingest rules live in one place and cannot drift apart. An unset secret on either door refuses
+    every message on it — both are open to the internet, and unset must mean shut.
+
+    The provider's status codes are load-bearing on both: 2xx accepted, 4xx stop trying, 5xx deliver
+    again. A 4xx on a transient fault loses a meeting silently; a 5xx on a permanent one has the
+    provider retrying until it disables the endpoint. An event type we do not handle is a 2xx, not a
+    4xx — it is configuration, not failure.
 
     Recurrence is stored as the **raw RRULE** and expanded in `packages/core/recurrence.ts`, not
     flattened into the six-value `recurrence` enum — that enum cannot say "the third Thursday until
@@ -308,19 +327,29 @@ it carried in the cached system prompt:
 
 ## Brand
 
-Product name is always spelled **dayMarkable** (lowercase d, capital M) — in copy, UI, code
-identifiers where casing allows, and email subjects. The two daily notebooks follow the same shape:
-**dayLy Update** and **dayLy Puzzle**, lowercase "day" then a capital, so the tablet's file list reads
-as one product. Their folder is **dayLy Headlines**. Renaming a notebook means adding the old name to
-`LEGACY_OUTPUT_NAMES`, or the copy left on the tablet stops being ours and is decoded back into
-itself. The design source of truth is the brand
-handoff in `design/design_handoff_daymarkable/` (style guide, tablet page + email mocks,
-`assets/emblem.png`, `assets/full-lockup.png`); `README.md` there summarises every token.
+Product name is always spelled **ScriptumIQ** (capital S, capital I and Q) — in copy, UI, email
+subjects, PDF metadata and the tablet's folder. Tagline: **Your thoughts. Your next move.** (set in
+capitals with wide tracking in the lockup; sentence case in running text). The daily notebooks are
+**Daily Update** and **Daily Puzzle**, and the brief's archive folder is **Daily Headlines** — they
+were "dayLy" to rhyme with dayMarkable, and went back to plain "Daily" with the rename. Renaming a
+notebook means adding the old name to `LEGACY_OUTPUT_NAMES`, or the copy left on the tablet stops
+being ours and is decoded back into itself; and a name coming BACK into use must come OFF that
+list, or the cleaner deletes tonight's notebook as a stray (a test holds this).
 
-- **Wordmark**: Source Serif 4 Bold, "day" in Gold (#B8862F on light / #C9973F on dark),
-  "Markable" in Midnight (#1E2A44) on light or Parchment (#F7F0E3) on dark. Never another
-  typeface; never swap the split. Below 48px or on dark, the compass rose SVG (circle + four
-  diamond points, `viewBox 0 0 72 72`) stands in for the emblem.
+The source of truth is `design/brand_scriptumiq/`: `lockup-stacked.png` (the 1536×1024 master every
+cut is made from), `lockup-horizontal.png`, `wordmark-tagline.png`, and `app-icon-191.png` (the
+icon as drawn: emblem on a dark tile — 191px, so a reference, not a source). All four arrived on
+an opaque off-white ground; everything the site uses is cut from the master with transparency by
+`scripts/hero-logo-slices.py`. `design/design_handoff_daymarkable/` is dayMarkable's handoff, kept
+as history; its palette, type and page layouts still hold.
+
+- **Wordmark**: "Scriptum" in Midnight (#1E2A44) on light or Parchment (#F7F0E3) on dark, "IQ" in
+  Gold (#B8862F on light / #C9973F on dark) — the gold on the SECOND half, the reverse of
+  dayMarkable's gold "day". Never swap the split. Where it is live text (web header, email, tablet
+  page) it is Source Serif 4 Bold, spelled out once in `BRAND.wordmark` (compose/brand.ts); where
+  it is the artwork (hero, social preview, Stripe) it is the lockup's own serif, cut from the master.
+  On e-ink the gold becomes the secondary grey. Below 48px or on dark, the compass rose SVG
+  (circle + four diamond points, `viewBox 0 0 72 72`) stands in for the emblem.
 - **Palette**: Midnight #1E2A44 (ink, headings, primary buttons), Compass Gold #C9973F
   (accents, active states), Gold text #B8862F, Parchment #F7F0E3 (page), Notepaper #FDFAF3
   (cards), Sunrise #F0DDA9 (highlights), Border #E3D9C2, Border-strong #D9CDB4, Body muted
@@ -329,21 +358,68 @@ handoff in `design/design_handoff_daymarkable/` (style guide, tablet page + emai
   Plex Mono 400–500 (timestamps, sync status, page refs, uppercase section labels with
   0.12–0.2em tracking).
 - **App icon and splash**: generated, never drawn by hand — `python scripts/app-icons.py` writes
-  `apps/mobile/assets/` from the compass rose geometry in `apps/web/src/components/Brand.tsx` and
-  the palette above. Gold rose on Midnight for the icon (the emblem is a detailed scene and turns
-  to mud at 48px, which is exactly the case the rose exists for); Midnight rose on Parchment for
-  the splash. Re-run it if the rose or the palette changes.
+  `apps/mobile/assets/` from the cut pieces in `apps/web/public/brand/`, so run it AFTER
+  `hero-logo-slices.py`. The launcher icon is the emblem on Midnight (the founder's choice, and the
+  way `app-icon-191.png` draws it); the splash is the full lockup on Parchment, because the
+  artwork's navy wordmark needs a light ground; the favicon stays the compass rose, which is the
+  case the rose exists for. Re-run it if the artwork or the palette changes.
 - **Web UI**: cards Notepaper, 1px #E3D9C2 border, 6px radius, shadow no heavier than
   `0 2px 8px rgba(30,42,68,.08)`; primary button Midnight/Parchment 4px radius; secondary
   1.5px Midnight outline; tertiary gold underlined link; nav active = gold text + 2px gold
   underline; header shows `SYNCED HH:MM` in mono.
 - **Tablet pages (e-ink)**: grayscale only — paper #FBFBF9, ink #1A1A1A, secondary #6E6E6E,
   tertiary #9A9A9A, rules #D8D4C8, shaded cells #F1EFE7. Header = Source Serif title + mono
-  subtitle (`dayMarkable DAILY · GENERATED 02:14`) + monochrome compass rose right + 2px rule.
+  subtitle (`ScriptumIQ DAILY · GENERATED 02:14`) + monochrome compass rose and wordmark right +
+  2px rule. Footer page code `SIQ/<KIND>/<date>/<page>` (it was `dM/`; see "The rename").
   Layouts follow `Tablet Pages and Email.dc.html` (Daily two-column with SCHEDULE chips; Week
   and Month with an actions sidebar; Year period cards), scaled ×3 from the 468px mocks.
 - **Email**: 560px Parchment container, Midnight brand bar (rose + wordmark + SYNCED), Source
   Serif headline, Notepaper card per meeting, gold-arrow action rows, Midnight CTA.
+
+## The rename (September 2026)
+
+dayMarkable became ScriptumIQ. Everything a customer sees changed; a short list of names did NOT,
+because each one holds state, and renaming it would lose data or break the running deploy. None is
+ever shown to a customer. Do not "finish" the rename by changing them without a migration.
+
+- **Compose project `daymarkable`, its volumes (`daymarkable_pgdata`, `daymarkable_dmstate`), the
+  database's name and user, `/root/daymarkable`.** Volumes are named after the project; rename it
+  and Compose starts an EMPTY database beside the real one, and every account appears gone.
+- **`DAYMARKABLE_*` env var names**, already written into the VPS `.env`.
+- **`%LOCALAPPDATA%\dayMarkable`**, the local dev state directory: it holds a working database.
+- **`@daymarkable/*` package scope**: internal, and a rename is a lockfile and Docker-build change
+  that can only be verified on the box. Worth doing as its own change, never inside another.
+- **Stripe lookup keys `daymarkable_monthly_v1` / `daymarkable_annual_v1`**: plans are found by
+  them, and a subscription's plan is read back through them.
+- **App store identity**: bundle id / package `com.diothassystems.daymarkable` and the Expo slug.
+  A different package is a different app in the stores. The display name is ScriptumIQ, and the
+  URL scheme is `scriptumiq` with `daymarkable` kept alongside, so old links still open the app.
+- **Cookie names `dm_session` / `dm_admin`**: renaming signs everyone out for nothing.
+- **The sender address stays `notes@daymarkable.com`** (display name ScriptumIQ) until
+  scriptumiq.com is verified with Resend. Sign-in is by emailed link, so an unverified sender locks
+  every account out — this has happened once already (`.app`). Move it with `EMAIL_FROM`.
+
+What changed that carries state, and how it was carried:
+
+- **The tablet folder** `/dayMarkable` → `/ScriptumIQ`, and `dayLy Headlines` → `Daily
+  Headlines` inside it: renamed IN PLACE on the first run after the deploy (`migrateBrandFolders`,
+  before anything is chosen for reading). A child names its parent by id, so one write moves the
+  live Planner and every archive. Until it happens — or if it cannot — `LEGACY_OUTPUT_FOLDERS`
+  keeps the old folder inert: never decoded, never cleaned. The failure that prevents is the bad
+  one: our own printed planners read back as the customer's handwriting, every printed task
+  re-added to an append-only list. The first night's `dayLy Puzzle` is filed under the new name,
+  not binned; the switch night is tested end to end (run.test.ts).
+- **The page code prefix** `dM/` → `SIQ/`. Ticks resolve by exact equality with the stored code,
+  so old pages keep resolving against their own rows; the decoder is told both forms and told
+  never to rewrite one as the other, because the first night reads back a `dM/` Planner.
+- **The domain** daymarkable.com → scriptumiq.com. Same VPS, same containers; `vps-upgrade.sh` moves
+  `APP_URL` only once the new domain resolves to the box. The old domain keeps answering:
+  people are 308-redirected with the path kept, and `/api/*` is PROXIED, not redirected — installed
+  app builds send a Bearer token that Android drops on a cross-host redirect, and webhooks do not
+  follow redirects. `LEGACY_DOMAIN` defaults to `legacy.localhost` so a reboot between `git pull`
+  and the switch cannot make two Caddy blocks claim one hostname (Caddy would not start).
+- **The inbound calendar host** is `cal.scriptumiq.com`. `tokenFromRecipient` reads only the part
+  before the @, so an address given out on the old host works wherever mail for it is received.
 
 ## Gotchas
 

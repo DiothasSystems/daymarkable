@@ -19,7 +19,7 @@ function shell(headline: string, body: string): string {
   return `<!doctype html><html><body style="margin:0;padding:24px 0;background:#e8e2d4;font-family:${SANS};color:#1e2a44">
 <div style="max-width:560px;margin:0 auto;background:#f7f0e3;border:1px solid #e3d9c2;border-radius:6px;overflow:hidden">
   <div style="background:#1e2a44;color:#f7f0e3;padding:14px 22px;font-family:${SERIF};font-size:18px;font-weight:700">
-    <span style="color:#c9973f">day</span>Markable
+    Scriptum<span style="color:#c9973f">IQ</span>
   </div>
   <div style="padding:22px">
     <h1 style="font-family:${SERIF};font-size:24px;font-weight:600;margin:0 0 14px;color:#1e2a44">${esc(headline)}</h1>
@@ -54,12 +54,12 @@ export function buildDeliveryMail(to: string, userId: string, localDate: string,
      <table style="width:100%;border-collapse:collapse;border-top:1px solid #e3d9c2">${rows}</table>`,
   );
   const text = [
-    `dayMarkable — your notebooks for ${localDate}`,
+    `ScriptumIQ — your notebooks for ${localDate}`,
     `${summary.openActions} open actions, ${summary.meetings} meetings.`,
     ...docs.map((d) => `- ${d.name} (${d.pageCount} pages)`),
   ].join("\n");
   const attachments: MailAttachment[] = docs.map((d) => ({ filename: `${d.name.replace(/\s+/g, "-")}-${localDate}.pdf`, content: d.pdf }));
-  return { to, subject: `dayMarkable — ${localDate}`, html, text, idempotencyKey: deliveryIdempotencyKey(userId, localDate, to), attachments };
+  return { to, subject: `ScriptumIQ — ${localDate}`, html, text, idempotencyKey: deliveryIdempotencyKey(userId, localDate, to), attachments };
 }
 
 /**
@@ -69,10 +69,10 @@ export function buildDeliveryMail(to: string, userId: string, localDate: string,
 export function buildDeliveryVerificationMail(to: string, userId: string, verifyUrl: string): OutgoingMail {
   const html = shell(
     "Confirm this address",
-    `<p style="font-size:14px;line-height:1.6;color:#4a5266;margin:0 0 18px">Someone asked dayMarkable to deliver their planner, action list and notes to this address. Confirm it and the nightly delivery begins; ignore this and nothing further is sent here.</p>
+    `<p style="font-size:14px;line-height:1.6;color:#4a5266;margin:0 0 18px">Someone asked ScriptumIQ to deliver their planner, action list and notes to this address. Confirm it and the nightly delivery begins; ignore this and nothing further is sent here.</p>
      <p style="margin:0 0 18px"><a href="${esc(verifyUrl)}" style="display:inline-block;background:#1e2a44;color:#f7f0e3;text-decoration:none;padding:11px 18px;border-radius:4px;font-size:14px;font-weight:600">Confirm this address</a></p>
      <p style="font-size:12px;line-height:1.6;color:#8a7d5f;margin:0">Or paste this link into a browser:<br>${esc(verifyUrl)}</p>`,
   );
-  const text = `Confirm delivery of dayMarkable documents to this address:\n${verifyUrl}\n\nIf you were not expecting this, ignore it — nothing further will be sent here.`;
-  return { to, subject: "Confirm your dayMarkable delivery address", html, text, idempotencyKey: `verify:${userId}:${to}:${Date.now()}` };
+  const text = `Confirm delivery of ScriptumIQ documents to this address:\n${verifyUrl}\n\nIf you were not expecting this, ignore it — nothing further will be sent here.`;
+  return { to, subject: "Confirm your ScriptumIQ delivery address", html, text, idempotencyKey: `verify:${userId}:${to}:${Date.now()}` };
 }

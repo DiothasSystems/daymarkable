@@ -88,8 +88,13 @@ export class MemoryProvider implements MailProvider {
  * It must be on the domain verified with the provider — `daymarkable.com`, per docs/DEPLOY.md.
  * This used to read `.app`, which is not a domain this product owns: Resend rejects the send
  * with a 403 and every sign-in link silently fails to arrive.
+ *
+ * After the rename to ScriptumIQ the NAME changed and the address did not, for the same reason:
+ * scriptumiq.com is not verified with Resend yet, and sign-in is by emailed link, so a default on
+ * it would lock every account out. Verify the new domain, set EMAIL_FROM to
+ * "ScriptumIQ <notes@scriptumiq.com>", and move this default only once that is proven.
  */
-export const DEFAULT_FROM = "dayMarkable <notes@daymarkable.com>";
+export const DEFAULT_FROM = "ScriptumIQ <notes@daymarkable.com>";
 
 export function mailProviderFromEnv(env: NodeJS.ProcessEnv = process.env, sink?: (mail: OutgoingMail) => Promise<void> | void): MailProvider {
   if (env.EMAIL_API_KEY) return new ResendProvider(env.EMAIL_API_KEY, env.EMAIL_FROM || DEFAULT_FROM);

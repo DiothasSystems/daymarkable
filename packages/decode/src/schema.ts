@@ -63,7 +63,7 @@ export const NoteSchema = z.object({
 export type ExtractedNote = z.infer<typeof NoteSchema>;
 
 export const CheckboxUpdateSchema = z.object({
-  /** The item code printed beside the box on a dayMarkable page, e.g. "A03" or "I01". */
+  /** The item code printed beside the box on a ScriptumIQ page, e.g. "A03" or "I01". */
   item_code: z.string().nullable(),
   label: z.string(),
   checked: z.boolean(),
@@ -71,7 +71,7 @@ export const CheckboxUpdateSchema = z.object({
   struck: z.boolean(),
   margin_note: z.string().nullable(),
   /**
-   * A date the user wrote by hand in the row's WHEN / PRIORITY field. dayMarkable never invents
+   * A date the user wrote by hand in the row's WHEN / PRIORITY field. ScriptumIQ never invents
    * a due date, so this is the only way a printed action acquires one.
    */
   written_due: IsoDate.nullable().default(null),
@@ -83,7 +83,7 @@ export type ExtractedCheckboxUpdate = z.infer<typeof CheckboxUpdateSchema>;
 
 export const PageExtractionSchema = z.object({
   schema_version: z.literal(EXTRACTION_SCHEMA_VERSION),
-  /** "planner" = one of dayMarkable's own pages (footer code present). */
+  /** "planner" = one of ScriptumIQ's own pages (footer code present). */
   page_kind: z.enum(["notes", "planner", "blank", "other"]),
   /** Footer code when page_kind is planner, e.g. "dM/DAY/2026-09-02/1". */
   planner_page_code: z.string().nullable(),
@@ -135,7 +135,7 @@ export function emptyExtraction(kind: PageExtraction["page_kind"] = "blank"): Pa
 export const SCHEMA_DESCRIPTION = `{
   "schema_version": 1,
   "page_kind": "notes" | "planner" | "blank" | "other",
-  "planner_page_code": string | null,          // footer code on dayMarkable pages, else null
+  "planner_page_code": string | null,          // footer code on ScriptumIQ pages, else null
   "page_date": "YYYY-MM-DD" | null,            // the date the WRITER wrote on the page, else null
   "transcription": string,                     // faithful transcription, line breaks preserved
   "has_drawing": boolean,                      // true if the page carries a diagram/sketch, not just writing

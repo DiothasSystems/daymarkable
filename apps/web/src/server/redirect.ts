@@ -7,7 +7,7 @@ import "server-only";
  * container `req.url` is `http://127.0.0.1:3000/...`, so the browser is sent to localhost and the
  * page goes nowhere — even though the POST it was answering succeeded. A relative Location (valid
  * per RFC 7231 §7.1.2) is resolved by the browser against the address bar, so it lands on
- * daymarkable.com or app.daymarkable.com without this code needing to know which.
+ * scriptumiq.com or app.scriptumiq.com without this code needing to know which.
  *
  * Use `publicUrl()` / `serviceUrl()` instead only when crossing between the two hosts.
  */

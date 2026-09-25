@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-# Upgrade a running dayMarkable VPS to the latest main and switch it to the two-host layout
-# (public site on daymarkable.com, service on app.daymarkable.com). Idempotent; safe to rerun.
+# Upgrade a running ScriptumIQ VPS to the latest main and keep it on the two-host layout
+# (public site on scriptumiq.com, service on app.scriptumiq.com). Idempotent; safe to rerun.
 #
 #   ssh root@<vps>  'bash -s' < scripts/vps-upgrade.sh
 #   # or on the box:  cd /root/daymarkable && bash scripts/vps-upgrade.sh
 #
-# Refuses to point APP_URL at the apex until daymarkable.com actually resolves to this machine,
-# because magic links and email CTAs are built from APP_URL and would otherwise dead-end.
+# Refuses to point APP_URL at a domain until it actually resolves to this machine, because magic
+# links and email CTAs are built from APP_URL and would otherwise dead-end. That same rule is what
+# moves the box from daymarkable.com to scriptumiq.com: until scriptumiq.com resolves here, the
+# app is upgraded in place on the domain it already has, and the rename waits.
+#
+# The directory, the Compose project and the database keep the product's old name (see the top of
+# docker-compose.yml): the volumes are named after the project, and renaming it would start an
+# empty database beside the real one. Nothing a customer sees.
 set -euo pipefail
 
 REPO="${REPO:-/root/daymarkable}"
-DOMAIN="${DOMAIN:-daymarkable.com}"
+DOMAIN="${DOMAIN:-scriptumiq.com}"
+# The product's previous domain. Once DOMAIN takes over, this one redirects to it (Caddyfile).
+LEGACY="${LEGACY:-daymarkable.com}"
 cd "$REPO"
 
 echo "== pulling main"
@@ -33,14 +41,23 @@ if [ -n "$MY_IP" ] && [ "$APEX_IP" = "$MY_IP" ] && [ "$APP_IP" = "$MY_IP" ]; the
   set_var APP_URL "https://$DOMAIN"
   set_var SERVICE_URL "https://app.$DOMAIN"
   set_var APP_DOMAIN "$DOMAIN"
+  # Never equal to APP_DOMAIN: the two Caddy blocks would claim the same hostnames and Caddy would
+  # refuse to start. Deploying on the old domain on purpose (DOMAIN=$LEGACY) puts it back to the
+  # harmless placeholder instead.
+  if [ "$DOMAIN" = "$LEGACY" ]; then
+    set_var LEGACY_DOMAIN "legacy.localhost"
+  else
+    set_var LEGACY_DOMAIN "$LEGACY"
+    echo "== $LEGACY now redirects to $DOMAIN (its /api/* is still served, for installed apps and webhooks)"
+  fi
   EDGE=1
 else
-  echo "!! $DOMAIN (and www, app) must all resolve to $MY_IP before the apex can take the public site."
-  echo "!! Leaving APP_URL/APP_DOMAIN as they are; the app is upgraded on its current host only."
-  echo "!! Add the A records in hPanel (@, www, app -> $MY_IP), wait for DNS, then rerun this script."
+  echo "!! $DOMAIN (and www, app) must all resolve to $MY_IP before it can take the site."
+  echo "!! Leaving APP_URL/APP_DOMAIN as they are; the app is upgraded on its current domain only."
+  echo "!! Add the A records for $DOMAIN in hPanel (@, www, app -> $MY_IP), wait for DNS, then rerun."
   EDGE=0
 fi
-grep -E "^(APP_URL|SERVICE_URL|APP_DOMAIN)=" "$ENV_FILE" || true
+grep -E "^(APP_URL|SERVICE_URL|APP_DOMAIN|LEGACY_DOMAIN)=" "$ENV_FILE" || true
 
 # --- build and roll --------------------------------------------------------------------------
 # Both images, always. The render service is its own container, and a change there is invisible
@@ -77,5 +94,14 @@ if [ "$EDGE" = 1 ]; then
   for u in "https://$DOMAIN/" "https://$DOMAIN/pricing" "https://app.$DOMAIN/today" "https://www.$DOMAIN/"; do
     printf '%-40s ' "$u"; curl -s -o /dev/null -m 20 -w '%{http_code} %{redirect_url}\n' "$u" || echo "unreachable (certificates may still be issuing; retry in a minute)"
   done
+  if [ "$DOMAIN" != "$LEGACY" ]; then
+    # Pages should answer 308 to the same path on $DOMAIN. The webhook should answer a 4xx to this GET
+    # with NO redirect — that means it was served here, which is what Stripe needs, since it will not
+    # follow a redirect.
+    echo "== $LEGACY checks (pages 308 to $DOMAIN; the webhook answers here, 4xx and no redirect)"
+    for u in "https://$LEGACY/pricing?x=1" "https://app.$LEGACY/today" "https://$LEGACY/api/stripe/webhook"; do
+      printf '%-44s ' "$u"; curl -s -o /dev/null -m 20 -w '%{http_code} %{redirect_url}\n' "$u" || echo "unreachable (certificates may still be issuing; retry in a minute)"
+    done
+  fi
 fi
 echo "== done"

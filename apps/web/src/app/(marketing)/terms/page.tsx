@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { MarketingShell } from "@/components/MarketingShell";
 
-export const metadata: Metadata = { title: "Terms", description: "The terms of the dayMarkable service." };
+export const metadata: Metadata = { title: "Terms", description: "The terms of the ScriptumIQ service." };
 
 export default function TermsPage() {
   return (
@@ -11,7 +11,7 @@ export default function TermsPage() {
         <h1 className="mk-h1 sm">Plain terms for a plain service.</h1>
 
         <h2>The service</h2>
-        <p>dayMarkable reads notebooks from the reMarkable account you pair, extracts tasks, events, and meeting notes with AI, and writes planner and notebook documents back to that tablet and to your email. It is an independent product and is not affiliated with, endorsed by, or supported by reMarkable AS.</p>
+        <p>ScriptumIQ reads notebooks from the reMarkable account you pair, extracts tasks, events, and meeting notes with AI, and writes planner and notebook documents back to that tablet and to your email. It is an independent product and is not affiliated with, endorsed by, or supported by reMarkable AS.</p>
 
         <h2>Your account</h2>
         <ul>

@@ -4,12 +4,12 @@ import { HERO_H, HERO_W, LAYERS, type LayerName } from "./layers";
 import "./hero.css";
 
 /**
- * The website hero: the supplied dayMarkable artwork builds itself over ten seconds and then
+ * The website hero: the supplied ScriptumIQ artwork builds itself over ten seconds and then
  * holds with only ambient motion. Every visible element is a cut-out of the reference image
  * (see scripts/hero-slice.py) that flies from its own direction and depth into the exact
  * position the artwork gives it; the last step fades the reference frame itself over the top,
  * so the resting composition is the source image to the pixel. The wordmark is the one part
- * set live, so it reads dayMarkable — capital M — in the brand typeface.
+ * set live, so it reads ScriptumIQ — capital M — in the brand typeface.
  *
  * Timeline (seconds): 0–1.5 environment · 1.5–3 icons + trails · 3–4.5 mechanism + brain ·
  * 4.5–6.5 task cards · 6.5–8 brand · 8–9 convergence · 9–10 hold.
@@ -241,7 +241,7 @@ export function HeroScene() {
 
   const glowSize = 150;
   return (
-    <div ref={stageRef} className="hero-stage" data-play={playing ? "1" : "0"} role="img" aria-label="Handwritten notes flow through dayMarkable's AI overnight and come back as organised task lists for today, this week, this month and next quarter.">
+    <div ref={stageRef} className="hero-stage" data-play={playing ? "1" : "0"} role="img" aria-label="Handwritten notes flow through ScriptumIQ's AI overnight and come back as organised task lists for today, this week, this month and next quarter.">
       <img className="hero-base" src="/hero/base.webp" alt="" width={HERO_W} height={HERO_H} draggable={false} />
       <img className="hero-trails" src="/hero/layers/trails.webp" alt="" style={box("trails")} draggable={false} />
 
@@ -260,8 +260,8 @@ export function HeroScene() {
 
       <Layer name="emblem" />
       <div className="hero-wordmark" style={{ left: pct(672, HERO_W), top: pct(74, HERO_H), transform: "translateX(-50%)" }} aria-hidden>
-        <span className="day hl fly" style={vars({ delay: 6.85, dur: 0.95, dx: "-7cqw", b: "2px" })}>day</span>
-        <span className="mark hl fly" style={vars({ delay: 6.85, dur: 0.95, dx: "7cqw", b: "2px" })}>Markable</span>
+        <span className="lead hl fly" style={vars({ delay: 6.85, dur: 0.95, dx: "-7cqw", b: "2px" })}>Scriptum</span>
+        <span className="iq hl fly" style={vars({ delay: 6.85, dur: 0.95, dx: "7cqw", b: "2px" })}>IQ</span>
       </div>
       <Layer name="tagline" />
 

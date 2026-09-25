@@ -1,4 +1,4 @@
-# dayMarkable — Economics: Token Costs, Pricing, Revenue, and the Ad Question
+# ScriptumIQ — Economics: Token Costs, Pricing, Revenue, and the Ad Question
 
 *All model prices from Anthropic's published pricing, August 2026. Recheck before launch.*
 
@@ -67,7 +67,7 @@ for unused subscription days via the Stripe API — budget refunds at 1–2% of 
 model.
 
 Rationale: reMarkable's own Connect subscription ($2.99/mo) anchors what this audience pays
-for cloud features, but dayMarkable now ships an AI chief-of-staff — nightly decode, meeting
+for cloud features, but ScriptumIQ now ships an AI chief-of-staff — nightly decode, meeting
 invites, emailed meeting notes, calendar merge — which justifies a full tier above it. The
 annual plan at $100 (2 months free) is the anchor to push at checkout.
 
@@ -121,7 +121,7 @@ on the models the product actually reads with.
 2. **It has no headroom.** Best case, ads ≈ token costs and contribute nothing to infra,
    support, or profit. One heavy-user skew or CPM soft market and the free tier is underwater.
 3. **It taxes the brand you're selling.** The customer paid a premium specifically for a
-   distraction-free device, and dayMarkable's other pillar is privacy ("we read your handwritten
+   distraction-free device, and ScriptumIQ's other pillar is privacy ("we read your handwritten
    notes — and keep them sacred"). An ad on the morning planner contradicts both, and likely
    suppresses the paid conversion that carries the real margin.
 

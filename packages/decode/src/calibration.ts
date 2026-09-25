@@ -42,7 +42,7 @@ export interface CalibrationPassage {
  */
 const GENERATE_MAX_TOKENS = 8000;
 
-const GENERATE_SYSTEM = `You write short handwriting-calibration passages for dayMarkable, a service that reads
+const GENERATE_SYSTEM = `You write short handwriting-calibration passages for ScriptumIQ, a service that reads
 handwritten notes from a reMarkable tablet.
 
 The user will copy your passage out by hand. The captured page teaches the decoder that

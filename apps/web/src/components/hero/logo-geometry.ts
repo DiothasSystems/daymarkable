@@ -4,6 +4,6 @@
 export const LOGO = {
   /** The emblem file is this many ring radii wide, drawn at this offset from the ring centre. */
   emblem: { size: 2.2, dx: -1.1, dy: -1.1 },
-  wordmark: { x: -1.8106, y: 1.0113, w: 3.6568, h: 0.8674 },
-  tagline: { x: -1.3006, y: 1.9377, w: 2.609, h: 0.0833 },
+  wordmark: { x: -1.7681, y: 1.0256, w: 3.5134, h: 0.8938 },
+  tagline: { x: -1.4724, y: 1.9848, w: 2.9633, h: 0.0791 },
 } as const;

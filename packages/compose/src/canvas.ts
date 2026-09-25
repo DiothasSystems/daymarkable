@@ -5,7 +5,7 @@
  */
 import type { InkDrawing } from "@daymarkable/core";
 import { LineCapStyle, PDFDocument, type PDFFont, type PDFPage, rgb, type RGB } from "pdf-lib";
-import { INK, PAGE_HEIGHT_PT, PAGE_WIDTH_PT, PAPER, RULE, SECONDARY, TERTIARY, px } from "./brand.js";
+import { BRAND, INK, PAGE_HEIGHT_PT, PAGE_WIDTH_PT, PAPER, RULE, SECONDARY, TERTIARY, px } from "./brand.js";
 import { embedBrandFonts, type BrandFonts } from "./fonts.js";
 
 /** Page geometry (mock 30px/34px padding ×3). */
@@ -239,20 +239,20 @@ export class Canvas {
   }
 
   /**
-   * The wordmark, set as the brand sets it: Source Serif Bold, with "day" and "Markable" carrying
+   * The wordmark, set as the brand sets it: Source Serif Bold, with "Scriptum" and "IQ" carrying
    * different weight of colour.
    *
-   * On paper that split is Compass Gold against Midnight. An e-ink page has no colour, so the
-   * grayscale stand-in is the secondary grey against full ink — the same relationship, one tone
-   * quieter, which is how the rest of these pages already translate the palette. Returns the width
-   * drawn, so a caller can lay it out against something else.
+   * In the lockup that split is Midnight against Compass Gold, the gold on the second half. An e-ink
+   * page has no colour, so the grayscale stand-in is full ink against the secondary grey — the same
+   * relationship, one tone quieter, which is how the rest of these pages already translate the
+   * palette. Returns the width drawn, so a caller can lay it out against something else.
    */
   wordmark(x: number, baselineY: number, size: number): number {
     const f = this.fonts.display;
-    const dayW = this.textWidth("day", f, size);
-    this.text("day", x, baselineY, { font: f, size, color: SECONDARY });
-    this.text("Markable", x + dayW, baselineY, { font: f, size, color: INK });
-    return dayW + this.textWidth("Markable", f, size);
+    const leadW = this.textWidth(BRAND.wordmark.lead, f, size);
+    this.text(BRAND.wordmark.lead, x, baselineY, { font: f, size, color: INK });
+    this.text(BRAND.wordmark.accent, x + leadW, baselineY, { font: f, size, color: SECONDARY });
+    return leadW + this.textWidth(BRAND.wordmark.accent, f, size);
   }
 
   /**
@@ -273,7 +273,7 @@ export class Canvas {
     const markSize = 34;
     const roseSize = 76;
     const gap = 16;
-    const markW = this.textWidth("dayMarkable", f.display, markSize);
+    const markW = this.textWidth(BRAND.name, f.display, markSize);
     const lockupW = roseSize + gap + markW;
     // Title width is reserved against the whole lockup, not just the rose, or a long title runs
     // under the wordmark.
@@ -301,8 +301,8 @@ function roundedPath(w: number, h: number, r: number): string {
 
 export async function newDocument(): Promise<{ doc: PDFDocument; fonts: BrandFonts }> {
   const doc = await PDFDocument.create();
-  doc.setProducer("dayMarkable");
-  doc.setCreator("dayMarkable");
+  doc.setProducer(BRAND.name);
+  doc.setCreator(BRAND.name);
   const fonts = await embedBrandFonts(doc);
   return { doc, fonts };
 }

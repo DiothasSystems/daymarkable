@@ -6,14 +6,14 @@ import "./marketing.css";
 
 /**
  * The public site's frame: emblem + wordmark, section links, and either "Start free" or
- * "Open dayMarkable" depending on whether a session exists. Signed-in pages use Shell.
+ * "Open ScriptumIQ" depending on whether a session exists. Signed-in pages use Shell.
  */
 export async function MarketingShell({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   return (
     <div className="shell mk">
       <header className="topbar mk-topbar">
-        <Link href="/" className="brand" aria-label="dayMarkable home">
+        <Link href="/" className="brand" aria-label="ScriptumIQ home">
           <img src="/brand/emblem-96.png" alt="" width={40} height={40} className="mk-emblem" />
           <Wordmark size={22} />
         </Link>
@@ -31,7 +31,7 @@ export async function MarketingShell({ children }: { children: React.ReactNode }
               <form action="/auth/logout" method="post">
                 <button type="submit" className="acct-out">Sign out</button>
               </form>
-              <a href={`${serviceUrl()}/today`} className="btn small">Open dayMarkable</a>
+              <a href={`${serviceUrl()}/today`} className="btn small">Open ScriptumIQ</a>
             </>
           ) : (
             <>
@@ -53,7 +53,7 @@ export async function MarketingShell({ children }: { children: React.ReactNode }
             <Link href="/terms">Terms</Link>
             <Link href="/support">Support</Link>
           </nav>
-          <span className="mk-footer-note">© 2026 dayMarkable · Not affiliated with reMarkable AS</span>
+          <span className="mk-footer-note">© 2026 ScriptumIQ · Not affiliated with reMarkable AS</span>
         </div>
       </footer>
     </div>

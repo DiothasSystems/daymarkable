@@ -102,7 +102,11 @@ export class FixtureTabletProvider implements TabletProvider {
     return { id: doc.id, hash: `${doc.hash}:${name}` };
   }
 
-  async deleteDocument(): Promise<void> {}
+  async renameFolder(folder: TabletFolder, name: string): Promise<UploadResult> {
+    return { id: folder.id, hash: `${folder.hash}:${name}` };
+  }
+
+  async deleteDocument(_doc: TabletDocument): Promise<void> {}
 }
 
 /** Reads pre-rendered PNG segments from the fixture directory. */

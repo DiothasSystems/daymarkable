@@ -32,14 +32,14 @@ function longDate(d: Date, timeZone: string): string {
  */
 export function buildInviteMail(to: string, signInUrl: string): OutgoingMail {
   const paragraphs = [
-    "Your dayMarkable account is open. You asked to be told when there was room, and there is.",
+    "Your ScriptumIQ account is open. You asked to be told when there was room, and there is.",
     signInUrl,
     "Sign in with this address and you will be walked through pairing your reMarkable, choosing which notebooks are read, and what your ink conventions mean. It takes about ten minutes, most of it writing one page by hand.",
     "The first fourteen nights are free.",
   ];
   return {
     to,
-    subject: "Your dayMarkable account is open",
+    subject: "Your ScriptumIQ account is open",
     html: plain(paragraphs),
     text: paragraphs.join("\n\n"),
     idempotencyKey: `invite:${to}`,
@@ -62,14 +62,14 @@ export function buildTrialEndingMail(to: string, userId: string, opts: TrialEndi
   const tz = opts.timeZone ?? "UTC";
   const when = opts.endsAt ? `on ${longDate(opts.endsAt, tz)}` : "in three days";
   const paragraphs = [
-    `Your dayMarkable trial ends ${when}. The card you put on file will then be charged ${opts.amount} for the ${opts.planLabel.toLowerCase()} plan, and your notebooks keep being read every night.`,
+    `Your ScriptumIQ trial ends ${when}. The card you put on file will then be charged ${opts.amount} for the ${opts.planLabel.toLowerCase()} plan, and your notebooks keep being read every night.`,
     "Nothing is needed from you if that is what you want.",
     "To change plan, update the card, or stop before then:",
     opts.accountUrl,
   ];
   return {
     to,
-    subject: `Your dayMarkable trial ends ${opts.endsAt ? longDate(opts.endsAt, tz) : "in three days"}`,
+    subject: `Your ScriptumIQ trial ends ${opts.endsAt ? longDate(opts.endsAt, tz) : "in three days"}`,
     html: plain(paragraphs),
     text: paragraphs.join("\n\n"),
     // Keyed on the trial end, so a redelivered webhook cannot warn the same person twice.

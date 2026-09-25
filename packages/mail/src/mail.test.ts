@@ -40,7 +40,7 @@ describe("meeting mail", () => {
       calls.push({ url, init });
       return new Response(JSON.stringify({ id: "re_123" }), { status: 200 });
     }) as unknown as typeof fetch;
-    const r = new ResendProvider("key", "dayMarkable <x@y.z>", fake);
+    const r = new ResendProvider("key", "ScriptumIQ <x@y.z>", fake);
     const res = await r.send(buildMeetingMail("a@b.c", "u", m));
     expect(res).toEqual({ status: "sent", providerId: "re_123", error: null });
     expect(calls[0]!.url).toBe("https://api.resend.com/emails");
@@ -79,11 +79,11 @@ describe("delivery mail", () => {
     const m = buildDeliveryMail("them@example.com", "u1", "2026-09-06", docs, { openActions: 1, meetings: 1 });
     expect(m.text).toContain("1 open actions, 1 meetings");
     expect(m.html).toContain("6 pages");
-    expect(m.subject).toBe("dayMarkable — 2026-09-06");
+    expect(m.subject).toBe("ScriptumIQ — 2026-09-06");
   });
 
   it("the confirmation mail carries the link and no attachments", () => {
-    const m = buildDeliveryVerificationMail("them@example.com", "u1", "https://app.daymarkable.com/settings/verify-delivery?token=abc");
+    const m = buildDeliveryVerificationMail("them@example.com", "u1", "https://app.scriptumiq.com/settings/verify-delivery?token=abc");
     expect(m.attachments).toBeUndefined();
     expect(m.html).toContain("verify-delivery?token=abc");
     expect(m.text).toContain("verify-delivery?token=abc");
@@ -93,11 +93,11 @@ describe("delivery mail", () => {
 });
 
 describe("sign-in mail", () => {
-  const LINK = "https://daymarkable.com/auth/verify?token=abc123";
+  const LINK = "https://scriptumiq.com/auth/verify?token=abc123";
 
   it("says who it signs in, and shows the link rather than hiding it behind a button", () => {
     const mail = buildSignInMail("jim@example.com", LINK, "hash-1", 15);
-    expect(mail.subject).toBe("Sign in to dayMarkable");
+    expect(mail.subject).toBe("Sign in to ScriptumIQ");
     expect(mail.idempotencyKey).toBe("login:hash-1");
     expect(mail.html).toContain("jim@example.com");
     expect(mail.html).toContain(`>${LINK}</a>`);
@@ -128,6 +128,17 @@ describe("provider selection", () => {
     // like it had sent one. docs/DEPLOY.md says verify daymarkable.com and send from it.
     expect(DEFAULT_FROM).toContain("@daymarkable.com");
     expect(DEFAULT_FROM).not.toContain(".app");
+  });
+
+  /**
+   * The rename to ScriptumIQ changes the NAME on the envelope and not yet the address. Sign-in is by
+   * emailed link, so a default on scriptumiq.com before that domain is verified with Resend would
+   * lock every account out — the failure the test above already records once. The address moves
+   * when the operator sets EMAIL_FROM after verifying; the default follows only when this test does.
+   */
+  it("carries the new name on the domain that is already verified", () => {
+    expect(DEFAULT_FROM).toMatch(/^ScriptumIQ </);
+    expect(DEFAULT_FROM).not.toContain("scriptumiq.com");
   });
 
   it("only reaches for a real provider when there is a key to reach with", () => {

@@ -1,8 +1,8 @@
-# dayMarkable — Phased Build Plan (personal use → mobile → multi-tenant SaaS)
+# ScriptumIQ — Phased Build Plan (personal use → mobile → multi-tenant SaaS)
 
 ## Phase 0 — Personal use: pipeline + web configuration & account setup (2–4 weeks)
 
-Everything needed for Jim to run dayMarkable daily on his own tablet, configured through a
+Everything needed for Jim to run ScriptumIQ daily on his own tablet, configured through a
 real web app rather than config files.
 
 **The pipeline (prove it first, as a spike inside this phase):**
@@ -10,7 +10,7 @@ real web app rather than config files.
 1. Pair with the reMarkable account (one-time code from my.remarkable.com/device/browser/connect
    → device token), list the tree, download a notebook, render pages (Python `rmscene`,
    annotated-PDF fallback), extract with Claude (Sonnet 5), compose the Daily Sheet, upload
-   to `/dayMarkable`. Exit criteria: a handwritten "call Steve Tuesday 2pm" comes back on the
+   to `/ScriptumIQ`. Exit criteria: a handwritten "call Steve Tuesday 2pm" comes back on the
    tablet, correctly placed.
 2. Postgres schema (tasks, events, meetings, meeting_requests, pages, runs, run_costs, doc
    snapshots) + deterministic merge logic (dedupe, carry-over, checkbox updates).

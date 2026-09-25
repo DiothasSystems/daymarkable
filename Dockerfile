@@ -1,4 +1,4 @@
-# dayMarkable app image: Next.js web app + in-process 3AM scheduler + CLI runner.
+# ScriptumIQ app image: Next.js web app + in-process 3AM scheduler + CLI runner.
 # The whole workspace is installed and built in place so the transpiled packages keep their
 # on-disk paths (fonts, migrations, fixtures) at runtime.
 FROM node:22-bookworm-slim AS base

@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  *
  *   POST /api/inbound/calendar
  *   X-Inbound-Secret: <INBOUND_CALENDAR_SECRET>
- *   { "to": "a1b2c3d4e5f6@cal.daymarkable.com", "raw": "<the whole message>" }
+ *   { "to": "a1b2c3d4e5f6@cal.scriptumiq.com", "raw": "<the whole message>" }
  *
  * Status codes are instructions to the provider: 2xx accepted, 4xx stop trying, 5xx retry. A message
  * from an unverified sender is 403 and final — retrying cannot help, and bouncing would tell a

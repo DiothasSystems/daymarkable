@@ -276,7 +276,7 @@ export default function ItemEditor() {
           <Card style={{ marginTop: space.xl }}>
             <Label style={{ marginBottom: space.xs }}>NOT WHAT YOU WROTE?</Label>
             <Text style={[type.small, { marginBottom: space.md }]}>
-              Saving above changes your plan. This is different: it tells dayMarkable it misread your
+              Saving above changes your plan. This is different: it tells ScriptumIQ it misread your
               handwriting, and the words you fix are remembered so the same misreading stops.
             </Text>
             {learned?.length ? (
@@ -294,7 +294,7 @@ export default function ItemEditor() {
               </>
             ) : (
               <Button
-                title="Fix what dayMarkable read"
+                title="Fix what ScriptumIQ read"
                 variant="secondary"
                 onPress={() => {
                   setCorrection(readingOf);

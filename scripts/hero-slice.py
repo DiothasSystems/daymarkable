@@ -44,7 +44,7 @@ BX, BY = 478, 395  # brain centre
 EX, EY = 285, 130  # emblem centre
 
 # Environment items that stay in the background are not layers. The wordmark is re-set live in
-# HTML (dayMarkable with a capital M) so it is only inpainted, never a layer.
+# HTML (ScriptumIQ with a capital M) so it is only inpainted, never a layer.
 WORDMARK = rect(392, 62, 930, 171)
 
 # Emblem: ring + the four compass points.

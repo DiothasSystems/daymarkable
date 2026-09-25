@@ -1,4 +1,4 @@
-# dayMarkable — Claude Code Kickoff
+# ScriptumIQ — Claude Code Kickoff
 
 How to start development: create an empty repo, copy `CLAUDE.md` to the repo root and the
 rest of this pack into `/docs`, open Claude Code in the repo, and paste the prompt below.
@@ -17,8 +17,8 @@ rest of this pack into `/docs`, open Claude Code in the repo, and paste the prom
 > (c) renders its pages to PNG (the Python rmscene render container from CLAUDE.md, with
 > the annotated-PDF fallback), (d) extracts with Claude (Haiku 4.5) using the schema from
 > docs/ARCHITECTURE.md §4 and starter ink conventions (asterisk = action, underline =
-> follow-up, "TODO" = action), and (e) composes a Daily Sheet per the dayMarkable brand
-> rules in CLAUDE.md and uploads it to /dayMarkable on my tablet.
+> follow-up, "TODO" = action), and (e) composes a Daily Sheet per the ScriptumIQ brand
+> rules in CLAUDE.md and uploads it to /ScriptumIQ on my tablet.
 >
 > **Milestone 2 — the real pipeline.** Postgres schema + deterministic merge
 > (docs/ARCHITECTURE.md §5), hash-based change detection (only files modified during the

@@ -14,6 +14,10 @@ dotenv.config({ path: ENV_PATH });
  * Runtime state (embedded DB, encrypted 1-day cache) lives OUTSIDE the repo by default so a
  * synced folder (OneDrive/Dropbox) never mirrors it and never locks PGlite's files.
  * Override with DAYMARKABLE_STATE_DIR (the Docker image sets it to a volume).
+ *
+ * The folder keeps the product's old name on purpose. It holds a working local database, and a
+ * default that moved with the rename would open an empty one somewhere else and look like data
+ * loss. Nothing a customer sees; production sets DAYMARKABLE_STATE_DIR and never reaches this.
  */
 export const STATE_DIR =
   process.env.DAYMARKABLE_STATE_DIR ||

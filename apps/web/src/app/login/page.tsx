@@ -18,7 +18,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div style={{ marginTop: 14 }}>
           <Wordmark size={34} />
         </div>
-        <div className="tagline">Note to Action Organizer</div>
+        <div className="tagline">Your thoughts. Your next move.</div>
         <div className="card" style={{ textAlign: "left" }}>
           <p className="kicker">Login</p>
           <h2 style={{ marginBottom: 6 }}>Your notes, decoded nightly.</h2>

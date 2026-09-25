@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { MarketingShell } from "@/components/MarketingShell";
 
-export const metadata: Metadata = { title: "Privacy", description: "What dayMarkable keeps, for how long, and what it never does with your handwriting." };
+export const metadata: Metadata = { title: "Privacy", description: "What ScriptumIQ keeps, for how long, and what it never does with your handwriting." };
 
 export default function PrivacyPage() {
   return (
@@ -9,7 +9,7 @@ export default function PrivacyPage() {
       <section className="mk-wrap mk-section mk-prose">
         <div className="mk-kicker">Privacy</div>
         <h1 className="mk-h1 sm">We read your handwriting. We keep it for a day.</h1>
-        <p style={{ marginTop: 18 }}>dayMarkable exists to read your private notes, so the privacy rules are part of the product's design, enforced in code, and short enough to read in full.</p>
+        <p style={{ marginTop: 18 }}>ScriptumIQ exists to read your private notes, so the privacy rules are part of the product's design, enforced in code, and short enough to read in full.</p>
 
         <h2>What we collect</h2>
         <ul>

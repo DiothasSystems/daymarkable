@@ -4,7 +4,7 @@
  *   pnpm news:cost                      # one topic
  *   pnpm news:cost "rates|AI|Arsenal"   # pipe-separated
  *
- * This exists because the brief is the only part of dayMarkable whose price is not tokens. Web
+ * This exists because the brief is the only part of ScriptumIQ whose price is not tokens. Web
  * search is billed per search, `WEB_SEARCH_USD_PER_SEARCH` is a figure copied from Anthropic's
  * published pricing rather than measured, and the search RESULTS come back as input tokens — which
  * is what actually dominates: a single-topic brief measured on 2026-09-18 read 163,471 cached input

@@ -1,4 +1,4 @@
-# dayMarkable — System Architecture
+# ScriptumIQ — System Architecture
 
 ## Design goals
 
@@ -12,7 +12,7 @@ A Next.js web app handles signup, tablet pairing, and settings. A timezone-aware
 wakes each user's pipeline at 00:01 local. A worker syncs the user's changed notebooks from the
 reMarkable cloud, renders changed pages to images, sends them to Claude (Batch API) for
 transcription + structured extraction, merges the results into a per-user task/event store in
-Postgres, composes planner PDFs typeset for e-ink, and uploads them back to a "dayMarkable" folder
+Postgres, composes planner PDFs typeset for e-ink, and uploads them back to a "ScriptumIQ" folder
 on the tablet — which auto-syncs to the device before the user wakes up.
 
 ## Component diagram
@@ -56,7 +56,7 @@ There is **no official public reMarkable developer API**. The ecosystem standard
 community cloud API, reverse-documented for years and used by dozens of tools:
 
 - **Pairing:** the user visits `my.remarkable.com` → *Pair browser/device* → gets a one-time
-  8-character code → enters it in dayMarkable's pairing wizard. dayMarkable exchanges it for a
+  8-character code → enters it in ScriptumIQ's pairing wizard. ScriptumIQ exchanges it for a
   long-lived **device token**, then refreshes short-lived **user tokens** per session. This is
   exactly how reMarkable's own integrations pair, so users find it familiar. Store device
   tokens encrypted (KMS/libsodium sealed box); they grant full account access.
@@ -137,7 +137,7 @@ a midnight service has zero latency pressure — results within an hour are fine
   confidence, source_convention), `events[]` (title, date/time, confidence),
   `meeting_requests[]` (topic, proposed date/time, duration, attendee names, confidence),
   `notes[]` with meeting/topic grouping, `checkbox_updates[]`
-  (for dayMarkable's own planner pages — which boxes got ticked, what was written in margins).
+  (for ScriptumIQ's own planner pages — which boxes got ticked, what was written in margins).
 - **Confidence handling:** items below threshold go to the planner's "Inbox — confirm these"
   section instead of the action list. The user confirms by ticking them — on paper. The loop
   closes itself.
@@ -160,7 +160,7 @@ That keeps behavior testable and token costs flat.
 Generate PDFs typeset for the device (1872×1404 aspect ratio, high-contrast monochrome,
 generous margins, real checkboxes sized for a pen tick, a margin column for notes — every page
 is also an *input form*). Use `typst` (fast, programmable, beautiful) or `pdf-lib` if staying
-pure-TS. The nightly document set, uploaded to the `/dayMarkable/` folder:
+pure-TS. The nightly document set, uploaded to the `/ScriptumIQ/` folder:
 
 - **Planner** — Daily Sheet, Week Grid, Month Grid, **Quarter and Year views**, Inbox. The
   calendar pages stand alone (a complete day/week/month/quarter/year template independent of
@@ -171,7 +171,7 @@ pure-TS. The nightly document set, uploaded to the `/dayMarkable/` folder:
 - **Meeting Notes** — one section per decoded meeting (topic, date/time, attendees, decisions,
   actions), appended chronologically; the same content each meeting's email carries (§8).
 
-Replace yesterday's planner (keep 7 days of dated archives in `/dayMarkable/Archive/`). The
+Replace yesterday's planner (keep 7 days of dated archives in `/ScriptumIQ/Archive/`). The
 tablet pulls everything on its next cloud sync — before the user wakes.
 
 ## 7. Calendar integration — Outlook and Google
@@ -185,7 +185,7 @@ directions run through it:
   on the Daily/Week/Month/Quarter pages, visually distinct from handwritten commitments
   (external events in regular weight, ink-derived ones bold with a dot). Free users without a
   connected calendar simply get the standalone templates.
-- **Write (invites):** a decoded `meeting_request` becomes a **draft invite**: dayMarkable
+- **Write (invites):** a decoded `meeting_request` becomes a **draft invite**: ScriptumIQ
   resolves attendee names against the user's contacts/directory where the API allows,
   proposes the time from the ink, and creates the event in the user's selected calendar
   system. Fallback when no calendar is connected: an `.ics` file emailed to the user to
@@ -200,7 +200,7 @@ directions run through it:
 ## 8. Email delivery
 
 A transactional email service (SES or Resend; SPF/DKIM/DMARC from day one) sends to the
-user's registered account address only — dayMarkable never emails third parties except as an
+user's registered account address only — ScriptumIQ never emails third parties except as an
 explicit, confirmed invite through §7. Nightly sends: **one email per decoded meeting** with
 subject `"<Meeting topic> — <date> <time>"` and the meeting notes as body (clean HTML +
 plain-text part), plus optional run-summary and invite-confirmation emails (both

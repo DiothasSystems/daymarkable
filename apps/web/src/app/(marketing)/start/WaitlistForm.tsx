@@ -33,7 +33,7 @@ export function WaitlistForm() {
       return (
         <div className="notice">
           <p style={{ margin: "0 0 8px" }}>
-            <strong>{email}</strong> already has a dayMarkable account.
+            <strong>{email}</strong> already has a ScriptumIQ account.
           </p>
           <p style={{ margin: 0 }}>
             Nothing was added and no email is coming. <Link href="/login">Sign in</Link> to carry on where you left off.

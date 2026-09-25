@@ -340,7 +340,7 @@ export async function checkBalanceWarning(log: (m: string) => void = () => {}): 
   ];
   const res = await rt.mail.send({
     to: settings.warnEmail,
-    subject: `dayMarkable — ${decision.reason}`,
+    subject: `ScriptumIQ — ${decision.reason}`,
     text: lines.join("\n"),
     html: `<p>${lines.slice(0, 1).join("")}</p><pre style="font:13px ui-monospace,monospace">${lines.slice(2).join("\n")}</pre>`,
     // One warning per day per threshold: the key carries the date so a retry cannot double-send.

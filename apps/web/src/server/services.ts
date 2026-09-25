@@ -123,7 +123,7 @@ export async function listTabletFolders(userId: string) {
   // them into a single row rather than offering the same path twice.
   const byPath = new Map<string, { path: string; label: string; notebooks: number }>();
   for (const f of tree.folders) {
-    if (f.path.startsWith("/dayMarkable")) continue;
+    if (f.path.startsWith("/ScriptumIQ")) continue;
     // counts is keyed by path and already covers every folder sharing it, so set once.
     if (!byPath.has(f.path)) byPath.set(f.path, { path: f.path, label: f.path, notebooks: counts.get(f.path) ?? 0 });
   }
@@ -621,7 +621,7 @@ export async function correctItem(userId: string, itemType: "task" | "event" | "
   await repo.recordCorrection(rt.db, { userId, itemType, itemId, originalText: original, correctedText: text, learnedTerms: learned });
   const added = await repo.addLexiconTerms(rt.db, userId, learned);
   // A corrected item is no longer a guess: the user has read it and said what it says. An Inbox
-  // item only sits there because dayMarkable was unsure, so fixing it is a confirmation — it
+  // item only sits there because ScriptumIQ was unsure, so fixing it is a confirmation — it
   // moves out of "confirm these" and onto the real list (rule 3 applies to the machine's
   // uncertainty, not the user's).
   let promoted = false;
@@ -691,7 +691,7 @@ export async function setDeliveryEmail(userId: string, email: string | null) {
   const reachable = /^https?:\/\//.test(base) && !/localhost|127\.0\.0\.1|0\.0\.0\.0/.test(base);
   const link = `${base}/settings/verify-delivery?token=${token}`;
   if (!reachable && rt.mail.name !== "memory") {
-    throw new Error(`APP_URL is "${base || "unset"}", so the confirmation link would not work. Set APP_URL (and SERVICE_URL if the app has its own host) to the address you browse, e.g. https://app.daymarkable.com, and recreate the container.`);
+    throw new Error(`APP_URL is "${base || "unset"}", so the confirmation link would not work. Set APP_URL (and SERVICE_URL if the app has its own host) to the address you browse, e.g. https://app.scriptumiq.com, and recreate the container.`);
   }
   const mail = buildDeliveryVerificationMail(address, userId, link);
   const res = await rt.mail.send(mail);

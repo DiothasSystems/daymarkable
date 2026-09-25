@@ -13,16 +13,19 @@ export function CompassRose({ size = 28, color = "#c9973f", stroke = 5, classNam
   );
 }
 
-/** "day" in gold, "Markable" in Midnight (Parchment on dark). Never another typeface. */
+/**
+ * "Scriptum" in Midnight (Parchment on dark), "IQ" in gold — the split the lockup uses, with the gold
+ * on the second half. Never another typeface.
+ */
 export function Wordmark({ size = 20 }: { size?: number }) {
   return (
     <span className="wordmark" style={{ fontSize: size }}>
-      <span className="day">day</span>Markable
+      Scriptum<span className="iq">IQ</span>
     </span>
   );
 }
 
 export function Emblem({ size = 96, className }: { size?: number; className?: string }) {
   const src = size <= 96 ? "/brand/emblem-96.png" : size <= 256 ? "/brand/emblem-256.png" : "/brand/emblem-512.png";
-  return <img src={src} width={size} height={size} alt="dayMarkable emblem" className={className} style={{ width: size, height: size }} />;
+  return <img src={src} width={size} height={size} alt="ScriptumIQ emblem" className={className} style={{ width: size, height: size }} />;
 }

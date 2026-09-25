@@ -8,8 +8,8 @@ const mono = IBM_Plex_Mono({ weight: ["400", "500"], subsets: ["latin"], variabl
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.APP_URL || "http://localhost:3000"),
-  title: { default: "dayMarkable", template: "%s · dayMarkable" },
-  description: "Note to Action Organizer. Today's notes, tomorrow's actions.",
+  title: { default: "ScriptumIQ", template: "%s · ScriptumIQ" },
+  description: "Your thoughts. Your next move. Today's notes, tomorrow's actions.",
   icons: { icon: "/icon.svg" },
 };
 

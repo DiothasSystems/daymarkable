@@ -27,7 +27,7 @@ import {
 import type { Db, RunStats, Sealer } from "@daymarkable/db";
 import { totalUsage, type DecodePageInput, type Decoder } from "@daymarkable/decode";
 import { buildDeliveryMail, buildMeetingMail, type MailProvider } from "@daymarkable/mail";
-import { TabletProviderError, parseCloudDate, type DownloadedDocument, type TabletDocument, type TabletFolder, type TabletProvider } from "@daymarkable/tablet";
+import { TabletProviderError, parseCloudDate, type DownloadedDocument, type TabletDocument, type TabletFolder, type TabletProvider, type TabletTree } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
 import type { CacheStore } from "./cache.js";
 import type { Renderer } from "./renderer.js";
@@ -74,17 +74,40 @@ export interface RunOutcome {
   error: string | null;
 }
 
-const OUTPUT_FOLDER = "/dayMarkable";
+/** Where everything is published unless the customer asked for the tablet root. */
+const OUTPUT_FOLDER = "/ScriptumIQ";
 export const ROOT_OUTPUT_FOLDER = "/";
 /** The notebook the calibration sheet is uploaded as; its written page trains the decoder. */
 export const CALIBRATION_NOTEBOOK = "Handwriting Sample";
 /** Below this share of the passage read back, the sheet is assumed not written yet. */
 export const CALIBRATION_MIN_ACCURACY = 0.25;
-const ARCHIVE_FOLDER = "/dayMarkable/Archive";
+const ARCHIVE_FOLDER = `${OUTPUT_FOLDER}/Archive`;
 /** Yesterday's puzzles, kept so an unfinished one can be gone back to. */
 export const PUZZLE_FOLDER = `${OUTPUT_FOLDER}/Puzzles`;
 /** Yesterday's briefs, kept so a headline can be looked up again. */
-export const HEADLINES_FOLDER = `${OUTPUT_FOLDER}/dayLy Headlines`;
+export const HEADLINES_FOLDER = `${OUTPUT_FOLDER}/Daily Headlines`;
+
+/**
+ * Folders we used to publish into, under the name the product had then.
+ *
+ * A tablet that has been running since before the rename keeps everything under /dayMarkable —
+ * tonight's Planner with today's ticks on it, a week of archived planners, every filed puzzle.
+ * `migrateBrandFolders` renames that folder in place on the first run afterwards and everything inside
+ * moves with it. This list is the fail-safe for when that cannot happen (the new folder already
+ * exists, or the rename call failed): anything under a legacy folder is FINISHED — never decoded,
+ * never cleaned up. The failure it prevents is the one that matters. If the old folder simply stopped
+ * being ours, `selectDocuments` would hand a week of our own printed planners to the decoder as though
+ * they were the customer's handwriting, and every printed task would come back as a new one on a list
+ * that is append-only (rule 8).
+ */
+export const LEGACY_OUTPUT_FOLDERS = ["/dayMarkable"] as const;
+
+/**
+ * Subfolders renamed in the same change, as [old, new] inside the output folder. Their old paths are
+ * kept too: if the rename fails, an archived brief under the old name is still somewhere the cleaner
+ * must not reach — it deletes anything of ours sitting outside the output folder.
+ */
+export const LEGACY_SUBFOLDERS: ReadonlyArray<readonly [string, string]> = [["dayLy Headlines", "Daily Headlines"]];
 
 /**
  * Folders that hold what we have already published. Everything in them is ours, but it is FINISHED:
@@ -92,20 +115,25 @@ export const HEADLINES_FOLDER = `${OUTPUT_FOLDER}/dayLy Headlines`;
  * those functions would otherwise do real damage here — the cleaner deletes anything of ours sitting
  * outside the output folder, which is every archived puzzle.
  */
-const KEEP_FOLDERS = [ARCHIVE_FOLDER, PUZZLE_FOLDER, HEADLINES_FOLDER] as const;
+const KEEP_FOLDERS = [
+  ARCHIVE_FOLDER,
+  PUZZLE_FOLDER,
+  HEADLINES_FOLDER,
+  ...LEGACY_OUTPUT_FOLDERS,
+  ...LEGACY_SUBFOLDERS.map(([old]) => `${OUTPUT_FOLDER}/${old}`),
+] as const;
 
 export function inKeepFolder(path: string): boolean {
   return KEEP_FOLDERS.some((f) => path.startsWith(`${f}/`));
 }
 
-/**
- * Everything dayMarkable writes to the tablet, by name.
- *
- * The two daily notebooks are set the way the brand sets its own name: lowercase "day", then a
- * capital. `dayMarkable`, `dayLy Update`, `dayLy Puzzle` — the pattern is the point, so the tablet's
- * file list reads as one product rather than as five unrelated notebooks.
- */
-export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", "dayLy Update", "dayLy Puzzle"] as const;
+/** The brief's notebook. Its archive folder takes the same word: "Daily Headlines". */
+export const DAILY_UPDATE_NAME = "Daily Update";
+/** The puzzle's notebook. */
+export const DAILY_PUZZLE_NAME = "Daily Puzzle";
+
+/** Everything ScriptumIQ writes to the tablet, by name. */
+export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", DAILY_UPDATE_NAME, DAILY_PUZZLE_NAME] as const;
 
 /**
  * The two notebooks that are output and nothing else.
@@ -119,14 +147,88 @@ export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", "dayLy Update", 
  * user notebook the moment it stops matching — it would be decoded straight back into itself, which
  * is the trap `LEGACY_OUTPUT_NAMES` exists for.
  */
-export const NEVER_READ_BACK = ["dayLy Puzzle", "dayLy Update", "Daily Puzzle", "Daily Update"] as const;
+export const NEVER_READ_BACK = [DAILY_PUZZLE_NAME, DAILY_UPDATE_NAME, "dayLy Puzzle", "dayLy Update"] as const;
 
 /**
- * Names we used to write. Still recognised as ours — otherwise a renamed notebook left on the
- * tablet would be treated as the user's own and decoded back into itself — and deleted on the
- * next run wherever it is found.
+ * Names we used to write, and what each one became. Still recognised as ours — otherwise a renamed
+ * notebook left on the tablet would be treated as the user's own and decoded back into itself — and
+ * deleted on the next run wherever it is found.
+ *
+ * The daily notebooks have been called three things: "Daily Update", then "dayLy Update" to rhyme with
+ * dayMarkable, then "Daily Update" again when the product became ScriptumIQ. So the name that is
+ * current must NEVER be on this list, and a test holds it to that — `cleanStaleOutputs` deletes a
+ * legacy name wherever it finds one, which would put tonight's brief in the bin the moment it landed.
  */
-export const LEGACY_OUTPUT_NAMES = ["Meeting Notes", "Daily Update", "Daily Puzzle"] as const;
+export const LEGACY_OUTPUT_NAMES = ["Meeting Notes", "dayLy Update", "dayLy Puzzle"] as const;
+
+/** For the filing step: a daily notebook left under a name we used to write, found and filed anyway. */
+const LEGACY_NAMES_OF: Readonly<Record<string, readonly string[]>> = {
+  [DAILY_UPDATE_NAME]: ["dayLy Update"],
+  [DAILY_PUZZLE_NAME]: ["dayLy Puzzle"],
+};
+
+/**
+ * Carry a tablet across the rename from dayMarkable to ScriptumIQ, once.
+ *
+ * Renames /dayMarkable to /ScriptumIQ, then "dayLy Headlines" to "Daily Headlines" inside it. A rename
+ * rather than a copy because a child names its parent by id: one metadata write moves tonight's Planner
+ * — with today's ticks on it, which this run is about to read — and every archive with it, and change
+ * detection is untouched because no document's own hash moves.
+ *
+ * Idempotent by construction (rule 4): once renamed, the old name is not found and nothing runs. When
+ * both names exist — someone made the new folder by hand, or an earlier attempt half-landed — nothing
+ * is merged: the old folder is left where it is and `LEGACY_OUTPUT_FOLDERS` keeps it inert. Deciding
+ * which of two Planners is the live one is not a decision to take unattended at midnight.
+ *
+ * Returns true when anything was renamed, so the caller lists the tree again. Every path below a
+ * renamed folder has changed, and choosing what to read from stale paths is the exact failure this
+ * exists to prevent.
+ */
+export async function migrateBrandFolders(tablet: TabletProvider, tree: TabletTree, log: (m: string) => void): Promise<boolean> {
+  let changed = false;
+  let output = tree.folders.find((f) => f.path === OUTPUT_FOLDER) ?? null;
+  const outputName = OUTPUT_FOLDER.slice(1);
+
+  for (const legacyPath of LEGACY_OUTPUT_FOLDERS) {
+    const legacy = tree.folders.find((f) => f.path === legacyPath);
+    if (!legacy) continue;
+    if (output) {
+      log(`brand: ${legacyPath} and ${OUTPUT_FOLDER} both exist; leaving ${legacyPath} as it is, and unread`);
+      continue;
+    }
+    try {
+      await tablet.renameFolder(legacy, outputName);
+      // Same id, so the subfolders below still find it as their parent.
+      output = { ...legacy, name: outputName, path: OUTPUT_FOLDER };
+      changed = true;
+      log(`brand: renamed ${legacyPath} to ${OUTPUT_FOLDER}`);
+    } catch (err) {
+      log(`brand: could not rename ${legacyPath} (${(err as Error).message}); it stays unread until the next run tries again`);
+    }
+  }
+
+  if (output) {
+    const parentId = output.id;
+    for (const [from, to] of LEGACY_SUBFOLDERS) {
+      // By parent id, not by path: if the folder above was renamed a moment ago, every path in this
+      // tree is still the old one.
+      const sub = tree.folders.find((f) => f.parentId === parentId && f.name === from);
+      if (!sub) continue;
+      if (tree.folders.some((f) => f.parentId === parentId && f.name === to)) {
+        log(`brand: "${from}" and "${to}" both exist; leaving "${from}" as it is`);
+        continue;
+      }
+      try {
+        await tablet.renameFolder(sub, to);
+        changed = true;
+        log(`brand: renamed "${from}" to "${to}"`);
+      } catch (err) {
+        log(`brand: could not rename "${from}" (${(err as Error).message})`);
+      }
+    }
+  }
+  return changed;
+}
 
 /** Where this user's notebooks are published: a folder, or the tablet root. */
 export function outputFolderFor(settings: { outputToRoot?: boolean }): string {
@@ -505,7 +607,12 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
 
   try {
     // ---- 1. sync + change detection --------------------------------------------------
-    const tree = await deps.tablet.listTree();
+    let tree = await deps.tablet.listTree();
+    // Before anything is chosen for reading: every path under a renamed folder changes, and a choice
+    // made from stale paths is how our own planners would be read back as the customer's writing.
+    // Only when uploading, because a dry run must not write to the tablet — and it need not: until
+    // the rename happens the old folder is inert (LEGACY_OUTPUT_FOLDERS).
+    if (params.upload !== false && (await migrateBrandFolders(deps.tablet, tree, log))) tree = await deps.tablet.listTree();
     const candidates = selectDocuments(tree.documents, settings);
     stats.docsSeen = candidates.length;
     const snapshots = await repo.loadDocSnapshots(db, user.id);
@@ -695,7 +802,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // a missing brief is a missing brief, not a lost planner.
     if (settings.dailyUpdate.enabled) {
       const brief = await buildDailyUpdate(deps, user, localDate, generatedAt, runLabel, run.id, stats, log);
-      if (brief) outputs.push({ kind: "daily_update" as const, name: "dayLy Update", composed: brief });
+      if (brief) outputs.push({ kind: "daily_update" as const, name: DAILY_UPDATE_NAME, composed: brief });
     }
     if (settings.dailyPuzzle.enabled) {
       const choice = puzzleFor(localDate);
@@ -717,7 +824,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         puzzle = kind === "sudoku" ? sudokuInput(seed) : wordSearchInput(seed);
       }
       const composed = await composeDailyPuzzle({ puzzle, date: localDate, generatedAt, runLabel, insteadOf });
-      outputs.push({ kind: "daily_puzzle" as const, name: "dayLy Puzzle", composed });
+      outputs.push({ kind: "daily_puzzle" as const, name: DAILY_PUZZLE_NAME, composed });
       log(`puzzle: ${kind}${insteadOf ? ` (standing in for ${insteadOf})` : ""}, ${composed.pageCount} pages`);
     }
     const printed: PrintedItem[] = [];
@@ -737,13 +844,19 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       if (weekStart) await archiveFinishedWeeks(deps, merged.state, tree.documents, archive, weekStart, localDate, generatedAt, log);
       // The daily extras keep their own folders. Only reached for when the feature is on, so an
       // account that has switched the puzzle off never grows an empty Puzzles folder.
+      const filed = new Set<string>();
       if (outputs.some((o) => o.kind === "daily_puzzle")) {
-        await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(PUZZLE_FOLDER), "dayLy Puzzle", localDate, log);
+        const id = await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(PUZZLE_FOLDER), DAILY_PUZZLE_NAME, localDate, log);
+        if (id) filed.add(id);
       }
       if (outputs.some((o) => o.kind === "daily_update")) {
-        await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(HEADLINES_FOLDER), "dayLy Update", localDate, log);
+        const id = await archiveDaily(deps, tree.documents, folder, await deps.tablet.ensureFolder(HEADLINES_FOLDER), DAILY_UPDATE_NAME, localDate, log);
+        if (id) filed.add(id);
       }
-      await cleanStaleOutputs(deps.tablet, tree.documents, folder.id, log);
+      // `tree` was listed before the filing above, so a notebook that has just been filed still reads
+      // as sitting in the output folder. Under a legacy name — the first night after a rename — the
+      // cleaner would take it for a stray and delete it, which by id is the copy just archived.
+      await cleanStaleOutputs(deps.tablet, tree.documents.filter((d) => !filed.has(d.id)), folder.id, log);
       for (const o of outputs) {
         const res = await deps.tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true });
         tabletIds.set(o.kind, res.id);
@@ -920,6 +1033,13 @@ async function archiveFinishedWeeks(
  *
  * Dated from the document's own last-modified time rather than tonight's date, so a night that did
  * not run does not misfile the copy it finds.
+ *
+ * Yesterday's copy may still carry a name we used to write — the first night after a rename it always
+ * does. It is filed under the CURRENT name, because otherwise the cleaner would delete it as a stray
+ * and the last puzzle before the rename would be the one puzzle that never reached the archive.
+ *
+ * Returns the id of the document it filed, or null. The caller needs it: the tree it holds was
+ * listed before this moved anything.
  */
 async function archiveDaily(
   deps: PipelineDeps,
@@ -929,23 +1049,27 @@ async function archiveDaily(
   name: string,
   localDate: string,
   log: (m: string) => void,
-): Promise<void> {
-  const current = docs.find((d) => d.parentId === folder.id && d.name === name);
-  if (!current) return;
+): Promise<string | null> {
+  const names = [name, ...(LEGACY_NAMES_OF[name] ?? [])];
+  // The current name first, so a tablet somehow carrying both files the live one.
+  const current = names.map((n) => docs.find((d) => d.parentId === folder.id && d.name === n)).find((d) => d !== undefined);
+  if (!current) return null;
   const stamp = current.lastModified ? DateTime.fromJSDate(current.lastModified).toISODate() : localDate;
   const dated = `${name} ${stamp}`;
   if (docs.some((d) => d.parentId === destination.id && d.name === dated)) {
     // Already filed under this date — a re-run of the same night. Leave the copy that is there and
     // let today's upload replace the live one (rule 4: a re-run must not produce duplicates).
-    return;
+    return null;
   }
   try {
     const renamed = await deps.tablet.renameDocument(current, dated);
     await deps.tablet.moveDocument({ ...current, hash: renamed.hash, name: dated }, destination);
     log(`filed "${dated}" into ${destination.name}`);
+    return current.id;
   } catch (err) {
     // Never fail the night over filing: today's notebook still reaches the tablet.
     log(`could not file "${dated}": ${(err as Error).message}`);
+    return null;
   }
 }
 

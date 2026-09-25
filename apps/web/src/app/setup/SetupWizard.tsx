@@ -43,10 +43,10 @@ export function SetupWizard({ account, calibration }: { account: Account; calibr
         <div className="stack">
           {/* Named here as they are named on the tablet, so the switch and the notebook it produces
               are recognisably the same thing. */}
-          <h3>dayLy Update</h3>
+          <h3>Daily Update</h3>
           <DailyUpdateSettings initial={account.settings.dailyUpdate} />
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "8px 0" }} />
-          <h3>dayLy Puzzle</h3>
+          <h3>Daily Puzzle</h3>
           <DailyPuzzleSettings initial={account.settings.dailyPuzzle} />
         </div>
       ) : null}

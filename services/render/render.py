@@ -1,11 +1,11 @@
-"""dayMarkable render core: reMarkable `.rm` (lines v6) -> PNG, plus the PDF fallback.
+"""ScriptumIQ render core: reMarkable `.rm` (lines v6) -> PNG, plus the PDF fallback.
 
 Pure functions, no web framework, so they can be unit-tested and reused by the CLI.
 
 Tall (scrolled) notebook pages are split into device-proportioned vertical segments so each
 segment keeps full resolution at the 1568px long edge instead of being squeezed into a strip.
 
-PDF-backed documents (including dayMarkable's own planner notebooks) are rendered as the PDF
+PDF-backed documents (including ScriptumIQ's own planner notebooks) are rendered as the PDF
 page rasterized underneath the ink, so the decoder sees printed checkboxes AND the ticks.
 """
 from __future__ import annotations

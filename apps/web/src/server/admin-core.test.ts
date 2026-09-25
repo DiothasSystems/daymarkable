@@ -173,6 +173,6 @@ describe("describeOptions", () => {
 
   it("says where the notebooks land, both ways round", () => {
     expect(find(describeOptions({ outputToRoot: true }), "Notebooks land in").value).toBe("Tablet root");
-    expect(find(describeOptions({ outputToRoot: false }), "Notebooks land in").value).toBe("/dayMarkable");
+    expect(find(describeOptions({ outputToRoot: false }), "Notebooks land in").value).toBe("/ScriptumIQ");
   });
 });

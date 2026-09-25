@@ -1,12 +1,18 @@
 /**
- * dayMarkable brand constants for typeset output (CLAUDE.md "Brand", design/ handoff).
+ * ScriptumIQ brand constants for typeset output (CLAUDE.md "Brand", design/ handoff).
  * Tablet pages are e-ink grayscale only; the color tokens exist for the web and email.
  */
 import { rgb, type RGB } from "pdf-lib";
 
 export const BRAND = {
-  name: "dayMarkable",
-  tagline: "Note to Action Organizer",
+  name: "ScriptumIQ",
+  tagline: "Your thoughts. Your next move.",
+  /**
+   * How the name is split for colour, as the lockup sets it: "Scriptum" in Midnight, "IQ" in gold.
+   * The gold is on the SECOND half — the opposite of dayMarkable's gold "day" — which is why this is
+   * spelled out once here rather than left for each renderer to guess.
+   */
+  wordmark: { lead: "Scriptum", accent: "IQ" },
   colors: {
     midnight: "#1E2A44",
     gold: "#C9973F",

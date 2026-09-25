@@ -1,6 +1,11 @@
-# dayMarkable on a Hostinger VPS: app (web + scheduler) + Postgres + render container.
+# ScriptumIQ on a Hostinger VPS: app (web + scheduler) + Postgres + render container.
 # Every secret comes from the host environment (Hostinger's env config or a root .env that is
 # never committed). See docs/DEPLOY.md.
+#
+# The project keeps the product's old name, and so do the database's user and name below. The
+# volumes are named after the project (daymarkable_pgdata, daymarkable_dmstate): rename it and
+# Compose starts a new, EMPTY database beside the real one, and every account appears gone. Only
+# the operator ever sees these names.
 name: daymarkable
 
 services:
@@ -40,7 +45,7 @@ services:
         condition: service_started
     environment:
       NODE_ENV: production
-      APP_URL: ${APP_URL:?set APP_URL, e.g. https://daymarkable.com}
+      APP_URL: ${APP_URL:?set APP_URL, e.g. https://scriptumiq.com}
       SERVICE_URL: ${SERVICE_URL:-}
       DATABASE_URL: postgres://${POSTGRES_USER:-daymarkable}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-daymarkable}
       RENDER_SERVICE_URL: http://render:8787
@@ -55,6 +60,10 @@ services:
       DECODE_ESCALATION_MODEL: ${DECODE_ESCALATION_MODEL:-claude-opus-5}
       DECODE_MODEL_ROTATION: ${DECODE_MODEL_ROTATION:-}
       DECODE_CONFIDENCE_THRESHOLD: ${DECODE_CONFIDENCE_THRESHOLD:-0.7}
+      # The brief and the crossword's words, NOT the decoder (CLAUDE.md "Model usage"). The code
+      # already defaults to Haiku 4.5, so production was on the right model — but the knob was dead
+      # until it was named here, because this list is the whole of what reaches the container.
+      NEWS_MODEL: ${NEWS_MODEL:-}
       # A nightly batch that has not ended by then is cancelled and re-sent at standard price,
       # so a slow batch costs a few cents instead of the night's notebooks.
       DECODE_BATCH_TIMEOUT_MINUTES: ${DECODE_BATCH_TIMEOUT_MINUTES:-45}
@@ -64,7 +73,22 @@ services:
       RMAPI_ATTEMPTS: ${RMAPI_ATTEMPTS:-5}
       RMAPI_BACKOFF_MS: ${RMAPI_BACKOFF_MS:-3000}
       EMAIL_API_KEY: ${EMAIL_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-dayMarkable <notes@daymarkable.app>}
+      # The address stays on daymarkable.com until scriptumiq.com is verified with Resend: sign-in is
+      # by emailed link, so an unverified sender locks every account out (mail/provider.ts).
+      EMAIL_FROM: ${EMAIL_FROM:-ScriptumIQ <notes@daymarkable.com>}
+      # Inbound invites (rule 17). The HOST is the subdomain the forwarding address is built from.
+      #
+      # Two secrets, because there are two ways in and they authenticate differently.
+      # INBOUND_CALENDAR_SECRET is the shared header on /api/inbound/calendar, which takes a raw
+      # message and suits anything that can set its own headers — a Cloudflare Worker, an SES Lambda.
+      # Resend cannot use it: its webhooks carry a Svix signature and no configurable headers, and
+      # the payload is metadata rather than the message. So the Resend adapter verifies
+      # RESEND_WEBHOOK_SECRET instead, a whsec_ value Resend generates and shows ONCE.
+      # Either secret left empty refuses every message on its own route, which is the right default:
+      # both are open to the internet and an unset secret should mean shut, not open.
+      INBOUND_CALENDAR_HOST: ${INBOUND_CALENDAR_HOST:-}
+      INBOUND_CALENDAR_SECRET: ${INBOUND_CALENDAR_SECRET:-}
+      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET:-}
       USER_EMAIL: ${USER_EMAIL:?set USER_EMAIL (the registered login address)}
       USER_TIMEZONE: ${USER_TIMEZONE:-America/New_York}
       RMAPI_DEVICE_TOKEN: ${RMAPI_DEVICE_TOKEN:-}
@@ -86,7 +110,11 @@ services:
     depends_on:
       - app
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN, e.g. daymarkable.com (Caddy also serves app. and redirects www.)}
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN, e.g. scriptumiq.com (Caddy also serves app. and redirects www.)}
+      # The product's previous domain, redirected (and /api/* proxied) to APP_DOMAIN. Set by
+      # scripts/vps-upgrade.sh when it moves APP_DOMAIN. The .localhost default is deliberate —
+      # see the Caddyfile: it must never equal APP_DOMAIN, or Caddy will not start.
+      LEGACY_DOMAIN: ${LEGACY_DOMAIN:-legacy.localhost}
     ports:
       - "80:80"
       - "443:443"

@@ -4,9 +4,9 @@ import { HeroBuild } from "@/components/hero/HeroBuild";
 import { MarketingShell } from "@/components/MarketingShell";
 
 export const metadata: Metadata = {
-  title: { absolute: "dayMarkable — Your notes. Your next move." },
-  description: "Every night dayMarkable reads the notebooks on your reMarkable tablet and returns a plan by morning: meeting summaries, action items, and planner pages ready for your pen.",
-  openGraph: { title: "dayMarkable — Your notes. Your next move.", description: "You write by hand. We turn it into tomorrow.", images: ["/brand/full-lockup-1200.jpg"] },
+  title: { absolute: "ScriptumIQ — Your thoughts. Your next move." },
+  description: "Every night ScriptumIQ reads the notebooks on your reMarkable tablet and returns a plan by morning: meeting summaries, action items, and planner pages ready for your pen.",
+  openGraph: { title: "ScriptumIQ — Your thoughts. Your next move.", description: "You write by hand. We turn it into tomorrow.", images: ["/brand/full-lockup-1200.jpg"] },
 };
 
 const IconTick = () => (
@@ -36,7 +36,7 @@ export default function LandingPage() {
             </div>
             <div>
               <div className="mk-step-label">02 · WE READ · 00:01</div>
-              <p>Overnight, dayMarkable reads only the pages you changed, finds the decisions, commitments, and follow-ups, and links every one back to the page it came from.</p>
+              <p>Overnight, ScriptumIQ reads only the pages you changed, finds the decisions, commitments, and follow-ups, and links every one back to the page it came from.</p>
             </div>
             <div>
               <div className="mk-step-label">03 · YOU WAKE UP READY</div>
@@ -80,7 +80,7 @@ export default function LandingPage() {
         <div className="mk-wrap mk-section tight mk-two">
           <div>
             <h2>Built for people who never stopped writing.</h2>
-            <p>You think with a pen. You've tried the task apps and gone back to paper every time. dayMarkable doesn't ask you to change — it does the typing, filing, and reminding, and leaves the thinking in your hand.</p>
+            <p>You think with a pen. You've tried the task apps and gone back to paper every time. ScriptumIQ doesn't ask you to change — it does the typing, filing, and reminding, and leaves the thinking in your hand.</p>
           </div>
           <div className="mk-bullets">
             <div><span>→</span> Nothing to install on the tablet — pages arrive like any notebook</div>

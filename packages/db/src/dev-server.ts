@@ -13,6 +13,7 @@ import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 
+// The product's old name on purpose: the same folder as pipeline/config.ts, which says why.
 const stateDir =
   process.env.DAYMARKABLE_STATE_DIR ||
   (process.platform === "win32" ? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "dayMarkable") : path.join(os.homedir(), ".daymarkable"));

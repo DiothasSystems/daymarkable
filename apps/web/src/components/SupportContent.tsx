@@ -59,7 +59,7 @@ export function SupportContent({ appBase, supportEmail, signedIn }: SupportConte
           minutes.
         </li>
         <li>
-          <strong>Check the tablet has synced itself.</strong> dayMarkable writes to the reMarkable cloud, not to the
+          <strong>Check the tablet has synced itself.</strong> ScriptumIQ writes to the reMarkable cloud, not to the
           device. The tablet has to be awake, on Wi-Fi, and synced before anything appears on it. On the charger
           overnight is the whole routine.
         </li>
@@ -79,10 +79,10 @@ export function SupportContent({ appBase, supportEmail, signedIn }: SupportConte
         </li>
       </ol>
 
-      <h2 id="planner-pdf">Using dayMarkable with a planner PDF</h2>
+      <h2 id="planner-pdf">Using ScriptumIQ with a planner PDF</h2>
       <p>
         Plenty of people already write into a PDF planner kit — one they bought, a year of dated
-        pages, something they made themselves. dayMarkable reads those the same way it reads a
+        pages, something they made themselves. ScriptumIQ reads those the same way it reads a
         notebook. There is one switch to find and one thing worth knowing about the first night.
       </p>
       <ol>
@@ -120,7 +120,7 @@ export function SupportContent({ appBase, supportEmail, signedIn }: SupportConte
         then.
       </p>
       <p>
-        dayMarkable&apos;s own notebooks are PDFs too. They are always read however this setting
+        ScriptumIQ&apos;s own notebooks are PDFs too. They are always read however this setting
         stands, which is what makes ticking a box on a planner page close the loop.
       </p>
 
@@ -153,7 +153,7 @@ export function SupportContent({ appBase, supportEmail, signedIn }: SupportConte
 
       <h2 id="requests">How do I request a feature or a document format?</h2>
       <p>
-        Ask directly — the form below reaches us, and dayMarkable is early enough that what gets built is largely
+        Ask directly — the form below reaches us, and ScriptumIQ is early enough that what gets built is largely
         decided by what people ask for. Page layouts and new document formats are the most common request and among the
         easiest to act on, so be specific: what you want on the page, and what you are doing with it.
       </p>
@@ -213,7 +213,7 @@ export function SupportContent({ appBase, supportEmail, signedIn }: SupportConte
           </>
         ) : (
           <>
-            Reply to any email dayMarkable has sent you — a sign-in link, a meeting summary, a delivery confirmation —
+            Reply to any email ScriptumIQ has sent you — a sign-in link, a meeting summary, a delivery confirmation —
             and a person reads it. Say which night and which notebook.
           </>
         )}

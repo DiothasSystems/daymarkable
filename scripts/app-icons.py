@@ -192,10 +192,10 @@ def feature_graphic() -> Image.Image:
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
-    # iOS and the generic icon: opaque, no transparency. The emblem is drawn nearly full-bleed
-    # on Parchment, which is the ground the artwork was designed against; its own navy ring gives
-    # it the edge definition a pale icon would otherwise lack on a pale wallpaper.
-    over(PARCHMENT, 1024, emblem(1024, 0.96)).save(OUT / "icon.png")
+    # iOS and the generic icon: opaque, no transparency. The emblem nearly full-bleed on Midnight,
+    # which is how the ScriptumIQ app icon was drawn (design/brand_scriptumiq/app-icon-191.png): a
+    # dark tile, the gold points and band giving the edge. dayMarkable's sat on Parchment.
+    over(MIDNIGHT, 1024, emblem(1024, 0.96)).save(OUT / "icon.png")
 
     # Android adaptive icon: the launcher masks this to a circle, squircle or whatever the device
     # prefers, and animates it, so only the middle ~66% is safe. The emblem is already a circle,
@@ -215,7 +215,7 @@ def main() -> None:
     lockup(1024).save(OUT / "splash-lockup.png")
 
     # Play Store listing icon (512x512, opaque, no alpha) — the same mark at the size Play wants.
-    over(PARCHMENT, 512, emblem(512, 0.96)).convert("RGB").save(OUT / "play-store-icon.png")
+    over(MIDNIGHT, 512, emblem(512, 0.96)).convert("RGB").save(OUT / "play-store-icon.png")
 
     # The favicon stays the compass rose: at 16-48px in a browser tab the emblem's moon, pen and
     # four little glyphs genuinely do collapse, and this is the case the rose exists for.

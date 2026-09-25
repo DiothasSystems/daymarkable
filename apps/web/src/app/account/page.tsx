@@ -27,7 +27,7 @@ export default async function AccountPage() {
       <div className="grid two">
         <section className="card">
           <h2>Conversion quality</h2>
-          <p className="muted">How well did dayMarkable read your handwriting? {feedback.count ? <>Average <strong>{feedback.average!.toFixed(1)}</strong> over {feedback.count} rating{feedback.count === 1 ? "" : "s"}.</> : "No ratings yet."}</p>
+          <p className="muted">How well did ScriptumIQ read your handwriting? {feedback.count ? <>Average <strong>{feedback.average!.toFixed(1)}</strong> over {feedback.count} rating{feedback.count === 1 ? "" : "s"}.</> : "No ratings yet."}</p>
           {lastRun ? <p className="meta">Rating the latest run ({lastRun.label.toLowerCase()}, {fmtDateTime(lastRun.finishedAt, user.timezone)})</p> : <p className="meta">Rating overall (no run yet)</p>}
           <RateRun runId={lastRun?.id ?? null} initialRating={lastRun?.rating?.rating ?? null} initialComment={lastRun?.rating?.comment ?? null} />
         </section>
@@ -75,14 +75,18 @@ export default async function AccountPage() {
         </section>
         <section className="card">
           <h2>Forward a meeting</h2>
-          <CalendarInbox initial={account.calendarAddress} loginEmail={account.email} />
+          <CalendarInbox
+            initial={account.calendarAddress}
+            loginEmail={account.email}
+            deliveryEmail={account.settings.deliveryVerifiedAt ? account.settings.deliveryEmail : null}
+          />
         </section>
         <section className="card">
-          <h2>dayLy Update</h2>
+          <h2>Daily Update</h2>
           <DailyUpdateSettings initial={account.settings.dailyUpdate} />
         </section>
         <section className="card">
-          <h2>dayLy Puzzle</h2>
+          <h2>Daily Puzzle</h2>
           <DailyPuzzleSettings initial={account.settings.dailyPuzzle} />
         </section>
         <section className="card">
@@ -96,7 +100,7 @@ export default async function AccountPage() {
         </section>
         <section className="card">
           <h2>Privacy</h2>
-          <p className="muted">Your note pages and generated notebooks stay in dayMarkable's systems for at most 24 hours: each run keeps one day of files and deletes the previous day's as its last step. Extracted tasks, events, and meeting notes are kept encrypted so the planner can be updated without re-reading your notes.</p>
+          <p className="muted">Your note pages and generated notebooks stay in ScriptumIQ's systems for at most 24 hours: each run keeps one day of files and deletes the previous day's as its last step. Extracted tasks, events, and meeting notes are kept encrypted so the planner can be updated without re-reading your notes.</p>
           <p className="meta">Sync now: {account.quota.used} of {account.quota.limit} used in the rolling {account.quota.windowHours}h.</p>
         </section>
       </div>

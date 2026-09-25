@@ -66,7 +66,7 @@ export default async function SubscriptionPage() {
           ) : null}
           {cancel.alreadyEnding ? (
             <p className="meta">
-              This subscription is already ending. Nothing more will be charged, and dayMarkable keeps
+              This subscription is already ending. Nothing more will be charged, and ScriptumIQ keeps
               reading your tablet until the date above.
             </p>
           ) : null}

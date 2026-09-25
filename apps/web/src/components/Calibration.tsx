@@ -91,7 +91,7 @@ export function CalibrationPanel({ initial, onDone, compact = false }: { initial
     return (
       <div className="stack">
         <div className="notice">
-          <strong>The sheet is on your tablet.</strong> Sync the reMarkable, open <strong>{cal.active.notebookName}</strong> in the dayMarkable folder, and copy the printed lines onto the ruled lines beneath them in your normal hand. Sync again, then press Calibrate below.
+          <strong>The sheet is on your tablet.</strong> Sync the reMarkable, open <strong>{cal.active.notebookName}</strong> in the ScriptumIQ folder, and copy the printed lines onto the ruled lines beneath them in your normal hand. Sync again, then press Calibrate below.
         </div>
         <details>
           <summary className="kicker" style={{ cursor: "pointer" }}>The passage you were given</summary>
@@ -115,7 +115,7 @@ export function CalibrationPanel({ initial, onDone, compact = false }: { initial
     <div className="stack">
       {!compact ? (
         <p className="muted" style={{ fontSize: 14 }}>
-          dayMarkable reads your handwriting far better when it has seen a sample of it. Tell us what you do, and we write a short passage using the words, names and symbols from your own field. You copy it out once on the tablet, press Calibrate, and from then on every page is read against that sample.
+          ScriptumIQ reads your handwriting far better when it has seen a sample of it. Tell us what you do, and we write a short passage using the words, names and symbols from your own field. You copy it out once on the tablet, press Calibrate, and from then on every page is read against that sample.
         </p>
       ) : null}
       <div className="grid two">

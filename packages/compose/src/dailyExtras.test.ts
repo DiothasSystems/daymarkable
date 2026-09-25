@@ -86,7 +86,9 @@ describe("composeDailyPuzzle", () => {
       expect(out.pageCount, `weekday ${weekday} with ${cw.placed.length} answers`).toBe(3);
       expect((await PDFDocument.load(out.pdf)).getPageCount()).toBe(3);
     }
-  });
+    // Three grid searches and three full notebooks in one test: about two seconds alone, and past
+    // vitest's 5s default when the whole suite runs in parallel beside the in-process Postgres suites.
+  }, 30_000);
 
   /**
    * The pathological shape: every clue in one column, so nothing balances the lists. Fifty in a

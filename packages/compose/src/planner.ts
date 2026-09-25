@@ -71,7 +71,7 @@ function writeWeek(ctx: ComposeContext, w: WeekModel, today: string): void {
   const c = addPage(ctx.doc, ctx.fonts, ctx.doc.getPageCount() + 1);
   const page = pageCode("WEEK", ctx.date, 1);
   const codes: Codes = { ctx, page, counters: new Map() };
-  const top = c.header(`Week ${isoWeek(w.start)} · ${formatDayMonth(w.start)} – ${formatDayMonth(w.end)}`, `dayMarkable WEEK · UPDATED DAILY ${ctx.generatedAt.slice(11, 16)}`);
+  const top = c.header(`Week ${isoWeek(w.start)} · ${formatDayMonth(w.start)} – ${formatDayMonth(w.end)}`, `ScriptumIQ WEEK · UPDATED DAILY ${ctx.generatedAt.slice(11, 16)}`);
   c.footer(page);
   const f = c.fonts;
   const sideW = 354; // mock 118px ×3
@@ -206,7 +206,7 @@ function writeMonth(ctx: ComposeContext, m: MonthModel, tasks: StoredTask[], tod
   const page = pageCode("MONTH", ctx.date, 1);
   const codes: Codes = { ctx, page, counters: new Map() };
   const open = tasks.filter((t) => t.status === "open" || t.status === "carried");
-  const top = c.header(`${monthName(m.month)} ${m.year}`, `dayMarkable MONTH · ${open.length} OPEN ACTION${open.length === 1 ? "" : "S"}`);
+  const top = c.header(`${monthName(m.month)} ${m.year}`, `ScriptumIQ MONTH · ${open.length} OPEN ACTION${open.length === 1 ? "" : "S"}`);
   c.footer(page);
   const f = c.fonts;
   const sideW = 336; // mock 112px ×3
@@ -235,7 +235,7 @@ function writeMonth(ctx: ComposeContext, m: MonthModel, tasks: StoredTask[], tod
 function writeQuarter(ctx: ComposeContext, q: PlannerModel["quarter"], today: string): void {
   const c = addPage(ctx.doc, ctx.fonts, ctx.doc.getPageCount() + 1);
   const page = pageCode("QUARTER", ctx.date, 1);
-  const top = c.header(`Q${q.quarter} ${q.year}`, `dayMarkable QUARTER · ${q.months.reduce((n, m) => n + m.eventCount, 0)} ON THE CALENDAR`);
+  const top = c.header(`Q${q.quarter} ${q.year}`, `ScriptumIQ QUARTER · ${q.months.reduce((n, m) => n + m.eventCount, 0)} ON THE CALENDAR`);
   c.footer(page);
   const f = c.fonts;
   const gap = 36;
@@ -256,7 +256,7 @@ function writeQuarter(ctx: ComposeContext, q: PlannerModel["quarter"], today: st
 function writeYear(ctx: ComposeContext, yv: PlannerModel["year"], today: string): void {
   const c = addPage(ctx.doc, ctx.fonts, ctx.doc.getPageCount() + 1);
   const page = pageCode("YEAR", ctx.date, 1);
-  const top = c.header(String(yv.year), "dayMarkable YEAR · MILESTONES FROM YOUR NOTES");
+  const top = c.header(String(yv.year), "ScriptumIQ YEAR · MILESTONES FROM YOUR NOTES");
   c.footer(page);
   const f = c.fonts;
   const cur = Number(today.slice(5, 7));
@@ -352,7 +352,7 @@ export async function composePlanner(model: PlannerModel, tasks: StoredTask[] = 
   writeQuarter(ctx, model.quarter, d.date);
   writeYear(ctx, model.year, d.date);
   writeInbox(ctx, model.inbox);
-  doc.setTitle(`dayMarkable Planner ${d.date}`);
+  doc.setTitle(`ScriptumIQ Planner ${d.date}`);
   return { pdf: await doc.save(), pageCount: doc.getPageCount(), printed: ctx.printed };
 }
 

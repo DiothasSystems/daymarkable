@@ -17,7 +17,7 @@ export default async function AdminOverview() {
   return (
     <AdminShell session={session}>
       <p className="kicker">Operator overview</p>
-      <h1>dayMarkable at a glance</h1>
+      <h1>ScriptumIQ at a glance</h1>
       <div className="grid four" style={{ marginBottom: 24 }}>
         <div className="card">
           <p className="kicker">Customers</p>

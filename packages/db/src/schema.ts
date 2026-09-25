@@ -1,5 +1,5 @@
 /**
- * dayMarkable Postgres schema (Drizzle). Phase 0 is single-tenant but every row is keyed by
+ * ScriptumIQ Postgres schema (Drizzle). Phase 0 is single-tenant but every row is keyed by
  * user_id so Phase 2 needs no migration of shape.
  *
  * Privacy (CLAUDE.md rule 5): page images, downloads, transcriptions, and generated PDFs live
@@ -48,9 +48,9 @@ export interface UserSettings {
   /** Tablet folder paths to read; empty = all notebooks (ebooks/PDFs excluded by default). */
   watchFolders: string[];
   /**
-   * Where the generated notebooks land: false = a /dayMarkable folder (default), true = the
+   * Where the generated notebooks land: false = a /ScriptumIQ folder (default), true = the
    * tablet root, so they are the first thing on screen in the morning. Dated planner archives
-   * stay in /dayMarkable/Archive either way, to keep the root uncluttered.
+   * stay in /ScriptumIQ/Archive either way, to keep the root uncluttered.
    */
   outputToRoot: boolean;
   includePdfs: boolean;
@@ -125,7 +125,7 @@ export const users = pgTable("users", {
   timezone: text("timezone").notNull().default("America/New_York"),
   status: accountStatus("status").notNull().default("trial"),
   /**
-   * The token in this account's inbound calendar address — `<token>@cal.daymarkable.com`.
+   * The token in this account's inbound calendar address — `<token>@cal.scriptumiq.com`.
    *
    * Not a mailbox. One MX and one webhook serve every account; this is only the lookup key that says
    * which account a forwarded invite belongs to, so ten thousand customers need zero mailboxes

@@ -1,9 +1,12 @@
-# dayMarkable on Hostinger: step-by-step setup checklist
+# ScriptumIQ on Hostinger: step-by-step setup checklist
 
-This guide takes you from "I own daymarkable.com" to "the public site is at https://daymarkable.com,
-my account is at https://app.daymarkable.com, and dayMarkable reads my tablet every night." It assumes you can use a web
+This guide takes you from "I own scriptumiq.com" to "the public site is at https://scriptumiq.com,
+my account is at https://app.scriptumiq.com, and ScriptumIQ reads my tablet every night." It assumes you can use a web
 browser, copy and paste, and follow instructions carefully. You do not need to understand
 Docker, Linux, or DNS beyond what is explained here.
+
+This is for a NEW box. The one already running under daymarkable.com is moved to the new name
+in place — see docs/DEPLOY.md, section 8 — and does not need any of this.
 
 Plan for about **2 hours** the first time, in four sittings if you like. Each part ends with a
 check so you know it worked before moving on.
@@ -14,7 +17,7 @@ Tick the boxes as you go.
 
 ## Part A — What you need before you start (15 minutes)
 
-- [ ] **A1. Your Hostinger account** with `daymarkable.com` registered in it.
+- [ ] **A1. Your Hostinger account** with `scriptumiq.com` registered in it.
 - [ ] **A2. A credit card** for the Hostinger VPS (roughly $7–10 per month).
 - [ ] **A3. Your Anthropic API key.** Sign in at https://console.anthropic.com → *API Keys* →
       *Create Key*. Copy it somewhere safe. It starts with `sk-ant-`. This is the key that pays
@@ -26,9 +29,9 @@ Tick the boxes as you go.
       2. Name: `daymarkable-vps`. Expiration: 90 days is fine. Repository access: *Only select
          repositories* → `DiothasSystems/daymarkable`. Permissions: *Contents: Read-only*.
       3. Generate and copy the token (starts with `github_pat_`). You cannot see it again later.
-- [ ] **A5. A Resend account** for the emails dayMarkable sends (sign-in links and meeting
+- [ ] **A5. A Resend account** for the emails ScriptumIQ sends (sign-in links and meeting
       notes). Sign up free at https://resend.com (3,000 emails per month free).
-      1. *Domains* → *Add Domain* → `daymarkable.com`. Resend shows you 3 DNS records
+      1. *Domains* → *Add Domain* → `scriptumiq.com`. Resend shows you 3 DNS records
          (DKIM, SPF, DMARC). Leave that page open; you will add them in Part B.
       2. *API Keys* → *Create API Key* → name `daymarkable`, permission *Sending access*. Copy it
          (starts with `re_`).
@@ -64,7 +67,7 @@ Tick the boxes as you go.
 - [ ] **B4. Wait for the green "Running" status** on the VPS page (2–5 minutes). Write down
       the **IPv4 address** shown there (four numbers with dots, e.g. `185.201.10.42`). Store it
       as `VPS_IP`.
-- [ ] **B5. Add the DNS records.** hPanel → *Domains* → `daymarkable.com` → *DNS / Nameservers*
+- [ ] **B5. Add the DNS records.** hPanel → *Domains* → `scriptumiq.com` → *DNS / Nameservers*
       → *DNS records*. Add:
 
   | Type | Name | Points to / content | TTL |
@@ -73,20 +76,20 @@ Tick the boxes as you go.
   | A | `www` | your `VPS_IP` | 300 (or default) |
   | A | `app` | your `VPS_IP` | 300 (or default) |
 
-  `@` means the bare domain `daymarkable.com` (the public website, sign-in, and payments);
-  `app` is `app.daymarkable.com`, where you manage your service after signing in; `www` is
+  `@` means the bare domain `scriptumiq.com` (the public website, sign-in, and payments);
+  `app` is `app.scriptumiq.com`, where you manage your service after signing in; `www` is
   redirected to the bare domain automatically. If Hostinger already has an A record for `@`
   pointing at its parking page, edit that record rather than adding a second one.
 
   Then add the three records Resend showed you in A5 exactly as displayed (they are usually
   one TXT for SPF, one TXT or CNAME for DKIM, one TXT for DMARC). The "Name" Resend shows
-  often includes `.daymarkable.com`; in Hostinger you enter only the part before that.
+  often includes `.scriptumiq.com`; in Hostinger you enter only the part before that.
 - [ ] **B6. Check DNS.** After 5–10 minutes open https://dnschecker.org, enter
-      `daymarkable.com`, type A. You should see your `VPS_IP` in most locations. In Resend,
+      `scriptumiq.com`, type A. You should see your `VPS_IP` in most locations. In Resend,
       click *Verify DNS Records* on the domain page; wait until it says *Verified* (can take up
       to an hour, occasionally longer). You can continue with Part C meanwhile.
 
-**Check:** VPS shows Running; `daymarkable.com`, `www.daymarkable.com`, and `app.daymarkable.com` all resolve to the VPS IP.
+**Check:** VPS shows Running; `scriptumiq.com`, `www.scriptumiq.com`, and `app.scriptumiq.com` all resolve to the VPS IP.
 
 ---
 
@@ -132,7 +135,7 @@ do nothing.
   ls
   ```
   You should see `docker-compose.yml`, `Dockerfile`, `apps`, `packages`, `docs`.
-- [ ] **C5. Create the settings file.** dayMarkable reads all secrets from a file named
+- [ ] **C5. Create the settings file.** ScriptumIQ reads all secrets from a file named
       `.env` in this folder. Start from the template:
 
   ```bash
@@ -147,7 +150,7 @@ do nothing.
   Copy both lines exactly. The encryption key protects your tablet token and notes on disk.
   **If you ever lose it, the stored data cannot be read again**, so keep it in your password
   manager too.
-- [ ] **C7. Create the admin password hash.** dayMarkable never stores the admin password
+- [ ] **C7. Create the admin password hash.** ScriptumIQ never stores the admin password
       itself, only a scrambled version. Choose a password (12+ characters), then run this on
       the server, replacing the text between the quotes but keeping the quotes. This can only
       be run once the app container exists, so if you are working straight down this list,
@@ -171,14 +174,14 @@ do nothing.
   paste yours). Leave lines you do not recognise alone.
 
   ```
-  APP_URL=https://daymarkable.com
-  SERVICE_URL=https://app.daymarkable.com
-  APP_DOMAIN=daymarkable.com
+  APP_URL=https://scriptumiq.com
+  SERVICE_URL=https://app.scriptumiq.com
+  APP_DOMAIN=scriptumiq.com
   ANTHROPIC_API_KEY=sk-ant-...            (A3)
   DATA_ENCRYPTION_KEY=...                 (C6)
   POSTGRES_PASSWORD=...                   (C6)
   EMAIL_API_KEY=re_...                    (A5)
-  EMAIL_FROM=dayMarkable <notes@daymarkable.com>
+  EMAIL_FROM=ScriptumIQ <notes@scriptumiq.com>   (the domain you verify in Resend, B6)
   USER_EMAIL=your.address@example.com     (the email you will sign in with; meeting notes go here)
   USER_TIMEZONE=America/New_York
   ADMIN_LOGIN_ID=jim                      (your choice)
@@ -214,7 +217,7 @@ do nothing.
 
 ---
 
-## Part D — Build and start dayMarkable (20 minutes, mostly waiting)
+## Part D — Build and start ScriptumIQ (20 minutes, mostly waiting)
 
 - [ ] **D1. Build.** This downloads everything and compiles the app. It takes 5–10 minutes the
       first time and prints a lot; that is normal.
@@ -239,7 +242,7 @@ do nothing.
   `3AM scheduler running inside the web server`, and finally a line with `Ready` and port
   3000. Press `Ctrl+C` to stop watching (the app keeps running).
 - [ ] **D4. Turn on HTTPS.** This starts the small web server that gets a free certificate for
-      `daymarkable.com`, `www`, and `app` automatically. DNS from B6 must be working first.
+      `scriptumiq.com`, `www`, and `app` automatically. DNS from B6 must be working first.
 
   ```bash
   docker compose --profile edge up -d caddy
@@ -248,11 +251,11 @@ do nothing.
   Look for `certificate obtained successfully`. If you see repeated errors mentioning
   `challenge`, DNS is not pointing at the server yet; wait 15 minutes and rerun the second
   line.
-- [ ] **D5. Open the site.** In your browser go to **https://daymarkable.com**. You should
-      see the dayMarkable public website (the animated hero builds itself over ten seconds)
+- [ ] **D5. Open the site.** In your browser go to **https://scriptumiq.com**. You should
+      see the ScriptumIQ public website (the animated hero builds itself over ten seconds)
       with a padlock in the address bar. **Sign in** is at the top right, or go straight to
-      https://daymarkable.com/login. After you sign in you are moved to
-      **https://app.daymarkable.com**, where your account lives.
+      https://scriptumiq.com/login. After you sign in you are moved to
+      **https://app.scriptumiq.com**, where your account lives.
 
 **Check:** the website loads over https. If the browser says "connection refused", run
 `docker compose ps` — every service should say `running` or `healthy`.
@@ -280,10 +283,10 @@ do nothing.
 - [ ] **E4. Timezone.** Confirm your timezone (runs happen at 03:00 in it). *Save*, *Next*.
 - [ ] **E5. Ink conventions.** Leave the defaults (asterisk = action, underline = follow-up,
       "TODO" = action) unless you already mark your notes differently. *Save*, *Next*.
-- [ ] **E5b. Handwriting sample.** Enter your role and industry; dayMarkable writes a short
+- [ ] **E5b. Handwriting sample.** Enter your role and industry; ScriptumIQ writes a short
       passage using words, names and symbols from your own field and sends it to the tablet as
       **Handwriting Sample**.
-      1. Sync the reMarkable and open that notebook in the dayMarkable folder.
+      1. Sync the reMarkable and open that notebook in the ScriptumIQ folder.
       2. Copy the printed lines onto the numbered ruled lines beneath them, in your normal
          hand (not your best hand — the point is how you actually write).
       3. Sync the tablet again, then press **"I have written it — calibrate"** in the web UI.
@@ -300,7 +303,7 @@ do nothing.
       Cost note: decoding runs about three to five cents a page, so a busy week might cost a
       dollar or two once. The exact figure appears on the *Runs* page.
 - [ ] **E8. Look at the tablet.** Sync the reMarkable (it syncs on its own when connected to
-      Wi-Fi, or tap the sync icon). A folder **dayMarkable** now contains *Planner*, *Action
+      Wi-Fi, or tap the sync icon). A folder **ScriptumIQ** now contains *Planner*, *Action
       List*, and *Meeting Notes*. Tick a box on the planner: it will be read tonight.
 
 **Check:** *Documents* in the website shows three notebooks; the tablet shows the folder.
@@ -309,7 +312,7 @@ do nothing.
 
 ## Part F — The admin portal (5 minutes)
 
-- [ ] **F1.** Go to **https://app.daymarkable.com/admin**. Sign in with `ADMIN_LOGIN_ID` and the
+- [ ] **F1.** Go to **https://app.scriptumiq.com/admin**. Sign in with `ADMIN_LOGIN_ID` and the
       admin password you chose in C7 (not the hash).
 - [ ] **F2.** You should see *Overview* with 1 customer. *Users* shows your account with daily
       usage and token cost; *Feedback* shows ratings you give on the *Runs* page; *Audit log*
@@ -320,7 +323,7 @@ do nothing.
 
 ## Part G — After the first night
 
-- [ ] **G1. Next morning**, open https://app.daymarkable.com/today. *Runs* should show an
+- [ ] **G1. Next morning**, open https://app.scriptumiq.com/today. *Runs* should show an
       **Automatic** run at about 03:00 with the number of pages read and the cost. The tablet
       folder has fresh notebooks and your inbox has one email per meeting decoded.
 - [ ] **G2. Rate the run** (stars on the *Runs* page). Your ratings feed the admin *Feedback*

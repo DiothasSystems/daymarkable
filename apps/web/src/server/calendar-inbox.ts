@@ -2,7 +2,7 @@
  * The inbound calendar address: one mailbox, every account.
  *
  * A customer forwards a meeting invite from Outlook or Google to
- * `<token>@cal.daymarkable.com`, and it appears on their planner. No mailbox is provisioned per
+ * `<token>@cal.scriptumiq.com`, and it appears on their planner. No mailbox is provisioned per
  * account — one MX record and one webhook serve everybody, and the token in the local part is only a
  * lookup key.
  *
@@ -22,7 +22,7 @@ import { readInboundMessage, senderAllowed, supersedes, toInviteEvent } from "@d
 import { getRuntime } from "./runtime";
 
 /** The subdomain invites are sent to. A separate host from the one we send FROM, on purpose. */
-export const INBOUND_HOST = process.env.INBOUND_CALENDAR_HOST || "cal.daymarkable.com";
+export const INBOUND_HOST = process.env.INBOUND_CALENDAR_HOST || "cal.scriptumiq.com";
 
 /**
  * 16 bytes, base32-ish. Long enough that the address cannot be guessed, short enough to be typed
@@ -36,7 +36,7 @@ export function calendarAddress(token: string | null): string | null {
   return token ? `${token}@${INBOUND_HOST}` : null;
 }
 
-/** The token out of whatever the provider called the recipient: `a1b2c3@cal.daymarkable.com`. */
+/** The token out of whatever the provider called the recipient: `a1b2c3@cal.scriptumiq.com`. */
 export function tokenFromRecipient(recipient: string): string | null {
   const at = recipient.trim().toLowerCase();
   const local = at.includes("@") ? at.slice(0, at.indexOf("@")) : at;

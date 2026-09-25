@@ -20,7 +20,7 @@ export function LoginForm() {
   if (state.status === "sent") {
     return (
       <div className="stack">
-        <div className="notice ok">If that address has a dayMarkable account, a sign-in link is on its way. It expires in 15 minutes.</div>
+        <div className="notice ok">If that address has a ScriptumIQ account, a sign-in link is on its way. It expires in 15 minutes.</div>
         {state.devLink ? (
           <div className="notice">
             <strong>Development:</strong> no email provider configured, so here is the link:{" "}

@@ -1,4 +1,4 @@
-/* dayMarkable web UI — tokens and components from the brand style guide (design/). */
+/* ScriptumIQ web UI — tokens and components from the brand style guide (design/). */
 :root {
   --midnight: #1e2a44;
   --midnight-hover: #2a3a5e;
@@ -55,9 +55,9 @@ code, .mono { font-family: var(--font-mono); font-size: 0.85em; }
 }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--midnight); }
 .wordmark { font-family: var(--font-display); font-weight: 700; font-size: 20px; letter-spacing: -0.01em; color: var(--midnight); white-space: nowrap; }
-.wordmark .day { color: var(--gold-text); }
+.wordmark .iq { color: var(--gold-text); }
 .on-dark .wordmark { color: var(--parchment); }
-.on-dark .wordmark .day { color: var(--gold); }
+.on-dark .wordmark .iq { color: var(--gold); }
 .nav { display: flex; gap: 28px; overflow-x: auto; margin-left: auto; scrollbar-width: none; }
 .nav a { padding: 6px 0 4px; border-bottom: 2px solid transparent; text-decoration: none; white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--muted); }
 .nav a:hover { color: var(--midnight); }

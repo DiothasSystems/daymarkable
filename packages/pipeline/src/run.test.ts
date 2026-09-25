@@ -15,7 +15,27 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { LocalCacheStore } from "./cache.js";
 import { FixtureDecoder, FixtureRenderer, FixtureTabletProvider } from "./fixtures.js";
 import * as repo from "./repo.js";
-import { FIRST_SIGHT_MAX_INKED_PAGES, FIRST_SIGHT_TAIL_PAGES, HEADLINES_FOLDER, PUZZLE_FOLDER, changeWindowStart, cleanStaleOutputs, inKeepFolder, inWatchedFolder, isOurDocument, outputFolderFor, pageChanged, runPipeline, selectDocuments, weekNotesName, type PipelineDeps } from "./run.js";
+import type { TabletDocument, TabletFolder, TabletProvider, TabletTree } from "@daymarkable/tablet";
+import {
+  FIRST_SIGHT_MAX_INKED_PAGES,
+  FIRST_SIGHT_TAIL_PAGES,
+  HEADLINES_FOLDER,
+  LEGACY_OUTPUT_NAMES,
+  OUTPUT_NAMES,
+  PUZZLE_FOLDER,
+  changeWindowStart,
+  cleanStaleOutputs,
+  inKeepFolder,
+  inWatchedFolder,
+  isOurDocument,
+  migrateBrandFolders,
+  outputFolderFor,
+  pageChanged,
+  runPipeline,
+  selectDocuments,
+  weekNotesName,
+  type PipelineDeps,
+} from "./run.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(here, "..", "..", "..", "fixtures", "notebooks");
@@ -73,7 +93,7 @@ describe("runPipeline (fixtures)", () => {
     expect(out.stats!.tasksFound).toBeGreaterThan(0);
     // The Daily Puzzle rides along: on by default, deterministic, and free. The Daily Update does
     // not, because this account has set no topics to search for.
-    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Notes", "Planner", "dayLy Puzzle"]);
+    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Daily Puzzle", "Notes", "Planner"]);
     const docs = await handle.db.query.documents.findMany({ where: eq(schema.documents.userId, userId) });
     expect(docs.map((d) => d.kind).sort()).toEqual(["action_list", "daily_puzzle", "meeting_notes", "planner"]);
     // Still one cost row: the puzzle is generated, not asked for. Nothing here called a model
@@ -147,22 +167,22 @@ describe("runPipeline (fixtures)", () => {
 
 describe("selection and windows", () => {
   const doc = (p: string, fileType: "notebook" | "pdf" | "epub" = "notebook") => ({ id: p, hash: "h", name: p.split("/").pop()!, path: p, parentId: "", fileType, lastModified: null, pageCount: 0 });
-  it("watches notebooks in watch folders, always includes dayMarkable outputs, never the archive", () => {
-    const docs = [doc("/Work/Meetings"), doc("/Personal/Journal"), doc("/dayMarkable/Planner", "pdf"), doc("/dayMarkable/Archive/Planner 2026-09-01", "pdf"), doc("/Books/Novel", "epub"), doc("/Work/Spec", "pdf")];
-    expect(selectDocuments(docs, { watchFolders: ["/Work"], includePdfs: false }).map((d) => d.path)).toEqual(["/Work/Meetings", "/dayMarkable/Planner"]);
-    expect(selectDocuments(docs, { watchFolders: [], includePdfs: true }).map((d) => d.path)).toEqual(["/Work/Meetings", "/Personal/Journal", "/dayMarkable/Planner", "/Work/Spec"]);
+  it("watches notebooks in watch folders, always includes ScriptumIQ outputs, never the archive", () => {
+    const docs = [doc("/Work/Meetings"), doc("/Personal/Journal"), doc("/ScriptumIQ/Planner", "pdf"), doc("/ScriptumIQ/Archive/Planner 2026-09-01", "pdf"), doc("/Books/Novel", "epub"), doc("/Work/Spec", "pdf")];
+    expect(selectDocuments(docs, { watchFolders: ["/Work"], includePdfs: false }).map((d) => d.path)).toEqual(["/Work/Meetings", "/ScriptumIQ/Planner"]);
+    expect(selectDocuments(docs, { watchFolders: [], includePdfs: true }).map((d) => d.path)).toEqual(["/Work/Meetings", "/Personal/Journal", "/ScriptumIQ/Planner", "/Work/Spec"]);
   });
   it("recognises our own notebooks in either location, and never the archive", () => {
-    expect(isOurDocument(doc("/dayMarkable/Planner", "pdf"))).toBe(true);
+    expect(isOurDocument(doc("/ScriptumIQ/Planner", "pdf"))).toBe(true);
     expect(isOurDocument(doc("/Planner", "pdf"))).toBe(true);
     expect(isOurDocument(doc("/Action List", "pdf"))).toBe(true);
     expect(isOurDocument(doc("/Handwriting Sample", "pdf"))).toBe(true);
-    expect(isOurDocument(doc("/dayMarkable/Archive/Planner 2026-09-01", "pdf"))).toBe(false);
+    expect(isOurDocument(doc("/ScriptumIQ/Archive/Planner 2026-09-01", "pdf"))).toBe(false);
     // A user's own notebook that happens to sit in the root is not ours.
     expect(isOurDocument(doc("/Plume"))).toBe(false);
     // Nor is one merely named like ours but filed elsewhere.
     expect(isOurDocument(doc("/Work/Planner"))).toBe(false);
-    expect(outputFolderFor({ outputToRoot: false })).toBe("/dayMarkable");
+    expect(outputFolderFor({ outputToRoot: false })).toBe("/ScriptumIQ");
     expect(outputFolderFor({ outputToRoot: true })).toBe("/");
   });
 
@@ -174,8 +194,8 @@ describe("selection and windows", () => {
 
     const deleted: string[] = [];
     const tabletStub = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as never;
-    const inFolder = { ...doc("/dayMarkable/Meeting Notes", "pdf"), parentId: "folder" };
-    const current = { ...doc("/dayMarkable/Notes", "pdf"), parentId: "folder" };
+    const inFolder = { ...doc("/ScriptumIQ/Meeting Notes", "pdf"), parentId: "folder" };
+    const current = { ...doc("/ScriptumIQ/Notes", "pdf"), parentId: "folder" };
     const elsewhere = { ...doc("/Planner", "pdf"), parentId: "root" };
     const removed = await cleanStaleOutputs(tabletStub, [inFolder, current, elsewhere], "folder", () => {});
     // The legacy name goes even though it is in the right folder; the current one stays.
@@ -329,7 +349,7 @@ describe("weekly notes archive naming", () => {
   it("archived weeks are never read back in", () => {
     // Filing them anywhere the run reads would feed them into the next decode as if they were
     // the user's own notes.
-    const archived = { id: "a", hash: "h", name: "Notes - Week of 09-06-2026", path: "/dayMarkable/Archive/Notes - Week of 09-06-2026", parentId: "arch", fileType: "pdf" as const, lastModified: null, pageCount: 0 };
+    const archived = { id: "a", hash: "h", name: "Notes - Week of 09-06-2026", path: "/ScriptumIQ/Archive/Notes - Week of 09-06-2026", parentId: "arch", fileType: "pdf" as const, lastModified: null, pageCount: 0 };
     expect(selectDocuments([archived], { watchFolders: [], includePdfs: true })).toHaveLength(0);
     expect(isOurDocument(archived)).toBe(false);
   });
@@ -339,11 +359,11 @@ describe("the daily extras' own folders", () => {
   const doc = (p: string, name?: string) => ({ id: p, hash: "h", name: name ?? p.split("/").pop()!, path: p, parentId: "", fileType: "pdf" as const, lastModified: null, pageCount: 0 });
 
   it("keeps puzzles and headlines in folders of their own", () => {
-    expect(PUZZLE_FOLDER).toBe("/dayMarkable/Puzzles");
-    expect(HEADLINES_FOLDER).toBe("/dayMarkable/dayLy Headlines");
-    expect(inKeepFolder("/dayMarkable/Puzzles/dayLy Puzzle 2026-09-21")).toBe(true);
-    expect(inKeepFolder("/dayMarkable/dayLy Headlines/dayLy Update 2026-09-21")).toBe(true);
-    expect(inKeepFolder("/dayMarkable/Planner")).toBe(false);
+    expect(PUZZLE_FOLDER).toBe("/ScriptumIQ/Puzzles");
+    expect(HEADLINES_FOLDER).toBe("/ScriptumIQ/Daily Headlines");
+    expect(inKeepFolder("/ScriptumIQ/Puzzles/Daily Puzzle 2026-09-21")).toBe(true);
+    expect(inKeepFolder("/ScriptumIQ/Daily Headlines/Daily Update 2026-09-21")).toBe(true);
+    expect(inKeepFolder("/ScriptumIQ/Planner")).toBe(false);
   });
 
   /**
@@ -354,10 +374,10 @@ describe("the daily extras' own folders", () => {
   it("does not let the stale-output cleaner eat the archive", async () => {
     const deleted: string[] = [];
     const docs = [
-      doc("/dayMarkable/dayLy Puzzle"),
-      doc("/dayMarkable/Puzzles/dayLy Puzzle 2026-09-21", "dayLy Puzzle 2026-09-21"),
-      doc("/dayMarkable/dayLy Headlines/dayLy Update 2026-09-21", "dayLy Update 2026-09-21"),
-      doc("/dayMarkable/Archive/Planner 2026-09-01", "Planner 2026-09-01"),
+      doc("/ScriptumIQ/Daily Puzzle"),
+      doc("/ScriptumIQ/Puzzles/Daily Puzzle 2026-09-21", "Daily Puzzle 2026-09-21"),
+      doc("/ScriptumIQ/Daily Headlines/Daily Update 2026-09-21", "Daily Update 2026-09-21"),
+      doc("/ScriptumIQ/Archive/Planner 2026-09-01", "Planner 2026-09-01"),
     ];
     const tablet = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as unknown as Parameters<typeof cleanStaleOutputs>[0];
     // parentId "" matches the live notebook's, so nothing here is in the wrong place.
@@ -369,13 +389,24 @@ describe("the daily extras' own folders", () => {
    * The other half of a rename: the copy written under the OLD name has to go, or the tablet shows
    * two puzzles and the stale one — no longer matching an output name — gets decoded back into
    * itself. This is what LEGACY_OUTPUT_NAMES is for, and it did the same job for "Meeting Notes".
+   *
+   * The names went "Daily" → "dayLy" → "Daily", so the direction of this test flipped with the
+   * rename to ScriptumIQ: it is the dayLy copy that goes now, and the Daily one that stays.
    */
   it("removes the notebook left behind under the previous name", async () => {
     const deleted: string[] = [];
-    const docs = [doc("/dayMarkable/dayLy Puzzle"), doc("/dayMarkable/Daily Puzzle"), doc("/dayMarkable/Daily Update")];
+    const docs = [doc("/ScriptumIQ/Daily Puzzle"), doc("/ScriptumIQ/dayLy Puzzle"), doc("/ScriptumIQ/dayLy Update")];
     const tablet = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as unknown as Parameters<typeof cleanStaleOutputs>[0];
     await cleanStaleOutputs(tablet, docs, "", () => {});
-    expect(deleted.sort()).toEqual(["Daily Puzzle", "Daily Update"]);
+    expect(deleted.sort()).toEqual(["dayLy Puzzle", "dayLy Update"]);
+  });
+
+  /**
+   * A name can come back into use, as "Daily Update" just did. If it were still on the legacy list the
+   * cleaner would delete tonight's notebook the moment it landed — every night, silently.
+   */
+  it("never lists a name it writes today as a legacy name", () => {
+    for (const name of OUTPUT_NAMES) expect(LEGACY_OUTPUT_NAMES as readonly string[]).not.toContain(name);
   });
 
   /**
@@ -384,14 +415,201 @@ describe("the daily extras' own folders", () => {
    */
   it("never reads a puzzle or a brief back, live or archived", () => {
     const docs = [
-      doc("/dayMarkable/Planner"),
-      doc("/dayMarkable/dayLy Puzzle"),
-      doc("/dayMarkable/dayLy Update"),
+      doc("/ScriptumIQ/Planner"),
+      doc("/ScriptumIQ/Daily Puzzle"),
+      doc("/ScriptumIQ/Daily Update"),
       // The names from before the rename are excluded too, for as long as a copy can still exist.
-      doc("/dayMarkable/Daily Puzzle"),
-      doc("/dayMarkable/Puzzles/dayLy Puzzle 2026-09-21", "dayLy Puzzle 2026-09-21"),
-      doc("/dayMarkable/dayLy Headlines/dayLy Update 2026-09-21", "dayLy Update 2026-09-21"),
+      doc("/ScriptumIQ/dayLy Puzzle"),
+      doc("/ScriptumIQ/Puzzles/Daily Puzzle 2026-09-21", "Daily Puzzle 2026-09-21"),
+      doc("/ScriptumIQ/Daily Headlines/Daily Update 2026-09-21", "Daily Update 2026-09-21"),
     ];
     expect(selectDocuments(docs, { watchFolders: [], includePdfs: true }).map((d) => d.name)).toEqual(["Planner"]);
+  });
+});
+
+describe("carrying a tablet across the rename to ScriptumIQ", () => {
+  const folder = (path: string, id: string, parentId = ""): TabletFolder => ({ id, hash: `h-${id}`, name: path.split("/").pop()!, path, parentId });
+  const doc = (p: string, parentId: string, name?: string) => ({ id: p, hash: "h", name: name ?? p.split("/").pop()!, path: p, parentId, fileType: "pdf" as const, lastModified: null, pageCount: 0 });
+  const recorder = (refuse = false) => {
+    const renames: string[] = [];
+    const tablet = {
+      renameFolder: async (f: TabletFolder, name: string) => {
+        if (refuse) throw new Error("the cloud said no");
+        renames.push(`${f.name} -> ${name}`);
+        return { id: f.id, hash: "renamed" };
+      },
+    } as unknown as TabletProvider;
+    return { tablet, renames };
+  };
+
+  it("renames the old folder, then the headlines folder inside it, on the first run", async () => {
+    const { tablet, renames } = recorder();
+    const tree = {
+      folders: [folder("/dayMarkable", "dm"), folder("/dayMarkable/dayLy Headlines", "hl", "dm"), folder("/dayMarkable/Archive", "ar", "dm")],
+      documents: [],
+    };
+    expect(await migrateBrandFolders(tablet, tree, () => {})).toBe(true);
+    // The subfolder is found by its parent's id, so it follows even though every path in the tree
+    // still says /dayMarkable.
+    expect(renames).toEqual(["dayMarkable -> ScriptumIQ", "dayLy Headlines -> Daily Headlines"]);
+  });
+
+  it("does nothing on every run after that", async () => {
+    const { tablet, renames } = recorder();
+    const tree = { folders: [folder("/ScriptumIQ", "si"), folder("/ScriptumIQ/Daily Headlines", "hl", "si")], documents: [] };
+    expect(await migrateBrandFolders(tablet, tree, () => {})).toBe(false);
+    expect(renames).toEqual([]);
+  });
+
+  /** Two Planners, and no way to know unattended which one has today's ticks on it. */
+  it("merges nothing when both names exist", async () => {
+    const { tablet, renames } = recorder();
+    const tree = { folders: [folder("/dayMarkable", "dm"), folder("/ScriptumIQ", "si")], documents: [] };
+    expect(await migrateBrandFolders(tablet, tree, () => {})).toBe(false);
+    expect(renames).toEqual([]);
+  });
+
+  it("survives a rename the cloud refuses, and says so", async () => {
+    const { tablet } = recorder(true);
+    const logged: string[] = [];
+    const tree = { folders: [folder("/dayMarkable", "dm")], documents: [] };
+    expect(await migrateBrandFolders(tablet, tree, (m) => logged.push(m))).toBe(false);
+    expect(logged.join("\n")).toMatch(/could not rename \/dayMarkable/);
+  });
+
+  /**
+   * What the migration exists to prevent, held true even when it does not happen. Were the old folder
+   * simply no longer ours, its printed planners would go to the decoder as the customer's handwriting
+   * and every printed task would come back as a new one on an append-only list (rule 8). So until it
+   * is renamed, nothing under it is read, and nothing under it is deleted.
+   */
+  it("never reads or deletes anything left under the old folder", async () => {
+    const docs = [
+      doc("/dayMarkable/Planner", "dm"),
+      doc("/dayMarkable/Notes", "dm"),
+      doc("/dayMarkable/dayLy Update", "dm"),
+      doc("/dayMarkable/Archive/Planner 2026-09-01", "ar", "Planner 2026-09-01"),
+    ];
+    expect(selectDocuments(docs, { watchFolders: [], includePdfs: true })).toEqual([]);
+    for (const d of docs) expect(isOurDocument(d)).toBe(false);
+    const deleted: string[] = [];
+    const tablet = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as unknown as Parameters<typeof cleanStaleOutputs>[0];
+    await cleanStaleOutputs(tablet, docs, "si", () => {});
+    expect(deleted).toEqual([]);
+  });
+
+  /** A headlines folder whose own rename failed is still an archive, not a pile of strays. */
+  it("keeps an archived brief safe when its folder kept the old name", () => {
+    const brief = doc("/ScriptumIQ/dayLy Headlines/dayLy Update 2026-09-21", "hl", "dayLy Update 2026-09-21");
+    expect(inKeepFolder(brief.path)).toBe(true);
+    expect(isOurDocument(brief)).toBe(false);
+  });
+});
+
+/**
+ * A tablet that models folders the way the cloud does — a child names its parent by id, and a path
+ * is worked out from that chain — so a folder rename moves everything under it, as it really does.
+ * Standing on the fixture tablet for the notebooks that are decoded.
+ */
+class SwitchNightTablet extends FixtureTabletProvider {
+  readonly folderRenames: string[] = [];
+  readonly filed: string[] = [];
+  readonly deleted: string[] = [];
+  private readonly dirs = [
+    { id: "dm", hash: "h", name: "dayMarkable", parentId: "" },
+    { id: "hl", hash: "h", name: "dayLy Headlines", parentId: "dm" },
+    { id: "pz", hash: "h", name: "Puzzles", parentId: "dm" },
+    { id: "ar", hash: "h", name: "Archive", parentId: "dm" },
+  ];
+  private files = [
+    // Yesterday's puzzle, written under the name it had before the rename.
+    { id: "yesterdays-puzzle", name: "dayLy Puzzle", parentId: "dm" },
+    // Inside the week the planner archive keeps, so anything deleted tonight is the rename's doing.
+    { id: "old-planner", name: "Planner 2026-09-20", parentId: "ar" },
+    { id: "old-brief", name: "dayLy Update 2026-09-20", parentId: "hl" },
+  ];
+  private pathOf(id: string): string {
+    if (!id) return "";
+    const d = this.dirs.find((x) => x.id === id)!;
+    return `${this.pathOf(d.parentId)}/${d.name}`;
+  }
+  override async listTree(): Promise<TabletTree> {
+    const base = await super.listTree();
+    return {
+      folders: this.dirs.map((d) => ({ ...d, path: this.pathOf(d.id) })),
+      documents: [
+        ...base.documents,
+        ...this.files.map((f) => ({
+          id: f.id,
+          hash: "h",
+          name: f.name,
+          path: `${this.pathOf(f.parentId)}/${f.name}`,
+          parentId: f.parentId,
+          fileType: "pdf" as const,
+          lastModified: new Date("2026-09-21T15:00:00Z"),
+          pageCount: 1,
+        })),
+      ],
+    };
+  }
+  override async ensureFolder(p: string): Promise<TabletFolder> {
+    const hit = this.dirs.find((d) => this.pathOf(d.id) === p);
+    if (hit) return { ...hit, path: p };
+    const parentPath = p.slice(0, p.lastIndexOf("/"));
+    const parent = this.dirs.find((d) => this.pathOf(d.id) === parentPath);
+    const made = { id: `new:${p}`, hash: "h", name: p.split("/").pop()!, parentId: parent?.id ?? "" };
+    this.dirs.push(made);
+    return { ...made, path: p };
+  }
+  override async renameFolder(f: TabletFolder, name: string) {
+    const d = this.dirs.find((x) => x.id === f.id)!;
+    this.folderRenames.push(`${d.name} -> ${name}`);
+    d.name = name;
+    return { id: d.id, hash: "renamed" };
+  }
+  override async renameDocument(doc: TabletDocument, name: string) {
+    const f = this.files.find((x) => x.id === doc.id);
+    if (f) f.name = name;
+    return { id: doc.id, hash: "renamed" };
+  }
+  override async moveDocument(doc: TabletDocument, to: TabletFolder) {
+    const f = this.files.find((x) => x.id === doc.id);
+    if (f) {
+      f.parentId = to.id;
+      this.filed.push(`${this.pathOf(to.id)}/${f.name}`);
+    }
+    return { id: doc.id, hash: "moved" };
+  }
+  override async deleteDocument(doc: TabletDocument): Promise<void> {
+    this.deleted.push(doc.id);
+    this.files = this.files.filter((x) => x.id !== doc.id);
+  }
+}
+
+describe("the first night after the rename, end to end", () => {
+  /**
+   * The three things that must all be true on the one night that matters. The folder is renamed
+   * before anything is chosen for reading. Yesterday's puzzle — under its old name — is FILED, not
+   * binned: the tree the cleaner sees was listed before filing, so without the exclusion it takes the
+   * just-archived copy for a legacy stray and deletes it by id. And the old archive is never decoded.
+   */
+  it("renames the folders, files yesterday's puzzle under its new name, and deletes nothing", async () => {
+    const switchTablet = new SwitchNightTablet(FIXTURES, path.join(tmp, "switch-tablet"), new Date());
+    const user = await repo.ensureUser(handle.db, "switch@example.com", "America/New_York");
+    // A Tuesday: the puzzle is generated rather than asked of a model, so this runs with no network.
+    const out = await runPipeline({ ...deps, tablet: switchTablet }, { userId: user.id, kind: "nightly", requestedVia: "test", localDate: "2026-09-22" });
+    expect(out.status).toBe("succeeded");
+
+    expect(switchTablet.folderRenames).toEqual(["dayMarkable -> ScriptumIQ", "dayLy Headlines -> Daily Headlines"]);
+    expect(switchTablet.filed).toEqual(["/ScriptumIQ/Puzzles/Daily Puzzle 2026-09-21"]);
+    expect(switchTablet.deleted).toEqual([]);
+    // The archive that was built up under /dayMarkable is the archive now: /ScriptumIQ/Archive resolved
+    // to the renamed folder rather than a new, empty one alongside it.
+    expect((await switchTablet.listTree()).folders.filter((f) => f.name === "Archive").map((f) => f.path)).toEqual(["/ScriptumIQ/Archive"]);
+    // Tonight's notebooks land in the renamed folder, under tonight's names.
+    const tonight = switchTablet.uploads.map((u) => `${u.folder}/${u.name}`).sort();
+    expect(tonight).toContain("/ScriptumIQ/Daily Puzzle");
+    expect(tonight).toContain("/ScriptumIQ/Planner");
+    expect(tonight.some((u) => u.includes("dayMarkable") || u.includes("dayLy"))).toBe(false);
   });
 });

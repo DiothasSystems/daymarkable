@@ -1,9 +1,9 @@
 /**
  * One Next.js server, two hostnames.
  *
- *   APP_URL      https://daymarkable.com      the public site: marketing, sign-in, registration,
+ *   APP_URL      https://scriptumiq.com      the public site: marketing, sign-in, registration,
  *                                             and (Phase 2) every payment page
- *   SERVICE_URL  https://app.daymarkable.com  the signed-in service: Today, documents, runs,
+ *   SERVICE_URL  https://app.scriptumiq.com  the signed-in service: Today, documents, runs,
  *                                             account settings, setup, admin
  *
  * When SERVICE_URL is unset both live on APP_URL (local development). This module is pure so
@@ -26,7 +26,7 @@ export function splitHosts(): boolean {
 
 /**
  * The session cookie must be readable on both hosts, so it is scoped to their common parent
- * domain (daymarkable.com). Undefined means a host-only cookie: local dev, or hosts that share
+ * domain (scriptumiq.com). Undefined means a host-only cookie: local dev, or hosts that share
  * no registrable domain (then the sign-in would not carry over, which the deploy docs forbid).
  */
 export function sessionCookieDomain(): string | undefined {

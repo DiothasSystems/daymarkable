@@ -112,7 +112,7 @@ export default function SignIn() {
       >
         <Text style={[type.label, { marginBottom: space.sm }]}>DAYMARKABLE</Text>
         <Text style={[type.title, { marginBottom: space.lg }]}>
-          <Text style={{ color: color.goldText }}>day</Text>Markable
+          Scriptum<Text style={{ color: color.goldText }}>IQ</Text>
         </Text>
 
         {stage === "email" ? (
@@ -191,7 +191,7 @@ export default function SignIn() {
             <Text style={[type.heading, { marginBottom: space.sm }]}>That link has expired</Text>
             <Text style={[type.bodyMuted, { marginBottom: space.xl }]}>
               Links last fifteen minutes. Ask for another one, and check that the address is the one
-              your dayMarkable account uses.
+              your ScriptumIQ account uses.
             </Text>
             <Pressable
               onPress={() => backToForm(true)}

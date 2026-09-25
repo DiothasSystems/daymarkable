@@ -110,7 +110,7 @@ async function main(): Promise<void> {
     const tree = await tablet.listTree();
     const since = DateTime.utc().minus({ days });
     const candidates = selectDocuments(tree.documents, user.settings)
-      .filter((d) => !d.path.startsWith("/dayMarkable"))
+      .filter((d) => !d.path.startsWith("/ScriptumIQ"))
       .filter((d) => (only ? d.name.toLowerCase().includes(only.toLowerCase()) : true))
       .filter((d) => d.lastModified && DateTime.fromJSDate(d.lastModified) >= since)
       .sort((a, b) => (b.lastModified?.getTime() ?? 0) - (a.lastModified?.getTime() ?? 0));
@@ -225,7 +225,7 @@ interface ReportMeta {
 function renderReport(results: PageResult[], totals: Totals[], meta: ReportMeta): string {
   const cols = totals.length;
   const head = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>dayMarkable model comparison</title>
+<title>ScriptumIQ model comparison</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Public+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--midnight:#1e2a44;--gold:#c9973f;--goldt:#b8862f;--parchment:#f7f0e3;--notepaper:#fdfaf3;--sunrise:#f0dda9;--border:#e3d9c2;--muted:#4a5266;--meta:#8a7d5f}

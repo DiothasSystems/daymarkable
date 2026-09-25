@@ -43,6 +43,6 @@ export async function composeMeetingNotes(input: MeetingNotesInput): Promise<Com
     }
     s.y += 30;
   });
-  doc.setTitle(`dayMarkable Notes ${input.date}`);
+  doc.setTitle(`ScriptumIQ Notes ${input.date}`);
   return { pdf: await doc.save(), pageCount: doc.getPageCount(), printed: ctx.printed };
 }

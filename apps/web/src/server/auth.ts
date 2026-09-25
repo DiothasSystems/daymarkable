@@ -185,7 +185,7 @@ export async function logout(sessionId?: string | null): Promise<void> {
 }
 
 /**
- * Host-only in dev; scoped to daymarkable.com in production so the sign-in carries from the public
+ * Host-only in dev; scoped to scriptumiq.com in production so the sign-in carries from the public
  * site to app — and so a WebView handed a session on one host keeps it on the other.
  */
 export function sessionCookieOptions() {

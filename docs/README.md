@@ -1,10 +1,10 @@
-# dayMarkable — Product Brief
+# ScriptumIQ — Product Brief
 
 *Write it down. Wake up organized.*
 
 ## What it is
 
-dayMarkable is a subscription web service for reMarkable tablet owners. Every night at 3AM in the
+ScriptumIQ is a subscription web service for reMarkable tablet owners. Every night at 3AM in the
 user's local time, it reads the handwritten notes they made that day, decodes them with AI
 vision, extracts tasks, events, deadlines, and ideas, and writes a beautifully typeset
 **planner notebook back onto the tablet**: today's calendar and action list, plus rolling
@@ -21,7 +21,7 @@ buttons. Your pen is the UI.
 reMarkable has sold well over 2 million tablets to a self-selected audience: professionals who
 pay $400–600 to get *away* from apps and notifications. They already journal, take meeting
 notes, and keep to-do lists in ink — and today those notes go nowhere. reMarkable's built-in
-text conversion is manual, page-at-a-time, and produces text, not organization. dayMarkable is the
+text conversion is manual, page-at-a-time, and produces text, not organization. ScriptumIQ is the
 missing "so what" layer: notes in, executive function out.
 
 ## Core features
@@ -34,28 +34,28 @@ missing "so what" layer: notes in, executive function out.
    follow-up": an asterisk, underline, highlighter stroke, circled text, a boxed word, an
    exclamation mark, a star in the margin, or a keyword like "TODO" / "F/U". Each convention
    can carry its own meaning (action vs. follow-up vs. priority vs. "schedule this"), and the
-   user selects which ones dayMarkable honors from a settings menu.
+   user selects which ones ScriptumIQ honors from a settings menu.
 3. **The Daily Sheet** — one page: today's date, calendar block, prioritized action list with
    checkboxes, carried-over items marked with a subtle dot count showing how long they've rolled.
 4. **Calendar templates: day / week / month / quarter / year** — a typeset calendar PDF that
    organizes the user's time at every horizon, independent of Outlook or any external calendar.
-5. **External calendar merge** — with the user's permission (OAuth), dayMarkable reads their
+5. **External calendar merge** — with the user's permission (OAuth), ScriptumIQ reads their
    Outlook or Google calendar so the calendar pages on the tablet include all existing
    meetings alongside handwritten commitments.
 6. **Meeting invites from ink** — when a decoded note contains a meeting-setup action ("set up
-   30 min with Priya next Tue"), dayMarkable drafts a real calendar invite in the user's selected
+   30 min with Priya next Tue"), ScriptumIQ drafts a real calendar invite in the user's selected
    calendar system (Outlook, Google Calendar, or .ics by email). Drafts are held for one-tick
    confirmation on the planner by default; auto-send is an opt-in setting.
-7. **Meeting notes, delivered twice** — dayMarkable turns each meeting's handwritten pages into
+7. **Meeting notes, delivered twice** — ScriptumIQ turns each meeting's handwritten pages into
    clean meeting notes that land as a "Meeting Notes" notebook on the tablet AND as email to
    the user's registered address — one email per meeting, subject line = meeting topic, date,
    and time.
 8. **The living Action List** — a dedicated checkbox notebook on the tablet. New action items
    are appended to the existing list, never a fresh page that orphans old ones; the list is
    organized by date and priority, and completed ticks roll items off on the next nightly run.
-9. **Closed loop** — checkmarks and margin ink on dayMarkable's own pages are parsed the next
+9. **Closed loop** — checkmarks and margin ink on ScriptumIQ's own pages are parsed the next
    night and update task state.
-10. **Watch folders** — the user picks which reMarkable folders dayMarkable reads (default: all
+10. **Watch folders** — the user picks which reMarkable folders ScriptumIQ reads (default: all
     notebooks, excluding ebooks/PDFs).
 11. **Viewer apps: mobile + web** — a mobile application and the web account page show the
     same views of the account's documents: calendar files, meeting notes, and the action
@@ -95,7 +95,7 @@ reasoning are in ECONOMICS.md.
 ## Marketing site requirements
 
 The web service page sells the loop visually: **side-by-side examples of real handwritten
-note pages on the tablet and the outputs dayMarkable produced from them** — a messy meeting
+note pages on the tablet and the outputs ScriptumIQ produced from them** — a messy meeting
 page next to its clean Daily Sheet, Action List entry, meeting-notes email, and drafted
 invite. Use the founder's own (curated) pages or clearly staged samples, never customer
 content. The privacy promise appears on the page in plain language: *your note pages and
@@ -106,9 +106,9 @@ brand guidelines (see Brand & design below).
 ## Brand & design
 
 Logo and design style guidelines for all service elements are provided via Claude Design —
-the "dayMarkable Brand" board (beacon-triangle mark, Paper/Ink/Beacon palette, Instrument
+the "ScriptumIQ Brand" board (beacon-triangle mark, Paper/Ink/Beacon palette, Instrument
 Serif + Public Sans + IBM Plex Mono, e-ink usage rules). Product name is always spelled
-**dayMarkable** (lowercase d, capital M) in copy, code, and UI.
+**ScriptumIQ** (lowercase d, capital M) in copy, code, and UI.
 
 ## The honest risks
 

@@ -1,8 +1,11 @@
 {
   "expo": {
-    "name": "dayMarkable",
+    "name": "ScriptumIQ",
     "slug": "daymarkable",
-    "scheme": "daymarkable",
+    "scheme": [
+      "scriptumiq",
+      "daymarkable"
+    ],
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -15,7 +18,7 @@
       "package": "com.diothassystems.daymarkable",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F7F0E3"
+        "backgroundColor": "#1E2A44"
       },
       "icon": "./assets/play-store-icon.png"
     },

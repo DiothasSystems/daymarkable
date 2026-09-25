@@ -5,14 +5,18 @@ import { SCHEMA_DESCRIPTION } from "./schema.js";
  * Description of what the composer draws (CLAUDE.md rule 6): whenever a planner template
  * changes, update this text in the same PR so the decoder always knows the layout.
  */
-export const PLANNER_LAYOUT_DESCRIPTION = `dayMarkable's OWN planner pages look like this (grayscale, typeset):
+export const PLANNER_LAYOUT_DESCRIPTION = `ScriptumIQ's OWN planner pages look like this (grayscale, typeset). The product was called
+dayMarkable until September 2026 and pages printed before then carry that name instead; treat
+the two names as the same product everywhere below.
 - Header: a large serif title top-left (a date, "Week 36 · Aug 31 – Sep 6", "September 2026",
   "2026", "Action List", "Notes"), a small monospace subtitle under it starting with
-  "dayMarkable" (e.g. "dayMarkable DAILY · GENERATED 02:14"), a compass-rose mark (circle with
-  four diamond points) top-right, and a thick black rule under the header.
-- A monospace footer code bottom-left of the form dM/<KIND>/<YYYY-MM-DD>/<page>, where KIND is
-  DAY, WEEK, MONTH, QUARTER, YEAR, INBOX, ACTIONS, or MEETINGS. If you see such a code, set
-  page_kind to "planner" and copy the code into planner_page_code exactly.
+  "ScriptumIQ" (e.g. "ScriptumIQ DAILY · GENERATED 02:14") — or "dayMarkable" on an older page —
+  a compass-rose mark (circle with four diamond points) top-right, and a thick black rule under
+  the header.
+- A monospace footer code bottom-left of the form SIQ/<KIND>/<YYYY-MM-DD>/<page>, where KIND is
+  DAY, WEEK, MONTH, QUARTER, YEAR, INBOX, ACTIONS, or MEETINGS. An older page has dM/ in place of
+  SIQ/ (dM/DAY/2026-09-23/1). If you see a code of either form, set page_kind to "planner" and
+  copy the code into planner_page_code exactly, prefix and all — do not rewrite dM as SIQ.
 - Section labels are small uppercase monospace (ACTIONS, CARRIED OVER, CONFIRM, NOTES,
   SCHEDULE, OPEN ACTIONS, WEEK GOALS, MONTH FOCUS, YEAR GOALS).
 - Under a printed item there may be a small grey monospace SOURCE REFERENCE naming where it was
@@ -104,7 +108,7 @@ emit tasks, events, notes or checkbox updates from it. Every later image is the 
 /** Stable per user, so it prompt-caches across pages. */
 export function buildSystemPrompt(opts: SystemPromptOptions): string {
   const extras = [describeLexicon(opts.lexicon ?? []), opts.calibrationText ? describeCalibration(opts.calibrationText) : ""].filter(Boolean).join("\n\n");
-  return `You are dayMarkable's handwriting decoder. You receive ONE page from a reMarkable tablet as one
+  return `You are ScriptumIQ's handwriting decoder. You receive ONE page from a reMarkable tablet as one
 or more images (a tall scrolled page is split into vertical segments, given top to bottom, with a
 small overlap between consecutive segments; do not transcribe overlapping lines twice) and return
 ONE JSON object for the whole page and nothing else: no prose, no markdown fences.
@@ -152,7 +156,7 @@ Rules:
    circled "R" — set "recurrence" to the matching value and set "date" to the FIRST occurrence,
    which is normally the day the entry sits on. "Team meeting 9-10 weekly" written on a Monday
    is date = that Monday, start_time 09:00, end_time 10:00, recurrence "weekly". Do not emit one
-   event per future occurrence: dayMarkable works out the repeats from the rule. A note like
+   event per future occurrence: ScriptumIQ works out the repeats from the rule. A note like
    "every Tuesday" written on a Friday means recurrence "weekly" with date set to the next
    Tuesday. Leave recurrence null when the entry says nothing about repeating — never infer it
    from a meeting simply appearing on two pages.

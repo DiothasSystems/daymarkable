@@ -65,7 +65,7 @@ export function PairingWizard({ tablet, onPaired }: { tablet: Account["tablet"];
       <div className="field">
         <label htmlFor="code">One-time code</label>
         <input id="code" type="text" inputMode="text" autoCapitalize="off" maxLength={8} className="mono" value={code} onChange={(e) => setCode(e.target.value)} placeholder="abcdefgh" />
-        <div className="hint">dayMarkable stores the resulting device token encrypted; the code itself is never kept.</div>
+        <div className="hint">ScriptumIQ stores the resulting device token encrypted; the code itself is never kept.</div>
       </div>
       <div className="row">
         <button className="primary" disabled={code.trim().length !== 8 || state === "saving"} onClick={() => void save(code)}>{state === "saving" ? "Pairing…" : tablet.paired ? "Re-pair" : "Pair tablet"}</button>
@@ -86,7 +86,7 @@ export function WeeklyNotesArchive({ initial }: { initial: boolean }) {
     <div className="stack">
       <p className="muted" style={{ fontSize: 14 }}>
         Newest notes are always at the top of the Notes notebook. With this on, each Sunday&apos;s run files the week
-        that just ended into <span className="mono">dayMarkable/Archive</span> as{" "}
+        that just ended into <span className="mono">ScriptumIQ/Archive</span> as{" "}
         <span className="mono">Notes - Week of MM-DD-YYYY</span>, and the live notebook starts the new week empty.
       </p>
       <label className="check">
@@ -112,11 +112,11 @@ export function OutputLocation({ initial }: { initial: boolean }) {
       <p className="muted" style={{ fontSize: 14 }}>Where Planner, Action List and Notes are written each night.</p>
       <label className="check">
         <input type="radio" name="outloc" checked={!toRoot} onChange={() => setToRoot(false)} />
-        <span><strong>In a dayMarkable folder</strong><div className="hint">Tidy: everything dayMarkable writes lives in one place.</div></span>
+        <span><strong>In a ScriptumIQ folder</strong><div className="hint">Tidy: everything ScriptumIQ writes lives in one place.</div></span>
       </label>
       <label className="check">
         <input type="radio" name="outloc" checked={toRoot} onChange={() => setToRoot(true)} />
-        <span><strong>On the tablet's home screen</strong><div className="hint">The planner is the first thing you see when you pick up the tablet. Dated archives still go to dayMarkable/Archive so home stays clean.</div></span>
+        <span><strong>On the tablet's home screen</strong><div className="hint">The planner is the first thing you see when you pick up the tablet. Dated archives still go to ScriptumIQ/Archive so home stays clean.</div></span>
       </label>
       <div className="row">
         <button onClick={() => void save(toRoot)} disabled={state === "saving"}>Save location</button>
@@ -142,7 +142,7 @@ export function WatchFolders({ initial, includePdfs, paired }: { initial: string
   const toggle = (p: string) => setSelected((s) => (s.includes(p) ? s.filter((x) => x !== p) : [...s, p]));
   return (
     <div className="stack">
-      <p className="muted">Pick the folders dayMarkable reads. Nothing selected means every notebook. Your own dayMarkable planner pages are always read so ticks close the loop.</p>
+      <p className="muted">Pick the folders ScriptumIQ reads. Nothing selected means every notebook. Your own ScriptumIQ planner pages are always read so ticks close the loop.</p>
       {!paired ? <div className="notice">Pair the tablet first to list folders.</div> : null}
       {loadError ? <div className="notice bad">{loadError}</div> : null}
       {paired && !folders && !loadError ? <small className="mono">loading folders…</small> : null}
@@ -223,7 +223,7 @@ export function ConventionsPicker({ initial, catalog }: { initial: Conventions; 
   return (
     <div className="stack">
       <p className="muted">
-        Tell dayMarkable which of your marks mean something. Only the ones you turn on carry meaning — an underline
+        Tell ScriptumIQ which of your marks mean something. Only the ones you turn on carry meaning — an underline
         means nothing if you leave it off. This is the single biggest thing you control: the decoder trusts your own
         markup over its guess at your wording.
       </p>
@@ -388,14 +388,14 @@ export function DailyUpdateSettings({ initial }: { initial: { enabled: boolean; 
   return (
     <div className="stack">
       <p className="muted" style={{ fontSize: 14 }}>
-        Overnight, dayMarkable searches the news for the subjects you follow and writes a short brief — a few
+        Overnight, ScriptumIQ searches the news for the subjects you follow and writes a short brief — a few
         headlines each, a sentence or two apiece. It arrives on your tablet with everything else, so it is there
         with your coffee rather than in a feed.
       </p>
       <label className="check">
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
         <span>
-          Send me the dayLy Update
+          Send me the Daily Update
           <div className="hint">Off means no news notebook at all. Nothing else changes.</div>
         </span>
       </label>
@@ -466,7 +466,7 @@ export function DailyPuzzleSettings({ initial }: { initial: { enabled: boolean }
       <label className="check">
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
         <span>
-          Send me the dayLy Puzzle
+          Send me the Daily Puzzle
           <div className="hint">Generated here, not fetched — it costs nothing and works whether or not you wrote anything that day.</div>
         </span>
       </label>
@@ -497,8 +497,24 @@ export function DailyPuzzleSettings({ initial }: { initial: { enabled: boolean }
  * 7) — but both hand a third party the token, which is the leak rule 17 says to expect and the
  * reason the rotate button is there. A customer who assumed this was private finds out by having
  * told the room.
+ *
+ * Hence the steps, and hence the one that looks like a contradiction: when the invitation is no
+ * longer in the mailbox, Outlook's "Forward as iCalendar" is safe where plain "Forward" is not.
+ * It is not a meeting forward at all — it hangs the .ics on an ordinary message — so it never
+ * reaches the notification path. Google has no equivalent: Calendar cannot send a single event
+ * anywhere except by inviting somebody, so Gmail's All Mail is the only route and the steps say so.
  */
-export function CalendarInbox({ initial, loginEmail }: { initial: string | null; loginEmail: string }) {
+export function CalendarInbox({
+  initial,
+  loginEmail,
+  deliveryEmail,
+}: {
+  initial: string | null;
+  loginEmail: string;
+  /** A delivery address that has CONFIRMED itself. Unverified ones cannot send, so naming one here
+      would promise something the sender check refuses (server/calendar-inbox.ts). */
+  deliveryEmail: string | null;
+}) {
   const [address, setAddress] = useState(initial);
   const [copied, setCopied] = useState(false);
   const { state, error, save } = useSaver(async () => {
@@ -533,16 +549,61 @@ export function CalendarInbox({ initial, loginEmail }: { initial: string | null;
               </button>
             </div>
             <div className="hint">
-              Forward from <strong>{loginEmail}</strong>. Invites from any other address are refused — the address above
-              travels in mail headers and forwarding chains, so on its own it is not proof of who sent something.
+              Send it from <strong>{loginEmail}</strong>
+              {deliveryEmail ? <> or <strong>{deliveryEmail}</strong></> : null}. Mail from any other address is refused
+              — the address above travels in mail headers and forwarding chains, so on its own it is not proof of who
+              sent something.
             </div>
+
             {/* Its own point, not a continuation of the sender rule above — 4px would read as one blob. */}
             <div className="hint" style={{ marginTop: 10 }}>
-              Forward the <strong>email</strong>, not the meeting. Outlook&apos;s calendar view has a Forward of its own
-              that can tell the organiser where you sent it; forwarding the message from your inbox tells nobody. On
-              Google, use Forward rather than Add guests — adding a guest would put this address on the invitation for
-              everyone on it to see.
+              <strong>Forward the invitation email. Do not add this address as a guest.</strong> A guest is invited by
+              the organiser, so the mail would arrive from them rather than from you and be refused — and the address
+              would sit on the invitation for every guest to read.
             </div>
+
+            <details style={{ marginTop: 10 }}>
+              <summary className="hint" style={{ cursor: "pointer" }}>How to forward one</summary>
+              <div className="hint" style={{ marginTop: 8 }}>
+                <p style={{ margin: "0 0 4px" }}>
+                  <strong>Google Calendar.</strong> Forward from Gmail, not from Calendar. Calendar has no forward for an
+                  event at all — its only way to send one to somebody is Add guests, which invites them.
+                </p>
+                <ol style={{ paddingLeft: 20, margin: "0 0 10px" }}>
+                  <li>
+                    In Gmail, find the invitation: search the meeting title, or{" "}
+                    <span className="mono">has:attachment invite.ics</span>. Invitations stay in All Mail after you
+                    accept, so one you have already answered is still there.
+                  </li>
+                  <li>
+                    Open it and use the <strong>⋮ menu at the top right of the message → Forward</strong>. Gmail often
+                    hides the usual forward arrow on an invitation, which is why it can look as though there is none.
+                  </li>
+                  <li>Send it to the address above.</li>
+                </ol>
+                <p style={{ margin: "0 0 4px" }}>
+                  <strong>Outlook.</strong> Forward the invitation from <strong>Mail</strong>, not from Calendar.
+                </p>
+                <ol style={{ paddingLeft: 20, margin: "0 0 10px" }}>
+                  <li>
+                    In Mail, find the invitation — in the Inbox, or in Deleted Items if Outlook filed it away when you
+                    accepted.
+                  </li>
+                  <li>Forward it to the address above. A forward from Mail is an ordinary email and tells nobody.</li>
+                  <li>
+                    If the invitation is gone for good, open the meeting in Calendar and use{" "}
+                    <strong>Forward → Forward as iCalendar</strong>, which attaches the meeting to an ordinary email.
+                    Do not use plain <strong>Forward</strong> there: that one is a meeting forward, and classic Outlook
+                    sends the organiser a notice saying where you sent it. Forward as iCalendar is a classic Outlook
+                    desktop option — new Outlook and Outlook on the web may not offer it.
+                  </li>
+                </ol>
+                <p style={{ margin: 0 }}>
+                  <strong>Apple Calendar.</strong> Same again: forward the invitation from Mail rather than from the
+                  event.
+                </p>
+              </div>
+            </details>
           </div>
           <div className="row">
             <button className="secondary" onClick={() => void save(undefined)} disabled={state === "saving"}>

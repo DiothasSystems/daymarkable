@@ -9,9 +9,9 @@ describe("session cookie scope", () => {
   });
 
   it("is the common parent domain when the site and the service have their own hosts", () => {
-    process.env.APP_URL = "https://daymarkable.com";
-    process.env.SERVICE_URL = "https://app.daymarkable.com";
-    expect(sessionCookieDomain()).toBe("daymarkable.com");
+    process.env.APP_URL = "https://scriptumiq.com";
+    process.env.SERVICE_URL = "https://app.scriptumiq.com";
+    expect(sessionCookieDomain()).toBe("scriptumiq.com");
   });
 
   it("is host-only with a single host, or when the hosts share no registrable domain", () => {
@@ -24,8 +24,8 @@ describe("session cookie scope", () => {
   });
 });
 
-const PUB = "https://daymarkable.com";
-const SVC = "https://app.daymarkable.com";
+const PUB = "https://scriptumiq.com";
+const SVC = "https://app.scriptumiq.com";
 
 describe("two-host routing", () => {
   it("classifies paths", () => {
@@ -43,23 +43,23 @@ describe("two-host routing", () => {
   });
 
   it("sends service paths on the public host to the service host, query intact", () => {
-    expect(crossHostRedirect("daymarkable.com", "/today", "", PUB, SVC)).toBe("https://app.daymarkable.com/today");
-    expect(crossHostRedirect("daymarkable.com", "/settings/verify-delivery", "?token=abc", PUB, SVC)).toBe("https://app.daymarkable.com/settings/verify-delivery?token=abc");
-    expect(crossHostRedirect("daymarkable.com", "/account", "?delivery=confirmed", PUB, SVC)).toBe("https://app.daymarkable.com/account?delivery=confirmed");
+    expect(crossHostRedirect("scriptumiq.com", "/today", "", PUB, SVC)).toBe("https://app.scriptumiq.com/today");
+    expect(crossHostRedirect("scriptumiq.com", "/settings/verify-delivery", "?token=abc", PUB, SVC)).toBe("https://app.scriptumiq.com/settings/verify-delivery?token=abc");
+    expect(crossHostRedirect("scriptumiq.com", "/account", "?delivery=confirmed", PUB, SVC)).toBe("https://app.scriptumiq.com/account?delivery=confirmed");
   });
 
   it("sends public paths on the service host back to the public host", () => {
-    expect(crossHostRedirect("app.daymarkable.com", "/pricing", "", PUB, SVC)).toBe("https://daymarkable.com/pricing");
-    expect(crossHostRedirect("app.daymarkable.com", "/login", "?expired=1", PUB, SVC)).toBe("https://daymarkable.com/login?expired=1");
-    expect(crossHostRedirect("app.daymarkable.com", "/", "", PUB, SVC)).toBe("https://app.daymarkable.com/today");
+    expect(crossHostRedirect("app.scriptumiq.com", "/pricing", "", PUB, SVC)).toBe("https://scriptumiq.com/pricing");
+    expect(crossHostRedirect("app.scriptumiq.com", "/login", "?expired=1", PUB, SVC)).toBe("https://scriptumiq.com/login?expired=1");
+    expect(crossHostRedirect("app.scriptumiq.com", "/", "", PUB, SVC)).toBe("https://app.scriptumiq.com/today");
   });
 
   it("serves shared routes on either host", () => {
-    expect(crossHostRedirect("daymarkable.com", "/auth/verify", "?token=t", PUB, SVC)).toBeNull();
-    expect(crossHostRedirect("app.daymarkable.com", "/auth/logout", "", PUB, SVC)).toBeNull();
-    expect(crossHostRedirect("app.daymarkable.com", "/api/trpc/documents.list", "", PUB, SVC)).toBeNull();
-    expect(crossHostRedirect("daymarkable.com", "/pricing", "", PUB, SVC)).toBeNull();
-    expect(crossHostRedirect("app.daymarkable.com", "/today", "", PUB, SVC)).toBeNull();
+    expect(crossHostRedirect("scriptumiq.com", "/auth/verify", "?token=t", PUB, SVC)).toBeNull();
+    expect(crossHostRedirect("app.scriptumiq.com", "/auth/logout", "", PUB, SVC)).toBeNull();
+    expect(crossHostRedirect("app.scriptumiq.com", "/api/trpc/documents.list", "", PUB, SVC)).toBeNull();
+    expect(crossHostRedirect("scriptumiq.com", "/pricing", "", PUB, SVC)).toBeNull();
+    expect(crossHostRedirect("app.scriptumiq.com", "/today", "", PUB, SVC)).toBeNull();
   });
 
   it("does nothing when both URLs share a host (local development)", () => {

@@ -347,6 +347,16 @@ export class RemarkableCloudProvider implements TabletProvider {
     }
   }
 
+  // The same call as a document: rmapi-js renames any entry, and a folder is one.
+  async renameFolder(folder: TabletFolder, name: string): Promise<UploadResult> {
+    try {
+      const ref = await withRetry(() => this.api.rename({ id: folder.id, hash: folder.hash }, name, true));
+      return { id: ref.id, hash: ref.hash };
+    } catch (err) {
+      throw wrap(err, `Renaming folder "${folder.name}" failed`);
+    }
+  }
+
   async deleteDocument(doc: TabletDocument): Promise<void> {
     try {
       await withRetry(() => this.api.delete({ id: doc.id, hash: doc.hash }, true));

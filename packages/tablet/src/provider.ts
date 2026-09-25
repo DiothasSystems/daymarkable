@@ -1,5 +1,5 @@
 /**
- * TabletProvider — the ONLY abstraction the rest of dayMarkable uses to talk to
+ * TabletProvider — the ONLY abstraction the rest of ScriptumIQ uses to talk to
  * an e-ink device. RemarkableCloudProvider is the launch implementation; a
  * future official API, USB mode, or another brand slots in behind this.
  */
@@ -92,8 +92,13 @@ export interface TabletProvider {
     doc: TabletDocument,
     options?: { onlyPageIds?: readonly string[] },
   ): Promise<DownloadedDocument>;
-  /** Find-or-create a folder by path ("/dayMarkable/Archive"). */
+  /** Find-or-create a folder by path ("/ScriptumIQ/Archive"). */
   ensureFolder(path: string): Promise<TabletFolder>;
+  /**
+   * Rename a folder in place. Everything inside goes with it: a child names its parent by id, not by
+   * path, so this is one metadata write however much the folder holds.
+   */
+  renameFolder(folder: TabletFolder, name: string): Promise<UploadResult>;
   /** Upload a PDF into a folder, replacing any document of the same name there. */
   uploadPdf(
     name: string,

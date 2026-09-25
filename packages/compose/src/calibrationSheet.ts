@@ -28,7 +28,7 @@ export async function composeCalibrationSheet(input: CalibrationSheetInput): Pro
   const { doc, fonts } = await newDocument();
   const c = addPage(doc, fonts, 1);
   const page = pageCode("DAY", input.date, 1).replace("/DAY/", "/SAMPLE/");
-  const top = c.header("Handwriting sample", `dayMarkable CALIBRATION · ${formatTitleDate(input.date).toUpperCase()}`);
+  const top = c.header("Handwriting sample", `ScriptumIQ CALIBRATION · ${formatTitleDate(input.date).toUpperCase()}`);
   c.footer(page);
 
   let y = top;
@@ -56,6 +56,6 @@ export async function composeCalibrationSheet(input: CalibrationSheetInput): Pro
     y += gap;
   }
 
-  doc.setTitle("dayMarkable Handwriting Sample");
+  doc.setTitle("ScriptumIQ Handwriting Sample");
   return { pdf: await doc.save(), writingTop: writingTopPx / 1872 };
 }

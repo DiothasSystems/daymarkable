@@ -1,6 +1,6 @@
 # One Next.js server behind two hostnames (see apps/web/src/lib/hosts.ts):
-#   APP_DOMAIN        daymarkable.com      public site, sign-in, registration, payments
-#   app.APP_DOMAIN    app.daymarkable.com  the signed-in service
+#   APP_DOMAIN        scriptumiq.com      public site, sign-in, registration, payments
+#   app.APP_DOMAIN    app.scriptumiq.com  the signed-in service
 # The app itself redirects a request that lands on the wrong host. www. redirects to the apex.
 # Caddy obtains a certificate for each hostname.
 
@@ -16,4 +16,41 @@
 
 www.{$APP_DOMAIN} {
 	redir https://{$APP_DOMAIN}{uri} permanent
+}
+
+# The product's previous name, daymarkable.com. It keeps answering so nothing already out in the
+# world breaks: bookmarks, sign-in links in mail already sent, installed app builds, webhooks.
+#
+# People are REDIRECTED, path and query kept, so a sign-in link from last week lands on the same page
+# under the new name. 308 rather than 301 so a method is never rewritten.
+#
+# Machines are PROXIED. /api/* is served here directly rather than redirected, for two callers that
+# a redirect would break. An installed app build calls app.daymarkable.com with a Bearer token, and
+# Android's HTTP client drops Authorization on a redirect to another host — the app would read as
+# signed out. And webhook senders (Stripe, Resend) do not follow redirects at all. The app answers a
+# request on a host it does not recognise as its own (hosts.ts), and Bearer auth needs no cookie, so
+# this is safe. Anything cookie-based arriving here simply finds no session.
+#
+# LEGACY_DOMAIN is set by scripts/vps-upgrade.sh at the moment it moves APP_DOMAIN, and is
+# `legacy.localhost` until then (docker-compose.yml). That default is load-bearing: `git pull` puts
+# this file on disk before the domain moves, and if the box restarted in between with LEGACY_DOMAIN
+# equal to APP_DOMAIN, the two blocks would claim the same hostnames and Caddy would refuse to start —
+# the whole site down. A .localhost name is served from Caddy's own CA, so it collides with nothing
+# and asks the internet for nothing.
+{$LEGACY_DOMAIN}, www.{$LEGACY_DOMAIN} {
+	handle /api/* {
+		reverse_proxy app:3000
+	}
+	handle {
+		redir https://{$APP_DOMAIN}{uri} 308
+	}
+}
+
+app.{$LEGACY_DOMAIN} {
+	handle /api/* {
+		reverse_proxy app:3000
+	}
+	handle {
+		redir https://app.{$APP_DOMAIN}{uri} 308
+	}
 }

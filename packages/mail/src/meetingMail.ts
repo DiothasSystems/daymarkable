@@ -69,7 +69,7 @@ export function buildMeetingMail(to: string, userId: string, m: Meeting, opts: M
     )
     .join("");
   const decisions = m.decisions.length ? `<ul style="margin:10px 0 0 18px;padding:0;font-family:${SANS};font-size:13px;color:#1e2a44;line-height:1.6">${m.decisions.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>` : "";
-  const cta = opts.appUrl ? `<div style="margin-top:24px;text-align:center"><a href="${esc(opts.appUrl)}" style="display:inline-block;background:#1e2a44;color:#f7f0e3;text-decoration:none;border-radius:4px;padding:12px 28px;font-family:${SANS};font-size:14px;font-weight:600">Open in dayMarkable</a></div>` : "";
+  const cta = opts.appUrl ? `<div style="margin-top:24px;text-align:center"><a href="${esc(opts.appUrl)}" style="display:inline-block;background:#1e2a44;color:#f7f0e3;text-decoration:none;border-radius:4px;padding:12px 28px;font-family:${SANS};font-size:14px;font-weight:600">Open in ScriptumIQ</a></div>` : "";
   const footer = [opts.notebooksRead ? `READ FROM ${opts.notebooksRead} NOTEBOOK${opts.notebooksRead === 1 ? "" : "S"}` : null, opts.pagesRead ? `${opts.pagesRead} PAGE${opts.pagesRead === 1 ? "" : "S"}` : null, `${Math.round(m.confidence * 100)}% CONFIDENCE`].filter(Boolean).join(" · ");
 
   const html = `<!doctype html><html><body style="margin:0;padding:24px 0;background:#e8e2d4;font-family:${SANS};color:#1e2a44">
@@ -77,7 +77,7 @@ export function buildMeetingMail(to: string, userId: string, m: Meeting, opts: M
   <div style="background:#1e2a44;padding:18px 32px">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
       <td style="vertical-align:middle;width:26px">${ROSE}</td>
-      <td style="vertical-align:middle;padding-left:12px;font-family:${SERIF};font-size:20px;font-weight:700;color:#f7f0e3"><span style="color:#c9973f">day</span>Markable</td>
+      <td style="vertical-align:middle;padding-left:12px;font-family:${SERIF};font-size:20px;font-weight:700;color:#f7f0e3">Scriptum<span style="color:#c9973f">IQ</span></td>
       <td style="vertical-align:middle;text-align:right;font-family:${MONO};font-size:10px;color:#a09372">${opts.syncedAt ? `SYNCED ${esc(opts.syncedAt)}` : formatMeetingDate(m.date).toUpperCase()}</td>
     </tr></table>
   </div>
@@ -113,7 +113,7 @@ export function buildMeetingMail(to: string, userId: string, m: Meeting, opts: M
     "ACTIONS",
     ...(m.actions.length ? m.actions.map((a) => `→ ${a}`) : ["none recorded"]),
     "",
-    opts.appUrl ? `Open in dayMarkable: ${opts.appUrl}` : "",
+    opts.appUrl ? `Open in ScriptumIQ: ${opts.appUrl}` : "",
     footer,
   ].join("\n");
   return { to, subject: meetingSubject(m), html, text, idempotencyKey: meetingIdempotencyKey(userId, m) };

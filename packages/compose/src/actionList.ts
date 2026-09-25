@@ -49,6 +49,6 @@ export async function composeActionList(input: ActionListInput): Promise<Compose
       s.y += LINE_H;
     }
   }
-  doc.setTitle(`dayMarkable Action List ${input.date}`);
+  doc.setTitle(`ScriptumIQ Action List ${input.date}`);
   return { pdf: await doc.save(), pageCount: doc.getPageCount(), printed: ctx.printed };
 }

@@ -16,7 +16,7 @@ const model: DailySheetModel = {
   ],
   upcoming: [{ id: "e4", title: "Board meeting", date: "2026-09-05", startTime: "09:00", endTime: null, location: null, people: [], source: "ink", confidence: 0.9 }],
   actions: [
-    { id: "a1", text: "Call Steve about the Q4 forecast and the reMarkable integration timeline", due: "2026-09-08", dueTime: "14:00", priority: "high", kind: "action", project: "dayMarkable", people: ["Steve"], confidence: 0.95, source: src, carriedCount: 0, createdOn: "2026-09-02" },
+    { id: "a1", text: "Call Steve about the Q4 forecast and the reMarkable integration timeline", due: "2026-09-08", dueTime: "14:00", priority: "high", kind: "action", project: "ScriptumIQ", people: ["Steve"], confidence: 0.95, source: src, carriedCount: 0, createdOn: "2026-09-02" },
     { id: "a2", text: "Renew passport", due: null, dueTime: null, priority: "normal", kind: "action", project: null, people: [], confidence: 0.9, source: src, carriedCount: 3, createdOn: "2026-08-30" },
     { id: "a3", text: "Chase Priya for the budget spreadsheet", due: "2026-09-03", dueTime: null, priority: "normal", kind: "follow_up", project: null, people: ["Priya"], confidence: 0.88, source: src, carriedCount: 1, createdOn: "2026-09-01" },
     { id: "a4", text: "Buy milk", due: null, dueTime: null, priority: "low", kind: "action", project: null, people: [], confidence: 0.9, source: src, carriedCount: 0, createdOn: "2026-09-02" },
