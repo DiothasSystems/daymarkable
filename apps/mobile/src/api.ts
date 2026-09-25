@@ -24,6 +24,27 @@ import { readStoredSession } from "./session";
  */
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
+/**
+ * The public site, derived from the service host rather than configured separately.
+ *
+ * The app is built against `app.scriptumiq.com`; the marketing site is the same domain without
+ * that label. Deriving it means one environment variable still decides everything, so a build
+ * pointed at a laptop cannot send someone to the live site to sign up. The fallback only matters
+ * for a host that is not shaped that way, which is the dev case.
+ */
+export function siteUrl(): string {
+  try {
+    const u = new URL(API_URL);
+    if (u.hostname.startsWith("app.")) {
+      u.hostname = u.hostname.slice(4);
+      return u.origin;
+    }
+  } catch {
+    // Not a URL we can reason about — fall through.
+  }
+  return "https://scriptumiq.com";
+}
+
 /** Raised when the server says the session is no longer good; the app signs out on it. */
 export class Unauthorized extends Error {
   constructor() {

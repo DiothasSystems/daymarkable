@@ -29,31 +29,10 @@ import { useCallback, useRef, useState } from "react";
 import { Dimensions, Linking, Pressable, ScrollView, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
 import Svg, { Circle, G, Line, Path, Rect } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { API_URL } from "@/api";
+import { siteUrl } from "@/api";
 import { BackBar, Button } from "@/components/ui";
 import { useSession } from "@/session";
 import { TOUCH_TARGET, color, font, radius, space, type } from "@/theme";
-
-/**
- * The public site, derived from the service host rather than configured separately.
- *
- * The app is built against `app.scriptumiq.com`; the marketing site is the same domain without
- * that label. Deriving it means one environment variable still decides everything, so a build
- * pointed at a laptop does not send someone to the live site to sign up. The fallback only matters
- * for a host that is not shaped that way, which is the dev case.
- */
-function siteUrl(): string {
-  try {
-    const u = new URL(API_URL);
-    if (u.hostname.startsWith("app.")) {
-      u.hostname = u.hostname.slice(4);
-      return u.origin;
-    }
-  } catch {
-    // Not a URL we can reason about — fall through.
-  }
-  return "https://scriptumiq.com";
-}
 
 /* --------------------------------------------------------------------------------------------
  * The drawings.
@@ -384,20 +363,19 @@ export default function Tour() {
           ))}
         </View>
 
-        {last ? (
-          <>
-            {/* No price, ever, on this side of the wire (rule 14). What it costs is on the page the
-                button opens, which is the web's and stays the web's. */}
-            <Button title={session ? "Start your free trial" : "Ask for an invitation"} onPress={start} />
-            <Text style={[type.small, { textAlign: "center" }]}>
-              {session
-                ? "Opens your account on the web, where plans and payment live."
-                : "ScriptumIQ is invitation-only while it is new. This opens the site in your browser."}
-            </Text>
-          </>
-        ) : (
-          <Button title="Next" onPress={() => goTo(page + 1)} />
-        )}
+        {/* Register sits on EVERY slide, not only the last one. Someone convinced by slide two
+            should not have to page through four more to act on it, and a tour that can only be
+            left at its end is a tour people leave by pressing back. */}
+        {last ? null : <Button title="Next" variant="secondary" onPress={() => goTo(page + 1)} />}
+
+        {/* No price, ever, on this side of the wire (rule 14). What it costs is on the page the
+            button opens, which is the web's and stays the web's. */}
+        <Button title={session ? "Start your free trial" : "Register"} onPress={start} />
+        <Text style={[type.small, { textAlign: "center" }]}>
+          {session
+            ? "Opens your account on the web, where plans and payment live."
+            : "ScriptumIQ is invitation-only while it is new. This opens the site in your browser."}
+        </Text>
       </View>
     </View>
   );

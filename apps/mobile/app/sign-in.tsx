@@ -14,9 +14,9 @@
  */
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { errorMessage, trpc } from "@/api";
+import { errorMessage, siteUrl, trpc } from "@/api";
 import { Hero } from "@/components/Hero";
 import { useSession } from "@/session";
 import { TOUCH_TARGET, color, font, radius, space, type } from "@/theme";
@@ -205,11 +205,13 @@ export default function SignIn() {
               style={input}
             />
             <PrimaryButton label={busy ? "Checking…" : "Sign in"} onPress={() => void request()} disabled={busy || !email.trim() || !password} />
-            <LinkButton label="First time, or forgot your password? Set one" onPress={() => backTo("reset", true)} />
             {/* The one screen someone without an account can reach. Registration is closed
                 (rule 15), so this is also the only place the app can honestly explain itself to
                 a stranger who has just installed it. */}
             <LinkButton label="What is ScriptumIQ?" onPress={() => router.push("/tour")} />
+            <View style={{ marginTop: space.xl }}>
+              <Register />
+            </View>
           </>
         ) : null}
 
@@ -264,6 +266,19 @@ export default function SignIn() {
       </ScrollView>
     </KeyboardAvoidingView>
   );
+}
+
+/**
+ * Getting an account, which is a thing this app cannot do and must not pretend to.
+ *
+ * Registration is closed and an invitation is the whole of what opens it (rule 15), so there is no
+ * form here to fill in - the site's own page is where an address is taken, and where someone who
+ * already has an account is told to go and sign in instead. It opens in the phone's browser rather
+ * than a WebView: nothing here is signed in, so there is no session to hand across, and a frame
+ * that looks like the app but is the open web is the wrong thing to put a stranger in.
+ */
+function Register() {
+  return <PrimaryButton label="Register" onPress={() => void Linking.openURL(`${siteUrl()}/start`)} outline />;
 }
 
 function PrimaryButton({ label, onPress, disabled = false, outline = false }: { label: string; onPress: () => void; disabled?: boolean; outline?: boolean }) {
