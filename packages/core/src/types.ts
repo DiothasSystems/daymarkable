@@ -6,6 +6,12 @@ export type TaskKind = "action" | "follow_up";
 export interface ItemSource {
   notebook: string;
   pageIndex: number;
+  /**
+   * The tablet's own ids for the notebook and page, when the run knew them. Stable where the name
+   * and position are not; what lets a note leave the live Notes notebook once its page is deleted.
+   */
+  docId?: string;
+  pageId?: string;
   /** The date written on the page itself, when the writer dated it. Never today's date. */
   pageDate?: string | null;
 }

@@ -143,6 +143,19 @@ unchanged.
 8. **The Action List is append-only and canonical.** One list per user; new items merge into
    it (date, then priority); items leave only by tick or explicit drop. Never emit a fresh
    list that orphans open items.
+
+   Notes are different: the live Notes notebook drops a note once the page or notebook it was
+   read from is deleted from the tablet (`pipeline/src/sourceGone.ts`, stamped on
+   `meetings.source_gone` before the merge). The note is hidden, never deleted — the weekly archive
+   and the calendar still carry it, and a notebook restored from the trash brings its notes back.
+   Absence is proved only against what was listed that night: a notebook missing from the tree, a
+   page missing from a notebook whose pages were listed. An empty tree proves nothing.
+   The customer can also delete a note from the web or the app (`documents.decide`, itemType
+   "meeting", action "drop"). That goes further: out of the archive and the calendar too, and the
+   body is erased on the spot. The row stays as a tombstone (topic, date, source) because without
+   it the next read of the page merges the note straight back in. A note dated more than
+   `FUTURE_NOTE_DAYS` (7) after the night it was read is a misread date and takes the page's date
+   instead (`noteDate` in merge.ts) — otherwise it heads the newest-first notebook until that day.
 9. **Ink conventions are per-user config.** The set of markups meaning
    action/follow-up/priority/schedule (asterisk, underline, highlight, circle, box,
    exclamation, margin star, keywords) lives in one config module and is injected into the

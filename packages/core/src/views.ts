@@ -194,7 +194,7 @@ export function buildYear(state: WorkingSet, opts: ViewOptions): YearModel {
   const inbox = state.inbox.filter((i) => thisYear(i.createdOn));
   const confirmed = inbox.filter((i) => i.status === "accepted").length;
   const decided = inbox.filter((i) => i.status !== "pending").length;
-  const meetings = state.meetings.filter((m) => thisYear(m.date)).length;
+  const meetings = state.meetings.filter((m) => !m.deleted && thisYear(m.date)).length;
   const progress: ProgressBar[] = [
     { label: "Actions closed", value: done + open ? done / (done + open) : 0, text: `${done}/${done + open}` },
     { label: "Inbox confirmed", value: decided ? confirmed / decided : 0, text: decided ? `${Math.round((confirmed / decided) * 100)}%` : "—" },
@@ -308,14 +308,21 @@ export function buildMeetingNotes(state: WorkingSet, opts: MeetingNotesOptions =
   const from = opts.weekStart ?? null;
   // An undated note has no week to belong to, so it stays in the live notebook rather than
   // being filed into a week it may not have happened in.
-  const meetings = state.meetings.filter((m) => from === null || m.date === null || m.date >= from).sort(newestFirst);
+  //
+  // A note whose notebook or page has been deleted from the tablet leaves the LIVE notebook: the
+  // customer took its source away, and reprinting it every night is what they asked us to stop.
+  // buildWeekNotes below keeps it — it was captured, and the archive is the record.
+  const meetings = state.meetings
+    .filter((m) => !m.deleted && !m.sourceGone)
+    .filter((m) => from === null || m.date === null || m.date >= from)
+    .sort(newestFirst);
   return { meetings };
 }
 
 /** The notes belonging to one Sunday-to-Saturday week, for the archived notebook. */
 export function buildWeekNotes(state: WorkingSet, weekStart: string): MeetingNotesModel {
   const end = addDays(weekStart, 6);
-  return { meetings: state.meetings.filter((m) => m.date !== null && m.date >= weekStart && m.date <= end).sort(newestFirst) };
+  return { meetings: state.meetings.filter((m) => !m.deleted && m.date !== null && m.date >= weekStart && m.date <= end).sort(newestFirst) };
 }
 
 export function buildOutputSet(state: WorkingSet, opts: ViewOptions): OutputSet {

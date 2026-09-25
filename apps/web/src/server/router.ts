@@ -138,7 +138,7 @@ export const appRouter = router({
     // Tick an item off or drop it — the same transitions a pen makes on a printed page.
     decide: protectedProcedure
       .input(z.object({
-        itemType: z.enum(["task", "event", "inbox", "meeting_request"]),
+        itemType: z.enum(["task", "event", "inbox", "meeting_request", "meeting"]),
         itemId: z.string().min(1),
         action: z.enum(["complete", "drop"]),
       }))
@@ -207,7 +207,8 @@ export const appRouter = router({
    * one only changes the plan. See packages/pipeline/src/edits.ts for why they must stay apart.
    *
    * There is no `delete`. An item leaves the list by being ticked or dropped (`documents.decide`,
-   * rule 8), which is the same pair of exits a printed page offers.
+   * rule 8), which is the same pair of exits a printed page offers. A note is deleted the same way:
+   * `documents.decide` with itemType "meeting" and action "drop".
    */
   items: router({
     /**

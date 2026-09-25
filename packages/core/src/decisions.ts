@@ -8,7 +8,8 @@
 import type { StoredEvent, StoredInboxItem, StoredMeetingRequest, StoredTask, WorkingSet } from "./state.js";
 import { stableId } from "./text.js";
 
-export type DecisionItemType = "task" | "event" | "inbox" | "meeting_request";
+/** `meeting` is a note in the Notes notebook; the only decision it takes is `drop`, which deletes it. */
+export type DecisionItemType = "task" | "event" | "inbox" | "meeting_request" | "meeting";
 /** `complete` = ticked the box; `drop` = crossed it out as not relevant. */
 export type DecisionAction = "complete" | "drop";
 
@@ -67,6 +68,23 @@ export function applyDecision(state: WorkingSet, d: Decision, today: string): De
     m.state = d.action === "complete" ? "confirmed" : "dropped";
     m.confirmedOn = d.action === "complete" ? today : null;
     return { label: m.topic, status: m.state, created: empty };
+  }
+
+  if (d.itemType === "meeting") {
+    const m = state.meetings.find((x) => x.id === d.itemId && !x.deleted);
+    if (!m) throw new Error("note not found");
+    // A note is a record, not a to-do: there is nothing to tick, only to throw away.
+    if (d.action !== "drop") throw new Error("a note can only be deleted");
+    // The body goes now; topic, date and source stay as a tombstone so the next read of the same
+    // page recognises the note rather than creating it again (mergeRun skips a known id or topic).
+    m.deleted = true;
+    m.text = "";
+    m.decisions = [];
+    m.actions = [];
+    m.attendees = [];
+    m.drawing = null;
+    m.drawingCaption = null;
+    return { label: m.topic, status: "deleted", created: empty };
   }
 
   const it = state.inbox.find((x) => x.id === d.itemId);

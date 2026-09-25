@@ -32,6 +32,7 @@ import { DateTime } from "luxon";
 import type { CacheStore } from "./cache.js";
 import type { Renderer } from "./renderer.js";
 import * as repo from "./repo.js";
+import { sourceGoneVerdicts } from "./sourceGone.js";
 
 export interface PipelineDeps {
   db: Db;
@@ -621,6 +622,8 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     log(`sync: ${tree.documents.length} documents, ${candidates.length} watched; window opens ${windowStart.toISO()}${windowWhy}`);
 
     const downloaded: Array<{ doc: DownloadedDocument; changedPageIds: string[] }> = [];
+    /** Every page id of every notebook whose pages were listed tonight — what a deleted page is proved against. */
+    const listedPages = new Map<string, Set<string>>();
     const baselineOnly: TabletDocument[] = [];
     /** Pages seen but not decoded: snapshotted so they are never mistaken for new ink. */
     const baselinePages: Array<{ docId: string; pages: Array<{ pageId: string; index: number; hash: string | null }> }> = [];
@@ -634,6 +637,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         continue;
       }
       const pageRefs = await deps.tablet.listPages(doc);
+      listedPages.set(doc.id, new Set(pageRefs.map((p) => p.pageId)));
       const pageSnap = await repo.loadPageSnapshots(db, user.id, doc.id);
       // "Have we ever recorded this notebook's pages?" — NOT "have we seen the document?". A
       // document can carry a hash snapshot with no page rows behind it (it was baselined whole,
@@ -753,6 +757,10 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         mergePages.push({
           notebook: meta.doc.document.name,
           pageIndex: meta.pageIndex,
+          // The ids, so a note read from this page can leave the live Notes notebook once the page
+          // or its notebook is deleted (sourceGone.ts).
+          docId: meta.doc.document.id,
+          pageId: meta.pageId,
           extraction: r.extraction,
           drawing,
           inkCoverage: drawing ? inkCoverage(drawing) : 0,
@@ -766,6 +774,11 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         throw new Error(`all ${decodeInputs.length} page(s) failed to decode: ${why}`);
       }
     }
+
+    // ---- 3b. notes whose source is gone ----------------------------------------------
+    // Before the working set is loaded, so tonight's Notes notebook already leaves them out.
+    const gone = await repo.applySourceGone(db, user.id, (notes) => sourceGoneVerdicts(notes, tree.documents, listedPages));
+    if (gone.hidden || gone.restored) log(`notes: ${gone.hidden} left the live notebook (source deleted), ${gone.restored} back (source found again)`);
 
     // ---- 4. merge (deterministic) ---------------------------------------------------
     const previous = await repo.loadWorkingSet(db, deps.sealer, user.id);

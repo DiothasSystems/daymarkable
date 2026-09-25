@@ -163,6 +163,37 @@ describe("runPipeline (fixtures)", () => {
     const since = await repo.onDemandRunsSince(handle.db, userId, new Date(Date.now() - 24 * 3600_000));
     expect(since).toHaveLength(2);
   });
+
+  it("a note whose notebook was deleted from the tablet leaves the live Notes notebook, and comes back with it", async () => {
+    const notes = () => handle.db.query.meetings.findMany({ where: eq(schema.meetings.userId, userId) });
+    const before = await notes();
+    expect(before.length).toBeGreaterThan(0);
+    // Every note read by a run knows which notebook and page it came from.
+    expect(before.every((m) => m.sourceDocId && m.sourcePageId)).toBe(true);
+    expect(before.every((m) => m.sourceGone === null)).toBe(true);
+
+    // Deleted: the notebook is in the trash, which the tree does not list. Something else is still
+    // on the tablet, so the tree is not empty (an empty one would prove nothing).
+    const real = tablet.listTree.bind(tablet);
+    tablet.listTree = async () => {
+      const t = await real();
+      return { ...t, documents: [{ ...t.documents[0]!, id: "archived-planner", name: "Planner 2026-08-30", path: "/ScriptumIQ/Archive/Planner 2026-08-30" }] };
+    };
+    try {
+      logs.length = 0;
+      const out = await runPipeline(deps, { userId, kind: "on_demand", requestedVia: "test", localDate: "2026-09-05" });
+      expect(out.error ?? out.status).toBe("succeeded");
+      expect((await notes()).every((m) => m.sourceGone === "notebook")).toBe(true);
+      expect(logs.some((l) => l.startsWith(`notes: ${before.length} left the live notebook`))).toBe(true);
+    } finally {
+      tablet.listTree = real;
+    }
+
+    // Restored from the trash.
+    const back = await runPipeline(deps, { userId, kind: "on_demand", requestedVia: "test", localDate: "2026-09-06" });
+    expect(back.status).toBe("succeeded");
+    expect((await notes()).every((m) => m.sourceGone === null)).toBe(true);
+  });
 });
 
 describe("selection and windows", () => {

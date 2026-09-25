@@ -1,7 +1,7 @@
 import { emptyExtraction, type ExtractedTask, type PageExtraction } from "@daymarkable/decode";
 import { describe, expect, it } from "vitest";
 import { applyDecision } from "./decisions.js";
-import { activeEvents, mergeRun, openActionList, pendingInbox } from "./merge.js";
+import { activeEvents, mergeRun, noteDate, openActionList, pendingInbox } from "./merge.js";
 import { emptyWorkingSet, type WorkingSet } from "./state.js";
 import { buildActionList, buildMeetingNotes, buildMonth, buildOutputSet, buildWeek, buildWeekNotes, notesWeekStart, startOfWeek } from "./views.js";
 
@@ -119,6 +119,39 @@ describe("mergeRun", () => {
     expect(r1.newMeetings[0]!.actions).toEqual(["Send Priya the deck"]);
     const r2 = mergeRun(r1.state, [page], opts);
     expect(r2.newMeetings).toHaveLength(0);
+  });
+
+  it("a note dated far in the future is a misread, and takes the page's date instead", () => {
+    const note = (meeting_date: string) => ({ meeting_topic: "Vendor review", meeting_date, meeting_time: null, attendees: [], text: "Pricing.", decisions: [], confidence: 0.8 });
+    // Next Tuesday is a real prep note; next month is a 0 read as a 1.
+    const near = mergeRun(emptyWorkingSet(), [notesPage({ notes: [note("2026-09-08")] })], opts);
+    expect(near.newMeetings[0]!.date).toBe("2026-09-08");
+    const far = mergeRun(emptyWorkingSet(), [notesPage({ page_date: "2026-09-01", notes: [note("2026-10-01")] })], opts);
+    expect(far.newMeetings[0]!.date).toBe("2026-09-01");
+    // A page date that is itself far off is no better: the night it was read.
+    expect(noteDate("2027-09-01", "2027-09-01", "2026-09-02")).toBe("2026-09-02");
+    expect(noteDate(null, "2026-08-30", "2026-09-02")).toBe("2026-09-02");
+    expect(noteDate("2026-09-09", null, "2026-09-02")).toBe("2026-09-09"); // exactly a week ahead
+  });
+
+  it("a deleted note is gone from every view and is not merged back when its page is read again", () => {
+    const page = notesPage({ notes: [{ meeting_topic: "Roadmap sync", meeting_date: "2026-09-02", meeting_time: null, attendees: ["Priya"], text: "Discussed Q4.", decisions: ["Ship"], confidence: 0.8 }] });
+    const r1 = mergeRun(emptyWorkingSet(), [page], opts);
+    const id = r1.state.meetings[0]!.id;
+    const res = applyDecision(r1.state, { itemType: "meeting", itemId: id, action: "drop" }, "2026-09-02");
+    expect(res.status).toBe("deleted");
+    const m = r1.state.meetings[0]!;
+    expect([m.deleted, m.text, m.decisions, m.attendees]).toEqual([true, "", [], []]);
+    expect(buildMeetingNotes(r1.state).meetings).toHaveLength(0);
+    expect(buildWeekNotes(r1.state, "2026-08-30").meetings).toHaveLength(0);
+    // The page is edited and read again — the tombstone keeps the note deleted.
+    const r2 = mergeRun(r1.state, [page], { ...opts, today: "2026-09-03" });
+    expect(r2.newMeetings).toHaveLength(0);
+    expect(buildMeetingNotes(r2.state).meetings).toHaveLength(0);
+    // Nothing to tick on a note, and it cannot be deleted twice.
+    expect(() => applyDecision(r2.state, { itemType: "meeting", itemId: id, action: "drop" }, "2026-09-03")).toThrow(/not found/);
+    const r3 = mergeRun(emptyWorkingSet(), [page], opts);
+    expect(() => applyDecision(r3.state, { itemType: "meeting", itemId: r3.state.meetings[0]!.id, action: "complete" }, "2026-09-02")).toThrow(/only be deleted/);
   });
 
   it("folds several topics on one page into one meeting (section headings stay in the text)", () => {
@@ -543,6 +576,13 @@ describe("weekly Notes", () => {
       meeting("after", "2026-09-06"), // next Sunday
     );
     expect(buildWeekNotes(s, "2026-08-30").meetings.map((m) => m.id)).toEqual(["last", "first"]);
+  });
+
+  it("a note whose tablet page was deleted leaves the live notebook but stays in its week's archive", () => {
+    const s = withMeetings(meeting("gone", "2026-09-09"), meeting("kept", "2026-09-08"));
+    s.meetings[0]!.sourceGone = "notebook";
+    expect(buildMeetingNotes(s).meetings.map((m) => m.id)).toEqual(["kept"]);
+    expect(buildWeekNotes(s, "2026-09-06").meetings.map((m) => m.id)).toEqual(["gone", "kept"]);
   });
 });
 

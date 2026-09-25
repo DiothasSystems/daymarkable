@@ -148,6 +148,13 @@
       "when": 1790304524113,
       "tag": "0020_new_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790336455145,
+      "tag": "0021_famous_maverick",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, schema, sql, type UserSettings } from "@daymarkable/db";
+import { and, desc, eq, inArray, isNull, schema, sql, type UserSettings } from "@daymarkable/db";
 import { nextOccurrence, occurrencesInRange, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
 import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, createItem as addItem, getItem as readItem, updateItem as editItem, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type ItemEdit, type NewItem, type QuotaStatus } from "@daymarkable/pipeline";
@@ -178,7 +178,9 @@ export async function getRegistry(userId: string) {
     .filter((x): x is { e: typeof x.e; next: string } => x.next !== null)
     .map(({ e, next }) => (e.date === next ? e : { ...e, date: next }))
     .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
-  const meetings = [...state.meetings].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || (b.time ?? "").localeCompare(a.time ?? ""));
+  // The same notes the tablet's live Notes notebook prints: one whose page was deleted from the
+  // tablet is left out here too (the calendar and the weekly archive still have it).
+  const meetings = state.meetings.filter((m) => !m.deleted && !m.sourceGone).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || (b.time ?? "").localeCompare(a.time ?? ""));
   const inbox = state.inbox.filter((i) => i.status === "pending");
   const doneRecently = state.tasks.filter((t) => t.status === "done" && t.completedOn && t.completedOn >= DateTime.fromISO(today).minus({ days: 7 }).toISODate()!);
   return { today, actions, events, meetings, inbox, doneRecently, meetingRequests: state.meetingRequests.filter((m) => m.state !== "dropped") };
@@ -211,7 +213,7 @@ export async function getCalendar(userId: string, from: string, to: string) {
     to,
     /** One entry per event per day it falls on, each carrying that day rather than the anchor. */
     events: occurrencesInRange(active, from, to),
-    meetings: state.meetings.filter((m) => m.date && m.date >= from && m.date <= to).sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "")),
+    meetings: state.meetings.filter((m) => !m.deleted && m.date && m.date >= from && m.date <= to).sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "")),
     /** What is due in the span, so a day shows the work as well as the appointments. */
     due: state.tasks
       .filter((t) => (t.status === "open" || t.status === "carried") && t.due && t.due >= from && t.due <= to)
@@ -613,7 +615,7 @@ export async function correctItem(userId: string, itemType: "task" | "event" | "
     const payload = { ...row.payload, [field]: text, confidence: 1 };
     await rt.db.update(schema.inboxItems).set({ text, payload, confidence: 1, updatedAt: new Date() }).where(eq(schema.inboxItems.id, itemId));
   } else {
-    const row = await rt.db.query.meetings.findFirst({ where: and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, itemId)) });
+    const row = await rt.db.query.meetings.findFirst({ where: and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, itemId), isNull(schema.meetings.deletedAt)) });
     if (!row) throw new Error("item not found");
     original = row.topic;
     await rt.db.update(schema.meetings).set({ topic: text, confidence: 1 }).where(eq(schema.meetings.id, itemId));

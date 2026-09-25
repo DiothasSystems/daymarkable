@@ -137,21 +137,24 @@ export default function ItemEditor() {
 
   const remove = useCallback(() => {
     if (!draft) return;
-    const label = draft.itemType === "task" ? "action" : draft.itemType === "event" ? "calendar entry" : "meeting note";
+    const note = draft.itemType === "meeting";
+    const label = draft.itemType === "task" ? "action" : draft.itemType === "event" ? "calendar entry" : "note";
     Alert.alert(
-      "Remove this item?",
-      `It leaves the list for good — the same as crossing it out on paper.`,
+      note ? "Delete this note?" : "Remove this item?",
+      note
+        ? "It leaves the Notes notebook and its weekly archive, and its text is erased. The page on your tablet is not changed."
+        : `It leaves the list for good — the same as crossing it out on paper.`,
       [
         { text: "Keep it", style: "cancel" },
         {
-          text: `Remove ${label}`,
+          text: note ? "Delete note" : `Remove ${label}`,
           style: "destructive",
           onPress: () => {
             void (async () => {
               setBusy(true);
               try {
-                // Meetings are notes, not list items: they have no drop transition.
-                await trpc.documents.decide.mutate({ itemType: draft.itemType as "task" | "event", itemId: draft.id, action: "drop" });
+                // For a note, "drop" is delete: a note has nothing to tick (core decisions.ts).
+                await trpc.documents.decide.mutate({ itemType: draft.itemType, itemId: draft.id, action: "drop" });
                 router.back();
               } catch (err) {
                 setError(errorMessage(err));
@@ -306,11 +309,9 @@ export default function ItemEditor() {
           </Card>
         ) : null}
 
-        {draft.itemType !== "meeting" ? (
-          <View style={{ marginTop: space.xl }}>
-            <Button title="Remove from the list" variant="tertiary" onPress={remove} busy={busy} />
-          </View>
-        ) : null}
+        <View style={{ marginTop: space.xl }}>
+          <Button title={draft.itemType === "meeting" ? "Delete this note" : "Remove from the list"} variant="tertiary" onPress={remove} busy={busy} />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>,
   );

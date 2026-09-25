@@ -23,7 +23,7 @@
  * list the way a decoded item does, and removing is still `decideItem(..., "drop")` — there is
  * no hard delete here on purpose.
  */
-import { and, eq, type Db, type Sealer, schema } from "@daymarkable/db";
+import { and, eq, isNull, type Db, type Sealer, schema } from "@daymarkable/db";
 import { similar, stableId, type Recurrence } from "@daymarkable/core";
 
 export interface TaskPatch {
@@ -147,7 +147,7 @@ export async function getItem(db: Db, sealer: Sealer, userId: string, itemType: 
       origin: row.source,
     };
   }
-  const row = await db.query.meetings.findFirst({ where: and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, itemId)) });
+  const row = await db.query.meetings.findFirst({ where: and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, itemId), isNull(schema.meetings.deletedAt)) });
   if (!row) throw new ItemNotFound("meeting", itemId);
   const body = sealer.openJson<MeetingBody>(row.bodyEnc);
   return {
@@ -214,7 +214,7 @@ export async function updateItem(db: Db, sealer: Sealer, userId: string, edit: I
     return { itemType: "event", itemId: edit.itemId, label: title };
   }
 
-  const row = await db.query.meetings.findFirst({ where: and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, edit.itemId)) });
+  const row = await db.query.meetings.findFirst({ where: and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, edit.itemId), isNull(schema.meetings.deletedAt)) });
   if (!row) throw new ItemNotFound("meeting", edit.itemId);
   const p = edit.patch;
   const topic = p.topic === undefined ? row.topic : trimmed(p.topic);

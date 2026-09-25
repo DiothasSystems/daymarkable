@@ -5,7 +5,10 @@
  * mistaken for a correction. `correctItem` teaches the decoder; `updateItem` must not, or the
  * mobile app fills the lexicon with words that were never on a page.
  */
-import { Sealer, eq, generateKey, openDb, parseKey, schema, type DbHandle } from "@daymarkable/db";
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { Sealer, eq, generateKey, openDb, parseKey, schema, sql, type DbHandle } from "@daymarkable/db";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ItemNotFound, createItem, getItem, updateItem } from "./edits.js";
 import * as repo from "./repo.js";
@@ -231,5 +234,46 @@ describe("createItem", () => {
   it("refuses an empty item", async () => {
     await expect(createItem(handle.db, userId, { itemType: "task", text: "  " }, TODAY)).rejects.toThrow(/needs words/);
     await expect(createItem(handle.db, userId, { itemType: "event", title: "" }, TODAY)).rejects.toThrow(/needs a title/);
+  });
+});
+
+describe("deleting a note", () => {
+  it("erases the body, hides the note from the working set's views, and closes it to the editor", async () => {
+    await meeting("m20", "Vendor review", { text: "Private detail.", decisions: ["Go"], actions: ["Call"] });
+    const res = await repo.decideItem(handle.db, sealer, userId, { itemType: "meeting", itemId: "m20", action: "drop" }, TODAY);
+    expect(res.status).toBe("deleted");
+
+    const row = await meetingRow("m20");
+    expect(row!.deletedAt).toBeInstanceOf(Date);
+    expect(sealer.openJson(row!.bodyEnc)).toEqual({ text: "", decisions: [], actions: [] });
+    // The tombstone keeps what the merge needs to recognise the note, and nothing else.
+    expect(row!.topic).toBe("Vendor review");
+
+    const ws = await repo.loadWorkingSet(handle.db, sealer, userId);
+    expect(ws.meetings.find((m) => m.id === "m20")?.deleted).toBe(true);
+    await expect(getItem(handle.db, sealer, userId, "meeting", "m20")).rejects.toThrow(ItemNotFound);
+    await expect(updateItem(handle.db, sealer, userId, { itemType: "meeting", itemId: "m20", patch: { topic: "Back" } })).rejects.toThrow(ItemNotFound);
+  });
+
+  it("will not delete another account's note", async () => {
+    await handle.db.insert(schema.meetings).values({ id: "m21", userId: otherId, topic: "Theirs", confidence: 0.8, bodyEnc: sealer.sealJson({ text: "x", decisions: [], actions: [] }) });
+    await expect(repo.decideItem(handle.db, sealer, userId, { itemType: "meeting", itemId: "m21", action: "drop" }, TODAY)).rejects.toThrow(/not found/);
+    expect((await meetingRow("m21"))!.deletedAt).toBeNull();
+  });
+});
+
+describe("migration 0021's date repair", () => {
+  it("re-dates a note stored more than a week after the night it was read, and nothing else", async () => {
+    const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "db", "drizzle");
+    const file = (await readdir(dir)).find((f) => f.startsWith("0021_"))!;
+    const repair = (await readFile(path.join(dir, file), "utf8")).split("--> statement-breakpoint").pop()!;
+    const read = new Date("2026-09-20T05:00:00Z");
+    await meeting("m30", "Misread", { text: "", decisions: [], actions: [] });
+    await meeting("m31", "Prep for next week", { text: "", decisions: [], actions: [] });
+    await handle.db.update(schema.meetings).set({ date: "2026-10-20", createdAt: read }).where(eq(schema.meetings.id, "m30"));
+    await handle.db.update(schema.meetings).set({ date: "2026-09-25", createdAt: read }).where(eq(schema.meetings.id, "m31"));
+    await handle.db.execute(sql.raw(repair));
+    expect((await meetingRow("m30"))!.date).toBe("2026-09-20");
+    expect((await meetingRow("m31"))!.date).toBe("2026-09-25");
   });
 });

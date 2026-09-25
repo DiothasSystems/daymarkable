@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { errorMessage, trpc } from "@/lib/trpc";
 
-type ItemType = "task" | "event" | "inbox" | "meeting_request";
+type ItemType = "task" | "event" | "inbox" | "meeting_request" | "meeting";
 
 /**
  * The web equivalent of a pen: tick the box to close an item, or cross it out to drop one that is
@@ -45,6 +45,33 @@ export function DropButton({ itemType, itemId, text, label = "Not relevant — r
       }}
     >
       ✕
+    </button>
+  );
+}
+
+/**
+ * Delete a note from the Notes notebook. Unlike dropping an action this has no paper equivalent, and
+ * it reaches further: the note leaves the weekly archive too, and its text is erased from the store.
+ * The page on the tablet is not touched.
+ */
+export function DeleteNoteButton({ itemId, topic }: { itemId: string; topic: string }) {
+  const { run, busy } = useDecide();
+  return (
+    <button
+      type="button"
+      className="small secondary"
+      aria-label={`Delete note: ${topic}`}
+      disabled={busy}
+      onClick={() => {
+        if (!confirm(`Delete this note?
+
+${topic}
+
+It leaves the Notes notebook and its weekly archive, and its text is erased. The page on your tablet is not changed.`)) return;
+        void run("meeting", itemId, "drop");
+      }}
+    >
+      Delete note
     </button>
   );
 }

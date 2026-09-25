@@ -70,6 +70,18 @@ export interface Meeting {
   drawing?: InkDrawing | null;
   /** One line saying what the drawing is, for the reader and for search. Never the drawing itself. */
   drawingCaption?: string | null;
+  /**
+   * The notebook (or the page) this note was read from is no longer on the tablet. The note leaves
+   * the live Notes notebook — the customer deleted its source — but it is still a captured note, so
+   * it stays in the store and in its week's archive (buildWeekNotes).
+   */
+  sourceGone?: "notebook" | "page";
+  /**
+   * Deleted by the customer from the web or the app: out of every view, archives included. Kept in
+   * the working set only so the merge recognises the note and does not create it again when its page
+   * is next read.
+   */
+  deleted?: true;
 }
 
 export type PrintedItemType = "task" | "inbox" | "meeting_request";

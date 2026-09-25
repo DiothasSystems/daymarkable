@@ -372,6 +372,28 @@ export const meetings = pgTable(
     confidence: real("confidence").notNull(),
     sourceNotebook: text("source_notebook"),
     sourcePageIndex: integer("source_page_index"),
+    /**
+     * The tablet's own ids for the notebook and page this note was read from — stable where the
+     * name and position are not (a notebook is renamed; a page moves when one is inserted before it).
+     * Null on notes read before these were kept; those fall back to matching the notebook's name.
+     */
+    sourceDocId: text("source_doc_id"),
+    sourcePageId: text("source_page_id"),
+    /**
+     * Set when the notebook or page this note came from is no longer on the tablet: "notebook" or
+     * "page". Such a note leaves the live Notes notebook but stays here, and in its week's archive —
+     * it was captured, and the archive is where captured notes live. Cleared if the source comes back.
+     * The reason is kept because the two are proved differently (pipeline sourceGoneVerdicts).
+     */
+    sourceGone: text("source_gone"),
+    sourceGoneAt: timestamp("source_gone_at", { withTimezone: true }),
+    /**
+     * The customer deleted this note from the web or the app. It is gone from every view — the live
+     * Notes notebook, the weekly archive, the calendar — and its body is wiped at the moment of
+     * deletion. The row is kept, with only its topic, date and source, as a tombstone: without it the
+     * next read of the same page would merge the note straight back in.
+     */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdRunId: uuid("created_run_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

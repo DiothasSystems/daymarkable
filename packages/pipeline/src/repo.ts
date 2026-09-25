@@ -20,6 +20,7 @@ import {
   type UserSettings,
 } from "@daymarkable/db";
 import { clampEscalationThreshold, STARTER_CONVENTIONS } from "@daymarkable/decode";
+import type { NoteSource, SourceVerdict } from "./sourceGone.js";
 
 /** Everything ScriptumIQ writes back, as the documents registry knows it. */
 export type DocumentKind = "planner" | "action_list" | "meeting_notes" | "daily_update" | "daily_puzzle";
@@ -360,7 +361,14 @@ export async function loadWorkingSet(db: Db, sealer: Sealer, userId: string): Pr
         decisions: body.decisions,
         actions: body.actions,
         confidence: m.confidence,
-        source: { notebook: m.sourceNotebook ?? "", pageIndex: m.sourcePageIndex ?? 0 },
+        source: {
+          notebook: m.sourceNotebook ?? "",
+          pageIndex: m.sourcePageIndex ?? 0,
+          ...(m.sourceDocId ? { docId: m.sourceDocId } : {}),
+          ...(m.sourcePageId ? { pageId: m.sourcePageId } : {}),
+        },
+        ...(m.sourceGone === "notebook" || m.sourceGone === "page" ? { sourceGone: m.sourceGone } : {}),
+        ...(m.deletedAt ? { deleted: true as const } : {}),
       };
     }),
     printed,
@@ -420,7 +428,9 @@ export async function saveWorkingSet(db: Db, sealer: Sealer, userId: string, run
     await db.insert(schema.inboxItems).values({ ...values, createdRunId: runId }).onConflictDoUpdate({ target: schema.inboxItems.id, set: values });
   }
   for (const m of state.meetings) {
-    const values = { id: m.id, userId, topic: m.topic, date: m.date, time: m.time, attendees: m.attendees, bodyEnc: sealer.sealJson({ text: m.text, decisions: m.decisions, actions: m.actions }), confidence: m.confidence, sourceNotebook: m.source.notebook, sourcePageIndex: m.source.pageIndex };
+    const values = { id: m.id, userId, topic: m.topic, date: m.date, time: m.time, attendees: m.attendees, bodyEnc: sealer.sealJson({ text: m.text, decisions: m.decisions, actions: m.actions }), confidence: m.confidence, sourceNotebook: m.source.notebook, sourcePageIndex: m.source.pageIndex, sourceDocId: m.source.docId ?? null, sourcePageId: m.source.pageId ?? null };
+    // source_gone is not written here: applySourceGone owns it, and a note re-read tonight was
+    // judged against tonight's tree before the merge.
     await db.insert(schema.meetings).values({ ...values, createdRunId: runId }).onConflictDoUpdate({ target: schema.meetings.id, set: values });
   }
   if (printed.length) {
@@ -429,6 +439,39 @@ export async function saveWorkingSet(db: Db, sealer: Sealer, userId: string, run
   // Printed items older than 8 days can no longer be on the tablet (7-day archive).
   const oldRuns = await db.query.runs.findMany({ where: and(eq(schema.runs.userId, userId), sql`${schema.runs.createdAt} < now() - interval '8 days'`) });
   if (oldRuns.length) await db.delete(schema.printedItems).where(inArray(schema.printedItems.runId, oldRuns.map((r) => r.id)));
+}
+
+/**
+ * Hide (or bring back) notes whose tablet page or notebook is gone — see sourceGone.ts. Only rows
+ * whose state changes are written; nothing about a note's content is read or logged.
+ */
+export async function applySourceGone(
+  db: Db,
+  userId: string,
+  verdicts: (notes: NoteSource[]) => Map<string, SourceVerdict>,
+): Promise<{ hidden: number; restored: number }> {
+  const notes = await db
+    .select({ id: schema.meetings.id, sourceNotebook: schema.meetings.sourceNotebook, sourceDocId: schema.meetings.sourceDocId, sourcePageId: schema.meetings.sourcePageId, sourceGone: schema.meetings.sourceGone })
+    .from(schema.meetings)
+    .where(eq(schema.meetings.userId, userId));
+  const byId = verdicts(notes);
+  let hidden = 0;
+  let restored = 0;
+  const now = new Date();
+  for (const n of notes) {
+    const v = byId.get(n.id) ?? "unknown";
+    if (v === "unknown") continue;
+    if (v === "present") {
+      if (n.sourceGone === null) continue;
+      await db.update(schema.meetings).set({ sourceGone: null, sourceGoneAt: null }).where(eq(schema.meetings.id, n.id));
+      restored++;
+    } else {
+      if (n.sourceGone === v) continue;
+      await db.update(schema.meetings).set({ sourceGone: v, sourceGoneAt: now }).where(eq(schema.meetings.id, n.id));
+      if (n.sourceGone === null) hidden++;
+    }
+  }
+  return { hidden, restored };
 }
 
 // ---------------------------------------------------------------- documents + email
@@ -447,6 +490,12 @@ export async function decideItem(db: Db, sealer: Sealer, userId: string, d: Deci
     await db.update(schema.tasks).set({ status: t.status, completedOn: t.completedOn, updatedAt: now }).where(and(eq(schema.tasks.userId, userId), eq(schema.tasks.id, d.itemId)));
   } else if (d.itemType === "event") {
     await db.update(schema.events).set({ status: "dropped", updatedAt: now }).where(and(eq(schema.events.userId, userId), eq(schema.events.id, d.itemId)));
+  } else if (d.itemType === "meeting") {
+    // Wiped, not just flagged: a deleted note's words do not stay in the store (see schema.meetings.deletedAt).
+    await db
+      .update(schema.meetings)
+      .set({ deletedAt: now, attendees: [], bodyEnc: sealer.sealJson({ text: "", decisions: [], actions: [] }) })
+      .where(and(eq(schema.meetings.userId, userId), eq(schema.meetings.id, d.itemId)));
   } else if (d.itemType === "meeting_request") {
     const m = state.meetingRequests.find((x) => x.id === d.itemId)!;
     await db.update(schema.meetingRequests).set({ state: m.state, confirmedOn: m.confirmedOn, updatedAt: now }).where(and(eq(schema.meetingRequests.userId, userId), eq(schema.meetingRequests.id, d.itemId)));

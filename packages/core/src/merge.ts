@@ -27,6 +27,9 @@ import type { ItemSource, Priority } from "./types.js";
 export interface MergePage {
   notebook: string;
   pageIndex: number;
+  /** The tablet's ids for the notebook and page, carried onto what is read from it (ItemSource). */
+  docId?: string;
+  pageId?: string;
   extraction: PageExtraction;
   /** The page's own strokes, when the renderer kept them. Reproduced if the page is a drawing. */
   drawing?: InkDrawing | null;
@@ -84,6 +87,22 @@ function addDays(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * How far ahead of the night it was read a note's date may be before it is taken for a misread.
+ * Notes written ahead of a meeting next week are real; a note dated next month or next year is almost
+ * always a 5 read as a 3 or a year read wrong — and in the newest-first Notes notebook it would sit on
+ * top, never filed into a finished week, until the misread date came round.
+ */
+export const FUTURE_NOTE_DAYS = 7;
+
+/** A note's date: what was written for it, unless that is implausibly far ahead — then the page's own date, then the night's. */
+export function noteDate(written: string | null, pageDate: string | null, today: string): string {
+  const limit = addDays(today, FUTURE_NOTE_DAYS);
+  if (written === null) return today;
+  if (written <= limit) return written;
+  return pageDate !== null && pageDate <= limit ? pageDate : today;
 }
 
 export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts: MergeOptions): MergeResult {
@@ -260,7 +279,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
 
   const plannerPages = pages.filter((p) => p.extraction.page_kind === "planner");
   for (const page of plannerPages) {
-    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex, pageDate: page.extraction.page_date };
+    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex, pageDate: page.extraction.page_date, ...(page.docId ? { docId: page.docId } : {}), ...(page.pageId ? { pageId: page.pageId } : {}) };
     const pageCode = page.extraction.planner_page_code;
     for (const u of page.extraction.checkbox_updates) {
       const key = pageCode && u.item_code ? `${pageCode}|${u.item_code.toUpperCase()}` : null;
@@ -370,7 +389,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
   for (const page of pages) {
     const ex = page.extraction;
     if (ex.page_kind === "blank") continue;
-    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex, pageDate: page.extraction.page_date };
+    const source: ItemSource = { notebook: page.notebook, pageIndex: page.pageIndex, pageDate: page.extraction.page_date, ...(page.docId ? { docId: page.docId } : {}), ...(page.pageId ? { pageId: page.pageId } : {}) };
     const pageTaskTexts: string[] = [];
     /** Did the writer mark anything on THIS page? If so, an unmarked line is a note by contrast. */
     const pageUsesMarks = ex.tasks.some((x) => Boolean(x.source_convention));
@@ -454,7 +473,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
     const grouped = new Map<string, Meeting>();
     for (const n of ex.notes) {
       if (!n.meeting_topic || n.confidence < opts.threshold * 0.85) continue;
-      const date = n.meeting_date ?? today;
+      const date = noteDate(n.meeting_date, ex.page_date, today);
       const existing = grouped.get(date);
       if (existing) {
         const body = repairNoteLines(n.text);
@@ -495,7 +514,7 @@ export function mergeRun(previous: WorkingSet, pages: readonly MergePage[], opts
         host.drawing = page.drawing;
         host.drawingCaption = drawingCaption(ex.drawing_caption, page.notebook, page.pageIndex);
       } else {
-        const date = ex.page_date ?? today;
+        const date = noteDate(ex.page_date, null, today);
         grouped.set(`drawing:${date}`, {
           id: stableId("meeting", `drawing ${date} ${page.notebook} ${page.pageIndex}`),
           // The caption makes a better heading than the word "Drawing"; the reference below the

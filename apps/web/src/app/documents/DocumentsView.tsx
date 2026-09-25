@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { EditableItem } from "@/components/EditableItem";
-import { DropButton, TickBox } from "@/components/ItemActions";
+import { DeleteNoteButton, DropButton, TickBox } from "@/components/ItemActions";
 import { NoteBody } from "@/components/NoteBody";
 import type { getRegistry, listDocuments } from "@/server/services";
 import { fmtDate } from "@/lib/format";
@@ -135,6 +135,7 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
               {m.decisions[0] ? (<><div className="quote">“{m.decisions[0]}”</div><div className="source-ref">{m.source.notebook.toUpperCase()} · p.{m.source.pageIndex + 1}</div></>) : null}
               {m.decisions.length ? (<><p className="kicker" style={{ marginTop: 14 }}>Decisions</p><ul className="list">{m.decisions.map((d, i) => <li key={i}><span className="arrow">→</span><span>{d}</span></li>)}</ul></>) : null}
               {m.actions.length ? (<><p className="kicker" style={{ marginTop: 14 }}>Actions</p><ul className="list">{m.actions.map((a, i) => <li key={i}><span className="arrow">→</span><span>{a}</span></li>)}</ul></>) : null}
+              <div className="row" style={{ justifyContent: "flex-end", marginTop: 14 }}><DeleteNoteButton itemId={m.id} topic={m.topic} /></div>
             </article>
           ))}
         </div>
