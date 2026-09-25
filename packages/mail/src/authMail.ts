@@ -98,3 +98,21 @@ export function buildPasswordChangedMail(to: string, opts: { replaced: boolean; 
   ];
   return plain(to, opts.replaced ? "Your ScriptumIQ password was changed" : "Your ScriptumIQ password is set", paragraphs, `password-changed:${to}:${opts.when}`);
 }
+
+/**
+ * The admin portal's second factor. The code is in the body, not the subject: a subject shows on a
+ * locked phone. It only goes out after the admin PASSWORD was right, so an unexpected one means that
+ * password is known — the message says so, and says what to change.
+ */
+export function buildAdminCodeMail(to: string, code: string, challengeId: string, opts: { ip: string; expiresInMinutes: number }): OutgoingMail {
+  return plain(
+    to,
+    "ScriptumIQ admin sign-in code",
+    [
+      `Your admin sign-in code is ${code}`,
+      `Type it into the admin sign-in page you just used. It works once, and stops working after ${opts.expiresInMinutes} minutes. Requested from ${opts.ip}.`,
+      "If you did not just sign in to the admin portal, someone has the admin password. Do not share this code; replace ADMIN_PASSWORD_HASH on the server.",
+    ],
+    `admin-2fa:${challengeId}`,
+  );
+}

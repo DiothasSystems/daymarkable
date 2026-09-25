@@ -669,6 +669,22 @@ export const adminLoginAttempts = pgTable("admin_login_attempts", {
 });
 
 /**
+ * The admin portal's second factor: one row per correct password, holding the emailed code as an
+ * HMAC digest (web server/admin-2fa.ts). The code is typed into the same browser that gave the
+ * password, which holds the row's id in a signed cookie — so the session lands where the password
+ * was typed, not wherever the mail happens to be read. Five tries, ten minutes, single use.
+ */
+export const adminLoginChallenges = pgTable("admin_login_challenges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  codeDigest: text("code_digest").notNull(),
+  ip: text("ip").notNull(),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * Who may open an account, and who is waiting to.
  *
  * Registration is not open: Phase 0 runs one tenant, and there is no billing to charge a

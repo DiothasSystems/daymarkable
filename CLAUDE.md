@@ -163,7 +163,14 @@ unchanged.
     cache and the Postgres registry; a view must never trigger rendering or decode work.
 13. **Admin portal is env-var gated and fully audited.** Admin auth checks `ADMIN_LOGIN_ID`
     + bcrypt `ADMIN_PASSWORD_HASH` from the host's environment variables, server-side, with
-    rate limiting and a short-lived session — completely separate from user auth. Every
+    rate limiting and a short-lived session — completely separate from user auth. A second
+    factor follows the password: a six-digit code mailed to `ADMIN_2FA_EMAIL` and typed into the
+    SAME browser, which holds a signed pointer to its challenge (`server/admin-2fa.ts`), so the
+    session lands where the password was typed. The pointer is signed with its own derived key and
+    can never pass as a session. Five tries, ten minutes, single use, and wrong codes count toward
+    the same IP lockout as wrong passwords. Unset or empty means off — the break-glass when mail is
+    down, since with emailed codes this portal is no longer the way in without mail; compose
+    supplies the address with `${VAR-default}` (not `:-`) so an explicit empty value survives. Every
     admin action (especially cancel service, prorated refund, delete account) writes to an
     append-only `admin_audit` table, and destructive actions require typed confirmation.
     The feedback screen shows ratings and comments only — never note content.

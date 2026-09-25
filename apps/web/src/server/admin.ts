@@ -6,18 +6,24 @@ import type { UserSettings } from "@daymarkable/db";
 import { DateTime } from "luxon";
 import { cookies, headers } from "next/headers";
 import {
+  admin2faEmailFromEnv,
   adminConfigFromEnv,
   checkAdminCredentials,
   issueAdminToken,
+  issuePendingToken,
   loginLocked,
   verifyAdminToken,
+  verifyPendingToken,
   validateTuning,
+  ADMIN_CODE_TTL_MS,
   ADMIN_SESSION_TTL_MS,
   ADMIN_WINDOW_MS,
   TUNING_MAX,
   TUNING_MIN,
   type TuningPatch,
 } from "./admin-core";
+import { answerChallenge, createChallenge } from "./admin-2fa";
+import { buildAdminCodeMail } from "@daymarkable/mail";
 export { TUNING_MAX, TUNING_MIN, type TuningPatch } from "./admin-core";
 import { getRuntime } from "./runtime";
 import { audit, clientIp } from "./audit";
@@ -47,7 +53,21 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 }
 
 /** Append-only: nothing in the codebase updates or deletes admin_audit rows. */
-export type LoginResult = { ok: true; token: string; maxAgeSec: number } | { ok: false; status: 401 | 429 | 503; message: string };
+export type LoginResult =
+  /** Signed in: no second factor configured (ADMIN_2FA_EMAIL unset — the break-glass). */
+  | { ok: true; stage: "session"; token: string; maxAgeSec: number }
+  /** Password right; a code is on its way. The browser keeps `pendingToken` until it answers. */
+  | { ok: true; stage: "code"; pendingToken: string; maxAgeSec: number; sentTo: string }
+  | { ok: false; status: 401 | 429 | 503; message: string };
+
+/** The pointer between the password and the code (admin-2fa.ts). */
+export const ADMIN_PENDING_COOKIE = "dm_admin_pending";
+
+/** "d••••••••@gmail.com" — enough for the operator to know which inbox to open. */
+function maskAddress(email: string): string {
+  const [local = "", domain = ""] = email.split("@");
+  return `${local.slice(0, 1)}${"•".repeat(Math.max(3, local.length - 1))}@${domain}`;
+}
 
 export async function adminLogin(loginId: string, password: string): Promise<LoginResult> {
   const cfg = adminConfigFromEnv();
@@ -67,8 +87,66 @@ export async function adminLogin(loginId: string, password: string): Promise<Log
     await audit("admin.login.failed", { ip, loginIdAttempted: loginId.slice(0, 32) });
     return { ok: false, status: 401, message: "Wrong login id or password." };
   }
-  await audit("admin.login", { ip });
-  return { ok: true, token: issueAdminToken(cfg), maxAgeSec: ADMIN_SESSION_TTL_MS / 1000 };
+
+  const twoFactorTo = admin2faEmailFromEnv();
+  if (!twoFactorTo) {
+    // The break-glass, or a host that never set it. Loud, because it should be rare.
+    console.warn("[admin] ADMIN_2FA_EMAIL is not set: admin sign-in is password-only");
+    await audit("admin.login", { ip, twoFactor: false });
+    return { ok: true, stage: "session", token: issueAdminToken(cfg), maxAgeSec: ADMIN_SESSION_TTL_MS / 1000 };
+  }
+
+  const challenge = await createChallenge(rt.db, cfg, ip);
+  const res = await rt.mail.send(buildAdminCodeMail(twoFactorTo, challenge.code, challenge.id, { ip, expiresInMinutes: ADMIN_CODE_TTL_MS / 60_000 }));
+  if (res.status === "failed") {
+    await audit("admin.login.code_unsent", { ip, error: String(res.error).slice(0, 200) });
+    return {
+      ok: false,
+      status: 503,
+      message: `The sign-in code could not be sent (${res.error}). While ADMIN_2FA_EMAIL is set, this portal needs working mail; to get in without it, clear ADMIN_2FA_EMAIL in the server's .env and restart the app.`,
+    };
+  }
+  // No mail provider on this host (a fresh box, or development): the code goes to the server log,
+  // which only the operator can read — the same bootstrap the customer sign-in link uses.
+  if (res.status === "skipped") console.log(`[admin] no mail provider; admin sign-in code: ${challenge.code}`);
+  await audit("admin.login.password_ok", { ip, codeSentTo: maskAddress(twoFactorTo) });
+  return { ok: true, stage: "code", pendingToken: issuePendingToken(cfg, challenge.id), maxAgeSec: ADMIN_CODE_TTL_MS / 1000, sentTo: maskAddress(twoFactorTo) };
+}
+
+export type CodeResult =
+  | { ok: true; token: string; maxAgeSec: number }
+  /** `restart`: the challenge is gone — the browser should forget it and ask for the password again. */
+  | { ok: false; status: 401 | 429 | 503; message: string; restart: boolean };
+
+/**
+ * Step two: the emailed code, from the browser that gave the password. Every wrong code counts in
+ * admin_login_attempts as well, so guessing codes runs into the same IP lockout as guessing passwords.
+ */
+export async function adminVerifyCode(pendingToken: string | undefined, code: string): Promise<CodeResult> {
+  const cfg = adminConfigFromEnv();
+  if (!cfg) return { ok: false, status: 503, message: "Admin portal is not configured on this host.", restart: true };
+  const rt = await getRuntime();
+  const ip = await clientIp();
+  const since = new Date(Date.now() - ADMIN_WINDOW_MS);
+  const attempts = await rt.db.query.adminLoginAttempts.findMany({ where: gte(schema.adminLoginAttempts.createdAt, since) });
+  const lock = loginLocked(attempts, ip);
+  if (lock.locked) {
+    await audit("admin.login.locked", { ip, retryAfterMs: lock.retryAfterMs, step: "code" });
+    return { ok: false, status: 429, message: `Too many failed attempts. Try again in ${Math.ceil(lock.retryAfterMs / 60_000)} minutes.`, restart: true };
+  }
+  const pending = verifyPendingToken(cfg, pendingToken);
+  if (!pending.ok) return { ok: false, status: 401, message: "This sign-in has expired. Enter your login id and password again.", restart: true };
+
+  const r = await answerChallenge(rt.db, cfg, pending.challengeId, code);
+  await rt.db.insert(schema.adminLoginAttempts).values({ ip, success: r.ok });
+  if (r.ok) {
+    await audit("admin.login", { ip, twoFactor: true });
+    return { ok: true, token: issueAdminToken(cfg), maxAgeSec: ADMIN_SESSION_TTL_MS / 1000 };
+  }
+  await audit("admin.login.code_failed", { ip, reason: r.reason });
+  return r.reason === "restart"
+    ? { ok: false, status: 401, message: "That code can no longer be used. Sign in again for a new one.", restart: true }
+    : { ok: false, status: 401, message: `That code is not right. ${r.triesLeft} ${r.triesLeft === 1 ? "try" : "tries"} left.`, restart: false };
 }
 
 // ---------------------------------------------------------------- metrics
@@ -172,7 +250,8 @@ export async function listUsers(): Promise<AdminUserRow[]> {
       calibrationAccuracy: calibration.get(u.id)?.accuracy ?? null,
       role: u.settings.profile?.role ?? null,
       industry: u.settings.profile?.industry ?? null,
-      lexiconTerms: u.settings.lexicon.length,
+      // Defensive: one account whose settings predate the lexicon must not take the overview down.
+      lexiconTerms: (u.settings.lexicon ?? []).length,
     });
   }
   return out;

@@ -130,6 +130,7 @@ arrived with `docker compose exec app printenv <NAME>`.
 | `USER_TIMEZONE` | no | default `America/New_York` |
 | `RMAPI_DEVICE_TOKEN` | first boot only | from `pnpm spike pair`; it is moved into the DB encrypted on first run. You can also pair from `/setup`. |
 | `EMAIL_API_KEY`, `EMAIL_FROM` | for real email | Resend key + verified sender |
+| `ADMIN_2FA_EMAIL` | no | where the admin sign-in code is mailed; defaults to diothassystems@gmail.com in docker-compose.yml. Set it EMPTY to switch the second factor off (the break-glass when mail is down, section 9) |
 | `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` | for `/admin` | hash via `docker compose exec app node apps/web/scripts/admin-hash.mjs '<password>'`; never store the plaintext. Quote the hash in the env file: it contains `$`, which Compose substitutes away unquoted, leaving a hash that rejects every password |
 | `DECODE_MODEL`, `DECODE_ESCALATION_MODEL`, `DECODE_MODEL_ROTATION`, `DECODE_CONFIDENCE_THRESHOLD` | no | model is config, not a constant |
 | `NEWS_MODEL` | no | the brief and the crossword's words; defaults to `claude-haiku-4-5`. Separate from `DECODE_MODEL` on purpose and must stay that way (CLAUDE.md "Model usage") |
@@ -226,5 +227,10 @@ To get in afterwards: on the sign-in page choose **"First time, or forgot your p
 open the link that arrives, choose a password, then sign in with it and open the second link. The
 phone app's sign-in screen has the same two steps; an app already signed in stays signed in.
 
-The admin portal is separate (`ADMIN_LOGIN_ID` / `ADMIN_PASSWORD_HASH`) and unaffected — it is the way
-in if mail is ever broken. Nothing an operator does sets or reveals a customer's password.
+The admin portal is separate (`ADMIN_LOGIN_ID` / `ADMIN_PASSWORD_HASH`), and has its own second factor:
+after the password, a six-digit code is mailed to `ADMIN_2FA_EMAIL` (diothassystems@gmail.com by
+default, from docker-compose.yml) and typed into the same browser. That means the admin portal also
+needs working mail. **Break-glass, if mail is down:** add the line `ADMIN_2FA_EMAIL=` (empty) to
+`/root/daymarkable/.env`, run `cd /root/daymarkable && docker compose up -d app`, sign in with the
+password alone, and remove the line again afterwards. Only someone with the server can do this, which
+is why it is safe. Nothing an operator does sets or reveals a customer's password.

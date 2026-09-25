@@ -14,7 +14,7 @@ export default async function AdminLoginPage() {
       <div className="card" style={{ maxWidth: 440, margin: "8vh auto 0" }}>
         <p className="kicker">Operator portal</p>
         <h2>Admin sign in</h2>
-        <p className="muted" style={{ fontSize: 14 }}>Credentials come from the host's environment (ADMIN_LOGIN_ID and a bcrypt ADMIN_PASSWORD_HASH). This login is separate from user accounts, rate-limited, and every attempt is audited.</p>
+        <p className="muted" style={{ fontSize: 14 }}>Credentials come from the host's environment (ADMIN_LOGIN_ID and a bcrypt ADMIN_PASSWORD_HASH). After the password, a six-digit code is emailed to the address in ADMIN_2FA_EMAIL. This login is separate from user accounts, rate-limited, and every attempt is audited.</p>
         {enabled ? <AdminLoginForm /> : <div className="notice bad">Admin portal is not configured on this host. Set ADMIN_LOGIN_ID and ADMIN_PASSWORD_HASH (bcrypt) in the environment and restart.</div>}
       </div>
     </AdminShell>

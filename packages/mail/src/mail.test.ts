@@ -1,6 +1,6 @@
 import type { Meeting } from "@daymarkable/core";
 import { describe, expect, it } from "vitest";
-import { buildPasswordChangedMail, buildSetPasswordMail, buildSignInMail } from "./authMail.js";
+import { buildAdminCodeMail, buildPasswordChangedMail, buildSetPasswordMail, buildSignInMail } from "./authMail.js";
 import { buildDeliveryMail, buildDeliveryVerificationMail } from "./deliveryMail.js";
 import { buildMeetingMail, meetingSubject } from "./meetingMail.js";
 import { DEFAULT_FROM, MemoryProvider, ResendProvider, mailProviderFromEnv } from "./provider.js";
@@ -166,6 +166,22 @@ describe("password mail", () => {
 
   it("escapes the address", () => {
     expect(buildSetPasswordMail('x"<b>y@example.com', SET, "h").html).not.toContain("<b>");
+  });
+});
+
+describe("admin code mail", () => {
+  const mail = buildAdminCodeMail("ops@example.com", "042917", "chal-1", { ip: "203.0.113.9", expiresInMinutes: 10 });
+
+  it("carries the code in the body and never in the subject, which shows on a locked phone", () => {
+    expect(mail.text).toContain("042917");
+    expect(mail.subject).not.toMatch(/\d{6}/);
+    expect(mail.idempotencyKey).toBe("admin-2fa:chal-1");
+  });
+
+  it("says where it was asked from, and what an unexpected one means", () => {
+    expect(mail.text).toContain("203.0.113.9");
+    expect(mail.text).toMatch(/someone has the admin password/i);
+    expect(mail.html).not.toMatch(/<img|<table|background(-color)?:/i);
   });
 });
 

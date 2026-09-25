@@ -4,7 +4,7 @@
  *   - short-lived HMAC-signed admin session token, completely separate from user sessions
  *   - rate-limit decision from recent login attempts
  */
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { ESCALATION_THRESHOLD_MAX, ESCALATION_THRESHOLD_MIN } from "@daymarkable/decode";
 
@@ -59,6 +59,72 @@ export function verifyAdminToken(cfg: AdminConfig, token: string | undefined, no
     if (data.id !== cfg.loginId) return { ok: false, reason: "wrong login id" };
     if (data.exp <= now) return { ok: false, reason: "expired" };
     return { ok: true, expiresAt: data.exp };
+  } catch {
+    return { ok: false, reason: "malformed" };
+  }
+}
+
+// ---------------------------------------------------------------- second factor (emailed code)
+/**
+ * The admin portal's second factor: after the password, a six-digit code mailed to
+ * ADMIN_2FA_EMAIL and typed into the same browser (admin-2fa.ts).
+ *
+ * Unset or empty means OFF. That is deliberate: this portal used to be the way in when mail was
+ * broken, and with an emailed code it no longer is — so the break-glass is removing the address from
+ * the host's .env, which only someone who already controls the box can do. docker-compose.yml
+ * supplies the address by default, so a deploy turns it on without anyone remembering to.
+ */
+export const ADMIN_CODE_TTL_MS = 10 * 60_000;
+/** Wrong codes allowed against one challenge before it is spent. One in 200,000 per challenge. */
+export const ADMIN_CODE_MAX_TRIES = 5;
+
+export function admin2faEmailFromEnv(env: NodeJS.ProcessEnv = process.env): string | null {
+  const v = env.ADMIN_2FA_EMAIL?.trim().toLowerCase();
+  // Something that is not an address is treated as unset rather than half-configured: a typo here
+  // would otherwise mail codes nowhere and lock the operator out with nothing to show why.
+  return v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : null;
+}
+
+/** Six digits from the CSPRNG, zero-padded — never Math.random. */
+export function newAdminCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+/**
+ * What is stored for a code. Keyed, and bound to its challenge, so a row read out of the database is
+ * no help with another challenge — the space is a million codes, too small to protect unkeyed.
+ */
+export function adminCodeDigest(cfg: AdminConfig, challengeId: string, code: string): string {
+  return createHmac("sha256", `${cfg.signingKey}:2fa`).update(`${challengeId}:${code}`).digest("base64url");
+}
+
+export function adminCodeMatches(cfg: AdminConfig, challengeId: string, code: string, digest: string): boolean {
+  const want = Buffer.from(digest);
+  const got = Buffer.from(adminCodeDigest(cfg, challengeId, code.trim()));
+  return want.length === got.length && timingSafeEqual(want, got);
+}
+
+/**
+ * "The password was right; waiting for the code" — held by the browser between the two steps, and
+ * naming which challenge it may answer. Signed with a key derived for this purpose alone, so it can
+ * never pass as a session token and a session token can never pass as one of these.
+ */
+export function issuePendingToken(cfg: AdminConfig, challengeId: string, now = Date.now()): string {
+  const payload = Buffer.from(JSON.stringify({ kind: "admin-2fa", cid: challengeId, exp: now + ADMIN_CODE_TTL_MS })).toString("base64url");
+  return `${payload}.${sign(`${cfg.signingKey}:pending`, payload)}`;
+}
+
+export function verifyPendingToken(cfg: AdminConfig, token: string | undefined, now = Date.now()): { ok: true; challengeId: string } | { ok: false; reason: string } {
+  if (!token) return { ok: false, reason: "missing" };
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig) return { ok: false, reason: "malformed" };
+  const expected = sign(`${cfg.signingKey}:pending`, payload);
+  if (expected.length !== sig.length || !timingSafeEqual(Buffer.from(expected), Buffer.from(sig))) return { ok: false, reason: "bad signature" };
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { kind?: string; cid?: string; exp?: number };
+    if (data.kind !== "admin-2fa" || typeof data.cid !== "string" || typeof data.exp !== "number") return { ok: false, reason: "malformed" };
+    if (data.exp <= now) return { ok: false, reason: "expired" };
+    return { ok: true, challengeId: data.cid };
   } catch {
     return { ok: false, reason: "malformed" };
   }

@@ -94,6 +94,11 @@ services:
       RMAPI_DEVICE_TOKEN: ${RMAPI_DEVICE_TOKEN:-}
       ADMIN_LOGIN_ID: ${ADMIN_LOGIN_ID:-}
       ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      # The admin portal's second factor: a six-digit code mailed here after the password. On by default.
+      # `-`, not `:-`, on purpose: `ADMIN_2FA_EMAIL=` (empty) in .env switches it OFF, which is the
+      # break-glass for when mail is down, since with 2FA on the portal is no longer the way in then.
+      # With `:-` an empty value would bring the default back and the break-glass would not exist.
+      ADMIN_2FA_EMAIL: ${ADMIN_2FA_EMAIL-diothassystems@gmail.com}
       # Billing, Phase 2. Empty until it ships, which leaves the payment routes switched off.
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
