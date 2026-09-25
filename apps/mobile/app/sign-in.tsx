@@ -195,6 +195,10 @@ export default function SignIn() {
             />
             <PrimaryButton label={busy ? "Checking…" : "Sign in"} onPress={() => void request()} disabled={busy || !email.trim() || !password} />
             <LinkButton label="First time, or forgot your password? Set one" onPress={() => backTo("reset", true)} />
+            {/* The one screen someone without an account can reach. Registration is closed
+                (rule 15), so this is also the only place the app can honestly explain itself to
+                a stranger who has just installed it. */}
+            <LinkButton label="What is ScriptumIQ?" onPress={() => router.push("/tour")} />
           </>
         ) : null}
 

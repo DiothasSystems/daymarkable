@@ -92,6 +92,7 @@ export default function More() {
                 to the page Settings already opens. The setup pane itself stays: app/index.tsx
                 sends an account that has NOT onboarded into that wizard, which is the one time
                 the page shows anything of its own. */}
+            <Button title="How ScriptumIQ works" variant="secondary" onPress={() => router.push("/tour")} />
             <Button title="Settings" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "settings" } })} />
             <Button title="Subscription" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "billing" } })} />
             <Button title="Support" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "support" } })} />

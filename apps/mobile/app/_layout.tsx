@@ -82,6 +82,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="index" />
           <Stack.Screen name="sign-in" />
+          <Stack.Screen name="tour" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="web/[pane]" options={{ presentation: "modal" }} />
         </Stack>
