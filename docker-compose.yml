@@ -56,8 +56,8 @@ services:
       DAYMARKABLE_SCHEDULER: "${DAYMARKABLE_SCHEDULER:-1}"
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?set DATA_ENCRYPTION_KEY (32 bytes base64)}
-      DECODE_MODEL: ${DECODE_MODEL:-claude-sonnet-5}
-      DECODE_ESCALATION_MODEL: ${DECODE_ESCALATION_MODEL:-claude-opus-5}
+      DECODE_MODEL: ${DECODE_MODEL:-claude-sonnet-5-5}
+      DECODE_ESCALATION_MODEL: ${DECODE_ESCALATION_MODEL:-claude-opus-5-5}
       DECODE_MODEL_ROTATION: ${DECODE_MODEL_ROTATION:-}
       DECODE_CONFIDENCE_THRESHOLD: ${DECODE_CONFIDENCE_THRESHOLD:-0.7}
       # The brief and the crossword's words, NOT the decoder (CLAUDE.md "Model usage"). The code
@@ -73,9 +73,9 @@ services:
       RMAPI_ATTEMPTS: ${RMAPI_ATTEMPTS:-5}
       RMAPI_BACKOFF_MS: ${RMAPI_BACKOFF_MS:-3000}
       EMAIL_API_KEY: ${EMAIL_API_KEY:-}
-      # The address stays on daymarkable.com until scriptumiq.com is verified with Resend: sign-in is
-      # by emailed link, so an unverified sender locks every account out (mail/provider.ts).
-      EMAIL_FROM: ${EMAIL_FROM:-ScriptumIQ <notes@daymarkable.com>}
+      # Must be on a domain verified with Resend (scriptumiq.com is): sign-in is by emailed link, so an
+      # unverified sender locks every account out (mail/provider.ts).
+      EMAIL_FROM: ${EMAIL_FROM:-ScriptumIQ <notes@scriptumiq.com>}
       # Inbound invites (rule 17). The HOST is the subdomain the forwarding address is built from.
       #
       # Two secrets, because there are two ways in and they authenticate differently.

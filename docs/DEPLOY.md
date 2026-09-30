@@ -37,9 +37,10 @@ A     app     <VPS IPv4>     TTL 300
 AAAA  @       <VPS IPv6>     (optional; repeat for www and app)
 ```
 
-Email sending (`EMAIL_FROM`): the verified sending domain is daymarkable.com, and mail goes from
-`notes@daymarkable.com` under the name ScriptumIQ. To send from `notes@scriptumiq.com`, verify
-scriptumiq.com in Resend first and add the DKIM/SPF/DMARC records it gives you (section 8).
+Email sending (`EMAIL_FROM`): the verified sending domain is scriptumiq.com, and mail goes from
+`notes@scriptumiq.com` under the name ScriptumIQ (moved from `notes@daymarkable.com` on 2026-09-25,
+after scriptumiq.com was verified in Resend). A sender on any domain Resend has not verified is
+rejected, and sign-in is by emailed link, so never point `EMAIL_FROM` at an unverified domain.
 
 ## 0b. Alternative host: Hetzner Cloud (cheaper, same runbook)
 

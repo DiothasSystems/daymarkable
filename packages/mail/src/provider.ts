@@ -85,16 +85,14 @@ export class MemoryProvider implements MailProvider {
 /**
  * The address mail comes from when `EMAIL_FROM` is unset.
  *
- * It must be on the domain verified with the provider — `daymarkable.com`, per docs/DEPLOY.md.
- * This used to read `.app`, which is not a domain this product owns: Resend rejects the send
- * with a 403 and every sign-in link silently fails to arrive.
- *
- * After the rename to ScriptumIQ the NAME changed and the address did not, for the same reason:
- * scriptumiq.com is not verified with Resend yet, and sign-in is by emailed link, so a default on
- * it would lock every account out. Verify the new domain, set EMAIL_FROM to
- * "ScriptumIQ <notes@scriptumiq.com>", and move this default only once that is proven.
+ * It must be on a domain verified with the provider, or Resend rejects the send with a 403 and
+ * every sign-in link silently fails to arrive — which happened once, when this read `.app`, a
+ * domain this product never owned. After the rename the address stayed on daymarkable.com until
+ * scriptumiq.com was verified with Resend and proven in production through EMAIL_FROM (2026-09-25);
+ * only then did this default follow. Moving it again means the same order: verify, set EMAIL_FROM,
+ * prove a sign-in link arrives, then change this.
  */
-export const DEFAULT_FROM = "ScriptumIQ <notes@daymarkable.com>";
+export const DEFAULT_FROM = "ScriptumIQ <notes@scriptumiq.com>";
 
 export function mailProviderFromEnv(env: NodeJS.ProcessEnv = process.env, sink?: (mail: OutgoingMail) => Promise<void> | void): MailProvider {
   if (env.EMAIL_API_KEY) return new ResendProvider(env.EMAIL_API_KEY, env.EMAIL_FROM || DEFAULT_FROM);

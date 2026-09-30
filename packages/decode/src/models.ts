@@ -9,10 +9,13 @@
  * rather than trusted to configuration.
  */
 
-/** Baseline decoder. Every fallback lands here. */
-export const BASELINE_DECODE_MODEL = "claude-sonnet-5";
-/** Used only for pages the baseline reports low confidence on. */
-export const ESCALATION_DECODE_MODEL = "claude-opus-5";
+/**
+ * Baseline decoder. Every fallback lands here. Moved from claude-sonnet-5 on 2026-09-30, at the same
+ * price, for the founder to judge on their own pages for a week; Sonnet 5 is the way back.
+ */
+export const BASELINE_DECODE_MODEL = "claude-sonnet-5-5";
+/** Used only for pages the baseline reports low confidence on. Opus 5.5 is 20% cheaper than Opus 5. */
+export const ESCALATION_DECODE_MODEL = "claude-opus-5-5";
 
 /** Measured as materially worse at reading handwriting; never used, however it is configured. */
 export const RETIRED_DECODE_MODELS: readonly string[] = ["claude-haiku-4-5", "claude-haiku-4-5-20251001"];

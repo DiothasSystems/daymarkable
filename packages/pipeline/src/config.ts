@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
-import { STARTER_CONVENTIONS, validateConventions, type UserInkConventions } from "@daymarkable/decode";
+import { BASELINE_DECODE_MODEL, ESCALATION_DECODE_MODEL, STARTER_CONVENTIONS, validateConventions, type UserInkConventions } from "@daymarkable/decode";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(here, "..", "..", "..");
@@ -59,9 +59,9 @@ export function loadConfig(): RunnerConfig {
   return {
     deviceToken: env.RMAPI_DEVICE_TOKEN || null,
     anthropicApiKey: env.ANTHROPIC_API_KEY || null,
-    decodeModel: env.DECODE_MODEL || "claude-sonnet-5",
+    decodeModel: env.DECODE_MODEL || BASELINE_DECODE_MODEL,
     newsModel: env.NEWS_MODEL || "claude-haiku-4-5",
-    escalationModel: env.DECODE_ESCALATION_MODEL === "" ? null : (env.DECODE_ESCALATION_MODEL ?? "claude-opus-5"),
+    escalationModel: env.DECODE_ESCALATION_MODEL === "" ? null : (env.DECODE_ESCALATION_MODEL ?? ESCALATION_DECODE_MODEL),
     confidenceThreshold: Number(env.DECODE_CONFIDENCE_THRESHOLD ?? "0.7"),
     batchTimeoutMinutes: Number(env.DECODE_BATCH_TIMEOUT_MINUTES ?? "45"),
     renderServiceUrl: env.RENDER_SERVICE_URL || "http://127.0.0.1:8787",

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { AnthropicDecoder, parseExtraction, totalUsage, type DecodePageInput, type DecodePageResult, type DecodeStageUsage } from "./client.js";
 import { STARTER_CONVENTIONS, describeConventions, validateConventions } from "./conventions.js";
 import { buildSystemPrompt } from "./prompt.js";
+import { BASELINE_DECODE_MODEL, ESCALATION_DECODE_MODEL } from "./models.js";
 import { costUsd, zeroUsage } from "./pricing.js";
 
 const good = {
@@ -146,6 +147,14 @@ describe("pricing", () => {
     expect(costUsd(w, "claude-haiku-4-5", false, "1h")).toBeCloseTo(2.0);
     expect(costUsd(w, "claude-haiku-4-5", false)).toBeCloseTo(1.25);
   });
+
+  // An unpriced model meters as $0, so every model the decoder can default to must be in the table.
+  it("prices the default decoders, including Opus 5.5's 0.05x cache reads", () => {
+    const u = { input_tokens: 1_000_000, output_tokens: 1_000_000, cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 0 };
+    expect(costUsd(u, BASELINE_DECODE_MODEL, false)).toBeCloseTo(2 + 10 + 0.2);
+    expect(costUsd(u, ESCALATION_DECODE_MODEL, false)).toBeCloseTo(4 + 20 + 0.2);
+    expect(costUsd(u, ESCALATION_DECODE_MODEL, true)).toBeCloseTo((4 + 20 + 0.2) / 2);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -197,6 +206,17 @@ describe("totalUsage", () => {
     const byModel = totalUsage(results);
     expect(byModel.get("sonnet|standard")?.pages).toBe(3);
     expect(byModel.get("opus|standard")?.pages).toBe(1);
+  });
+});
+
+describe("request shape", () => {
+  // Effort defaults differ by model (medium on Opus 5.5, high elsewhere); a page is read at high on
+  // every model, and above all on the second pass, which exists for the hardest pages.
+  it("asks for high effort explicitly", async () => {
+    const sent: Array<Record<string, unknown>> = [];
+    const client = { messages: { create: async (p: Record<string, unknown>) => (sent.push(p), reply(good)) } };
+    await decoderWith(client, 45).decodePages([inputPage("a")], "standard");
+    expect(sent[0]!.output_config).toEqual({ effort: "high" });
   });
 });
 

@@ -320,8 +320,12 @@ unchanged.
 
 ## Model usage
 
-**Claude Sonnet 5 is the baseline decoder**, escalating to **Opus 5** only on pages read below the
-escalation threshold (rule 3). Haiku is not merely discouraged as a decoder — `RETIRED_DECODE_MODELS`
+**Claude Sonnet 5.5 is the baseline decoder**, escalating to **Opus 5.5** only on pages read below the
+escalation threshold (rule 3). Both moved up on 2026-09-30 from Sonnet 5 / Opus 5: Sonnet 5.5 is the same price
+as Sonnet 5, Opus 5.5 is 20% cheaper than Opus 5 (cache reads 0.05x), and the founder is judging the
+transcriptions on their own pages for a week — Sonnet 5 / Opus 5 are the way back, one `.env` line each.
+Every page is read at `effort: "high"` explicitly, because Opus 5.5 defaults to `medium` and the
+second pass exists for the hardest pages. Haiku is not merely discouraged as a decoder — `RETIRED_DECODE_MODELS`
 in `packages/decode/models.ts` refuses it whatever `DECODE_MODEL`, a rotation list or a per-user
 override says, and logs the substitution, because the only symptom of a stale config would be a week
 of worse transcriptions. An escalation model that resolves to the SAME model as the baseline cannot
@@ -445,9 +449,6 @@ ever shown to a customer. Do not "finish" the rename by changing them without a 
   A different package is a different app in the stores. The display name is ScriptumIQ, and the
   URL scheme is `scriptumiq` with `daymarkable` kept alongside, so old links still open the app.
 - **Cookie names `dm_session` / `dm_admin`**: renaming signs everyone out for nothing.
-- **The sender address stays `notes@daymarkable.com`** (display name ScriptumIQ) until
-  scriptumiq.com is verified with Resend. Sign-in is by emailed link, so an unverified sender locks
-  every account out — this has happened once already (`.app`). Move it with `EMAIL_FROM`.
 
 What changed that carries state, and how it was carried:
 
@@ -470,6 +471,10 @@ What changed that carries state, and how it was carried:
   and the switch cannot make two Caddy blocks claim one hostname (Caddy would not start).
 - **The inbound calendar host** is `cal.scriptumiq.com`. `tokenFromRecipient` reads only the part
   before the @, so an address given out on the old host works wherever mail for it is received.
+- **The sender address** is `notes@scriptumiq.com`, moved from `notes@daymarkable.com` on 2026-09-25
+  and in that order: scriptumiq.com verified with Resend, `EMAIL_FROM` set on the VPS, a sign-in link
+  proven to arrive, THEN the default in `mail/provider.ts` and compose. Sign-in is by emailed link,
+  so a sender on an unverified domain locks every account out — it happened once (`.app`).
 
 ## Gotchas
 

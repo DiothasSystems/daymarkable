@@ -7,6 +7,7 @@
  * actually use. Both ride in the cached system prompt, so they cost ~0.1x after the first page.
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { BASELINE_DECODE_MODEL } from "./models.js";
 import { costUsd, zeroUsage, type TokenUsage } from "./pricing.js";
 
 export interface WriterProfile {
@@ -103,7 +104,7 @@ function fallbackPassage(profile: WriterProfile, reason: string): CalibrationPas
 }
 
 /** Ask Claude for a passage in this writer's own vocabulary. Falls back to a generic one. */
-export async function generateCalibrationPassage(profile: WriterProfile, client: Anthropic, model = "claude-sonnet-5"): Promise<CalibrationPassage> {
+export async function generateCalibrationPassage(profile: WriterProfile, client: Anthropic, model = BASELINE_DECODE_MODEL): Promise<CalibrationPassage> {
   const ask = [
     `Role: ${profile.role || "(not given)"}`,
     `Industry: ${profile.industry || "(not given)"}`,

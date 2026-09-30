@@ -189,20 +189,18 @@ describe("provider selection", () => {
   it("sends from the domain the deploy runbook verifies, not one we do not own", () => {
     // This was `notes@daymarkable.app` — a domain this product has never owned. Resend answers a
     // 403 for an unverified sender, so every sign-in link failed to arrive while the app looked
-    // like it had sent one. docs/DEPLOY.md says verify daymarkable.com and send from it.
-    expect(DEFAULT_FROM).toContain("@daymarkable.com");
+    // like it had sent one. docs/DEPLOY.md names the verified domain; today that is scriptumiq.com.
+    expect(DEFAULT_FROM).toContain("@scriptumiq.com");
     expect(DEFAULT_FROM).not.toContain(".app");
   });
 
   /**
-   * The rename to ScriptumIQ changes the NAME on the envelope and not yet the address. Sign-in is by
-   * emailed link, so a default on scriptumiq.com before that domain is verified with Resend would
-   * lock every account out — the failure the test above already records once. The address moves
-   * when the operator sets EMAIL_FROM after verifying; the default follows only when this test does.
+   * The default is on scriptumiq.com because that domain is verified with Resend and was proven in
+   * production through EMAIL_FROM first. A default on an unverified domain locks every account out,
+   * since sign-in is by emailed link — the failure the test above records once already.
    */
-  it("carries the new name on the domain that is already verified", () => {
-    expect(DEFAULT_FROM).toMatch(/^ScriptumIQ </);
-    expect(DEFAULT_FROM).not.toContain("scriptumiq.com");
+  it("sends as ScriptumIQ from the verified scriptumiq.com domain", () => {
+    expect(DEFAULT_FROM).toBe("ScriptumIQ <notes@scriptumiq.com>");
   });
 
   it("only reaches for a real provider when there is a key to reach with", () => {

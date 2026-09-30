@@ -65,7 +65,7 @@ describe("escalation threshold and model", () => {
    */
   it("rescues an escalation model that has become the baseline", () => {
     const r = resolveEscalationModel("claude-sonnet-5", "claude-sonnet-5");
-    expect(r.model).toBe("claude-opus-5");
+    expect(r.model).toBe(ESCALATION_DECODE_MODEL);
     expect(r.replaced).toMatch(/cannot escalate/);
   });
 
@@ -79,6 +79,6 @@ describe("escalation threshold and model", () => {
   });
 
   it("still refuses a retired model for the second pass", () => {
-    expect(resolveEscalationModel("claude-haiku-4-5", "claude-sonnet-5").model).toBe("claude-opus-5");
+    expect(resolveEscalationModel("claude-haiku-4-5", "claude-sonnet-5").model).toBe(ESCALATION_DECODE_MODEL);
   });
 });

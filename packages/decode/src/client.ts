@@ -148,6 +148,9 @@ export class AnthropicDecoder implements Decoder {
     return {
       model,
       max_tokens: this.maxTokens,
+      // Explicit, because the default is per model: high on Sonnet 5 / 5.5 and Opus 5, but medium on
+      // Opus 5.5 — and escalation exists precisely for the pages that are hard to read.
+      output_config: { effort: "high" },
       system: [{ type: "text", text: this.system, cache_control: { type: "ephemeral", ttl: this.cacheTtl } }],
       messages: [
         {
