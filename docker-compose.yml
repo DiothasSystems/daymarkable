@@ -76,6 +76,9 @@ services:
       # Must be on a domain verified with Resend (scriptumiq.com is): sign-in is by emailed link, so an
       # unverified sender locks every account out (mail/provider.ts).
       EMAIL_FROM: ${EMAIL_FROM:-ScriptumIQ <notes@scriptumiq.com>}
+      # Mailed when any email fails to send, at most once an hour (mail/alerting.ts). `-`, not `:-`,
+      # so `MAIL_ALERT_EMAIL=` (empty) in .env switches it off.
+      MAIL_ALERT_EMAIL: ${MAIL_ALERT_EMAIL-diothassystems@gmail.com}
       # Inbound invites (rule 17). The HOST is the subdomain the forwarding address is built from.
       #
       # Two secrets, because there are two ways in and they authenticate differently.

@@ -3,6 +3,8 @@
  * delivery address the user typed into their own settings AND confirmed by clicking a link
  * sent to it. Never to an address read off a page.
  */
+import { AlertingMailProvider } from "./alerting.js";
+
 export interface MailAttachment {
   filename: string;
   content: Uint8Array;
@@ -94,7 +96,15 @@ export class MemoryProvider implements MailProvider {
  */
 export const DEFAULT_FROM = "ScriptumIQ <notes@scriptumiq.com>";
 
+/**
+ * Every real provider is wrapped so a failed send mails the operator (alerting.ts), when
+ * `MAIL_ALERT_EMAIL` names someone; empty or unset means no alert.
+ */
 export function mailProviderFromEnv(env: NodeJS.ProcessEnv = process.env, sink?: (mail: OutgoingMail) => Promise<void> | void): MailProvider {
-  if (env.EMAIL_API_KEY) return new ResendProvider(env.EMAIL_API_KEY, env.EMAIL_FROM || DEFAULT_FROM);
+  if (env.EMAIL_API_KEY) {
+    const resend = new ResendProvider(env.EMAIL_API_KEY, env.EMAIL_FROM || DEFAULT_FROM);
+    const alertTo = env.MAIL_ALERT_EMAIL?.trim();
+    return alertTo ? new AlertingMailProvider(resend, alertTo) : resend;
+  }
   return new MemoryProvider(sink);
 }

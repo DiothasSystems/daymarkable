@@ -130,7 +130,8 @@ arrived with `docker compose exec app printenv <NAME>`.
 | `USER_EMAIL` | yes | the one Phase 0 login address; meeting notes go here |
 | `USER_TIMEZONE` | no | default `America/New_York` |
 | `RMAPI_DEVICE_TOKEN` | first boot only | from `pnpm spike pair`; it is moved into the DB encrypted on first run. You can also pair from `/setup`. |
-| `EMAIL_API_KEY`, `EMAIL_FROM` | for real email | Resend key + verified sender |
+| `EMAIL_API_KEY`, `EMAIL_FROM` | for real email | Resend key + verified sender. Make the key **Full access**: a key restricted to one domain refuses every send from another (it locked sign-in on 2026-09-30), and inbound invites fetch received mail with the same key |
+| `MAIL_ALERT_EMAIL` | no | mailed when any email fails to send, at most once an hour; defaults to diothassystems@gmail.com in docker-compose.yml, empty = off. It goes through the same provider, so if Resend refuses everything the alert fails too and the log says `mail is down` |
 | `ADMIN_2FA_EMAIL` | no | where the admin sign-in code is mailed; defaults to diothassystems@gmail.com in docker-compose.yml. Set it EMPTY to switch the second factor off (the break-glass when mail is down, section 9) |
 | `ADMIN_LOGIN_ID`, `ADMIN_PASSWORD_HASH` | for `/admin` | hash via `docker compose exec app node apps/web/scripts/admin-hash.mjs '<password>'`; never store the plaintext. Quote the hash in the env file: it contains `$`, which Compose substitutes away unquoted, leaving a hash that rejects every password |
 | `DECODE_MODEL`, `DECODE_ESCALATION_MODEL`, `DECODE_MODEL_ROTATION`, `DECODE_CONFIDENCE_THRESHOLD` | no | model is config, not a constant |
