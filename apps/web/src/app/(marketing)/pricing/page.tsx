@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Pricing", description: "$10 a month 
 const INCLUDED = [
   "Nightly decode of every changed page",
   "Daily, week, month, quarter, and year planner pages",
-  "The living Action List and Meeting Notes notebooks",
+  "The living Action List and a daily Notes document",
   "One email per meeting, plus optional nightly PDF delivery",
   "Google Calendar or Outlook overlay and draft invites",
   "Three on-demand syncs per day from web or phone",

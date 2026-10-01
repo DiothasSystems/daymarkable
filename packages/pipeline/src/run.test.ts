@@ -29,11 +29,12 @@ import {
   inWatchedFolder,
   isOurDocument,
   migrateBrandFolders,
+  publishDailyNotes,
   outputFolderFor,
   pageChanged,
   runPipeline,
   selectDocuments,
-  weekNotesName,
+  writtenOn,
   type PipelineDeps,
 } from "./run.js";
 
@@ -93,7 +94,9 @@ describe("runPipeline (fixtures)", () => {
     expect(out.stats!.tasksFound).toBeGreaterThan(0);
     // The Daily Puzzle rides along: on by default, deterministic, and free. The Daily Update does
     // not, because this account has set no topics to search for.
-    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Daily Puzzle", "Notes", "Planner"]);
+    // The day's Notes are dated by the day the writing was done: the night's run reads the day that
+    // just ended (the fixture page carries no timestamp of its own).
+    expect(tablet.uploads.map((u) => u.name).sort()).toEqual(["Action List", "Daily Puzzle", "Notes - 09-01-2026", "Planner"]);
     const docs = await handle.db.query.documents.findMany({ where: eq(schema.documents.userId, userId) });
     expect(docs.map((d) => d.kind).sort()).toEqual(["action_list", "daily_puzzle", "meeting_notes", "planner"]);
     // Still one cost row: the puzzle is generated, not asked for. Nothing here called a model
@@ -105,6 +108,18 @@ describe("runPipeline (fixtures)", () => {
     expect(costs[0]!.mode).toBe("batch");
     const cacheDirs = await readdir(path.join(tmp, "cache"));
     expect(cacheDirs).toHaveLength(1);
+  });
+
+  it("keeps the day's lines sealed and each page's reading as fingerprints, never as text (rule 5)", async () => {
+    const days = await handle.db.query.dailyNotes.findMany({ where: eq(schema.dailyNotes.userId, userId) });
+    expect(days.map((d) => d.localDate)).toEqual(["2026-09-01"]);
+    expect(days[0]!.bodyEnc).not.toContain("Plume");
+    expect(deps.sealer.openJson<string[]>(days[0]!.bodyEnc)[0]).toContain("Dave from Plume");
+    const readings = await handle.db.query.pageReadings.findMany({ where: eq(schema.pageReadings.userId, userId) });
+    expect(readings).toHaveLength(1);
+    const stored = JSON.stringify(readings[0]!.lines);
+    for (const word of ["Dave", "dave", "plume", "Cellular", "roadmap"]) expect(stored).not.toContain(word);
+    expect(readings[0]!.lines[0]!.length).toBeGreaterThan(0);
   });
 
   it("re-running the same local date is skipped (idempotent, rule 4)", async () => {
@@ -217,21 +232,23 @@ describe("selection and windows", () => {
     expect(outputFolderFor({ outputToRoot: true })).toBe("/");
   });
 
-  it("still recognises the old Meeting Notes name, and removes it", async () => {
+  it("still recognises the old Notes names, and removes them", async () => {
     // Renaming the notebook must not leave the old file behind looking like the user's own —
-    // it would be decoded straight back into itself.
+    // it would be decoded straight back into itself. "Notes" is the meetings-only notebook the
+    // daily "Notes - <date>" replaced; "Meeting Notes" is the name before that.
     expect(isOurDocument(doc("/Notes", "pdf"))).toBe(true);
     expect(isOurDocument(doc("/Meeting Notes", "pdf"))).toBe(true);
 
     const deleted: string[] = [];
     const tabletStub = { deleteDocument: async (d: { name: string }) => void deleted.push(d.name) } as never;
     const inFolder = { ...doc("/ScriptumIQ/Meeting Notes", "pdf"), parentId: "folder" };
-    const current = { ...doc("/ScriptumIQ/Notes", "pdf"), parentId: "folder" };
+    const oldNotes = { ...doc("/ScriptumIQ/Notes", "pdf"), parentId: "folder" };
+    const current = { ...doc("/ScriptumIQ/Notes - 10-01-2026", "pdf"), parentId: "folder" };
     const elsewhere = { ...doc("/Planner", "pdf"), parentId: "root" };
-    const removed = await cleanStaleOutputs(tabletStub, [inFolder, current, elsewhere], "folder", () => {});
-    // The legacy name goes even though it is in the right folder; the current one stays.
-    expect(deleted.sort()).toEqual(["Meeting Notes", "Planner"]);
-    expect(removed).toBe(2);
+    const removed = await cleanStaleOutputs(tabletStub, [inFolder, oldNotes, current, elsewhere], "folder", () => {});
+    // The legacy names go even though they are in the right folder; the current one stays.
+    expect(deleted.sort()).toEqual(["Meeting Notes", "Notes", "Planner"]);
+    expect(removed).toBe(3);
   });
   it("treats the root as a selectable folder without swallowing everything under it", () => {
     const docs = [doc("/Loose Notes"), doc("/Another"), doc("/Work/Meetings"), doc("/Work/Deep/Nested")];
@@ -368,21 +385,84 @@ describe("selection and windows", () => {
   });
 });
 
-describe("weekly notes archive naming", () => {
-  it("names a week by the Sunday that began it, with dashes", () => {
-    // Not slashes: a document name becomes part of its path, and "/" would read as a folder
-    // boundary everywhere paths are compared.
-    expect(weekNotesName("2026-09-06")).toBe("Notes - Week of 09-06-2026");
-    expect(weekNotesName("2026-12-27")).toBe("Notes - Week of 12-27-2026");
-    expect(weekNotesName("2026-09-06")).not.toContain("/");
+describe("the daily Notes", () => {
+  const doc = (p: string, parentId = "") => ({ id: p, hash: "h", name: p.split("/").pop()!, path: p, parentId, fileType: "pdf" as const, lastModified: null, pageCount: 0 });
+
+  it("is ours wherever it is published, and never read back", () => {
+    // Reading it back would report the printed lines as tomorrow's new handwriting, for ever.
+    for (const d of [doc("/Notes - 10-01-2026"), doc("/ScriptumIQ/Notes - 10-01-2026")]) {
+      expect(isOurDocument(d)).toBe(true);
+      expect(selectDocuments([d], { watchFolders: [], includePdfs: true })).toHaveLength(0);
+    }
+    // The filed days are finished: not ours to tidy, not ever read.
+    const filed = doc("/ScriptumIQ/Notes/Notes - 09-30-2026");
+    expect(isOurDocument(filed)).toBe(false);
+    expect(selectDocuments([filed], { watchFolders: [], includePdfs: true })).toHaveLength(0);
+    // A user's own notebook that merely starts with the word is still theirs.
+    expect(isOurDocument(doc("/Notes - project ideas"))).toBe(false);
   });
 
-  it("archived weeks are never read back in", () => {
+  it("dates writing by the page's own timestamp, else by the day the run reads", () => {
+    const tz = "America/New_York";
+    // 23:40 on the 1st, read by the run at 00:01 on the 2nd.
+    expect(writtenOn("2026-10-02T03:40:00Z", "2026-10-02", tz, "nightly", "2026-10-01")).toBe("2026-10-01");
+    expect(writtenOn(null, "2026-10-02", tz, "nightly", "2026-10-01")).toBe("2026-10-01");
+    expect(writtenOn(null, "2026-10-01", tz, "on_demand", "2026-09-30")).toBe("2026-10-01");
+    // A timestamp from long before the window is not a reason to file today's reading under it.
+    expect(writtenOn("2026-03-01T12:00:00Z", "2026-10-02", tz, "nightly", "2026-10-01")).toBe("2026-10-01");
+  });
+
+  it("archived weeks from before the change are never read back in", () => {
     // Filing them anywhere the run reads would feed them into the next decode as if they were
     // the user's own notes.
     const archived = { id: "a", hash: "h", name: "Notes - Week of 09-06-2026", path: "/ScriptumIQ/Archive/Notes - Week of 09-06-2026", parentId: "arch", fileType: "pdf" as const, lastModified: null, pageCount: 0 };
     expect(selectDocuments([archived], { watchFolders: [], includePdfs: true })).toHaveLength(0);
     expect(isOurDocument(archived)).toBe(false);
+  });
+});
+
+describe("publishing the daily Notes", () => {
+  const folder: TabletFolder = { id: "out", hash: "h", name: "", path: "/", parentId: "" };
+  const archive: TabletFolder = { id: "notes", hash: "h", name: "Notes", path: "/ScriptumIQ/Notes", parentId: "siq" };
+  const live = (name: string, parentId = folder.id) => ({ id: `id:${name}:${parentId}`, hash: "h", name, path: `/${name}`, parentId, fileType: "pdf" as const, lastModified: null, pageCount: 1 });
+  const note = (date: string) => ({ name: `Notes - ${date.slice(5, 7)}-${date.slice(8)}-${date.slice(0, 4)}`, notesDate: date, composed: { pdf: new Uint8Array([1]) } });
+
+  function stub() {
+    const calls: string[] = [];
+    const tablet = {
+      ensureFolder: async () => archive,
+      moveDocument: async (d: { name: string }, to: TabletFolder) => (calls.push(`move ${d.name} -> ${to.id}`), { id: "m", hash: "h" }),
+      deleteDocument: async (d: { name: string; parentId: string }) => void calls.push(`delete ${d.name} in ${d.parentId}`),
+      uploadPdf: async (name: string, _b: Uint8Array, to: TabletFolder) => (calls.push(`upload ${name} -> ${to.id}`), { id: `new:${name}`, hash: "h" }),
+    } as unknown as TabletProvider;
+    return { calls, deps: { tablet } as unknown as PipelineDeps };
+  }
+
+  it("files the day that was live and puts the new day beside the Planner", async () => {
+    const { calls, deps } = stub();
+    const r = await publishDailyNotes(deps, [live("Notes - 09-30-2026")], folder, [note("2026-10-01")], () => {});
+    expect(calls).toEqual(["move Notes - 09-30-2026 -> notes", "upload Notes - 10-01-2026 -> out"]);
+    expect(r.touched.size).toBe(1);
+    expect(r.uploaded.get("Notes - 10-01-2026")).toBe("new:Notes - 10-01-2026");
+  });
+
+  it("replaces a day a sync already published that day, in place", async () => {
+    const { calls, deps } = stub();
+    await publishDailyNotes(deps, [live("Notes - 10-01-2026")], folder, [note("2026-10-01")], () => {});
+    expect(calls).toEqual(["upload Notes - 10-01-2026 -> out"]);
+  });
+
+  it("adds a late page to an earlier day in the archive, leaving the newest day live", async () => {
+    const { calls, deps } = stub();
+    const docs = [live("Notes - 10-01-2026"), live("Notes - 09-30-2026", archive.id)];
+    await publishDailyNotes(deps, docs, folder, [note("2026-09-30")], () => {});
+    expect(calls).toEqual(["upload Notes - 09-30-2026 -> notes"]);
+  });
+
+  it("does nothing on a day with nothing new", async () => {
+    const { calls, deps } = stub();
+    await publishDailyNotes(deps, [live("Notes - 09-30-2026")], folder, [], () => {});
+    expect(calls).toEqual([]);
   });
 });
 

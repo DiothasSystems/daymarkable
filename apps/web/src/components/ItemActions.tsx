@@ -50,8 +50,8 @@ export function DropButton({ itemType, itemId, text, label = "Not relevant — r
 }
 
 /**
- * Delete a note from the Notes notebook. Unlike dropping an action this has no paper equivalent, and
- * it reaches further: the note leaves the weekly archive too, and its text is erased from the store.
+ * Delete a meeting note. Unlike dropping an action this has no paper equivalent: the note leaves every
+ * view on the site and in the app, and its text is erased from the store.
  * The page on the tablet is not touched.
  */
 export function DeleteNoteButton({ itemId, topic }: { itemId: string; topic: string }) {
@@ -67,7 +67,7 @@ export function DeleteNoteButton({ itemId, topic }: { itemId: string; topic: str
 
 ${topic}
 
-It leaves the Notes notebook and its weekly archive, and its text is erased. The page on your tablet is not changed.`)) return;
+It is removed here and in the app, and its text is erased. Your tablet, including its daily Notes, is not changed.`)) return;
         void run("meeting", itemId, "drop");
       }}
     >

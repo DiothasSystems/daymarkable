@@ -5,13 +5,14 @@
  */
 import { randomBytes } from "node:crypto";
 import type { DecodeStageUsage } from "@daymarkable/decode";
-import { applyDecision, repairNoteLines, type Decision, type DecisionResult, type Meeting, type PrintedItem, type WorkingSet } from "@daymarkable/core";
+import { applyDecision, repairNoteLines, type DailyNoteEntry, type Decision, type DecisionResult, type Meeting, type PrintedItem, type WorkingSet } from "@daymarkable/core";
 import {
   and,
   desc,
   eq,
   inArray,
   isNull,
+  lt,
   schema,
   sql,
   type Db,
@@ -472,6 +473,48 @@ export async function applySourceGone(
     }
   }
   return { hidden, restored };
+}
+
+// ---------------------------------------------------------------- daily notes
+/** Each page's last reading, as fingerprinted words per line (schema.pageReadings), by "doc/page". */
+export async function loadPageReadings(db: Db, userId: string, docIds: readonly string[]): Promise<Map<string, string[][]>> {
+  const out = new Map<string, string[][]>();
+  if (docIds.length === 0) return out;
+  const rows = await db
+    .select({ docId: schema.pageReadings.docId, pageId: schema.pageReadings.pageId, lines: schema.pageReadings.lines })
+    .from(schema.pageReadings)
+    .where(and(eq(schema.pageReadings.userId, userId), inArray(schema.pageReadings.docId, [...docIds])));
+  for (const r of rows) out.set(`${r.docId}/${r.pageId}`, r.lines);
+  return out;
+}
+
+export async function savePageReading(db: Db, userId: string, runId: string, docId: string, pageId: string, lines: string[][]): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(schema.pageReadings)
+    .values({ userId, docId, pageId, lines, updatedRunId: runId, updatedAt: now })
+    .onConflictDoUpdate({ target: [schema.pageReadings.userId, schema.pageReadings.docId, schema.pageReadings.pageId], set: { lines, updatedRunId: runId, updatedAt: now } });
+}
+
+/** The day's entries already written for these dates, by earlier syncs of the same day. */
+export async function loadDailyNotes(db: Db, sealer: Sealer, userId: string, dates: readonly string[]): Promise<DailyNoteEntry[]> {
+  if (dates.length === 0) return [];
+  const rows = await db.query.dailyNotes.findMany({ where: and(eq(schema.dailyNotes.userId, userId), inArray(schema.dailyNotes.localDate, [...dates])) });
+  return rows.map((r) => ({ date: r.localDate, docId: r.docId, pageId: r.pageId, notebook: r.notebook, pageIndex: r.pageIndex, lines: sealer.openJson<string[]>(r.bodyEnc) }));
+}
+
+export async function saveDailyNote(db: Db, sealer: Sealer, userId: string, e: DailyNoteEntry): Promise<void> {
+  const values = { notebook: e.notebook, pageIndex: e.pageIndex, bodyEnc: sealer.sealJson(e.lines), updatedAt: new Date() };
+  await db
+    .insert(schema.dailyNotes)
+    .values({ userId, localDate: e.date, docId: e.docId, pageId: e.pageId, ...values })
+    .onConflictDoUpdate({ target: [schema.dailyNotes.userId, schema.dailyNotes.localDate, schema.dailyNotes.docId, schema.dailyNotes.pageId], set: values });
+}
+
+/** Delete the day's handwriting once its document can no longer be added to (rule 5). */
+export async function pruneDailyNotes(db: Db, userId: string, before: string): Promise<number> {
+  const gone = await db.delete(schema.dailyNotes).where(and(eq(schema.dailyNotes.userId, userId), lt(schema.dailyNotes.localDate, before))).returning();
+  return gone.length;
 }
 
 // ---------------------------------------------------------------- documents + email

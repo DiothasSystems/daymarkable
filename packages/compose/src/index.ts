@@ -3,6 +3,7 @@ export { composeDailySheet, dailyPageCode, formatLongDate, formatShortDate } fro
 export { composePlanner, type ComposedDocument } from "./planner.js";
 export { composeActionList, type ActionListInput } from "./actionList.js";
 export { composeMeetingNotes, type MeetingNotesInput } from "./meetingNotes.js";
+export { composeDailyNotes, type DailyNotesInput } from "./dailyNotes.js";
 export { pageCode, sourceRef, type PageKindCode } from "./section.js";
 export { inkCoverage, parseInkSvg } from "./ink.js";
 export { composeCalibrationSheet, type CalibrationSheetInput, type ComposedCalibrationSheet } from "./calibrationSheet.js";

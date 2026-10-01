@@ -4,7 +4,7 @@
  * The key comes from DATA_ENCRYPTION_KEY (base64 or hex, 32 bytes). Phase 2 swaps this for
  * per-user data keys without changing callers.
  */
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
 
 const VERSION = Buffer.from("v1");
 
@@ -60,4 +60,18 @@ export class Sealer {
   openJson<T>(sealed: string): T {
     return JSON.parse(this.open(sealed)) as T;
   }
+
+  /**
+   * A keyed fingerprint of a short string: equal inputs give equal outputs, and without the key the
+   * output says nothing about the input. Used where something must be RECOGNISED later but must not be
+   * kept (a page's words, between nights: pipeline/dailyNotes). Its own key, derived from the data key,
+   * so a fingerprint can never be mistaken for, or help with, anything that key seals. 64 bits: a
+   * collision only makes a new line look already reported, once in billions.
+   */
+  fingerprint(text: string): string {
+    this.printKey ??= createHash("sha256").update(this.key).update("fingerprint:v1").digest();
+    return createHmac("sha256", this.printKey).update(text, "utf8").digest("base64url").slice(0, 11);
+  }
+
+  private printKey: Buffer | undefined;
 }

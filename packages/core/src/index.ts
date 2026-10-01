@@ -7,3 +7,4 @@ export * from "./merge.js";
 export * from "./views.js";
 export * from "./decisions.js";
 export * from "./recurrence.js";
+export * from "./dailyNotes.js";

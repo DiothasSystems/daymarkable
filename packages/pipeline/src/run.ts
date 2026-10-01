@@ -5,8 +5,8 @@
  * Idempotent per (user, local-date[, seq]) (rule 4/11). Only changed pages are processed
  * (rule 2). Nothing here logs note content — counts, hashes, ids only (rule 5).
  */
-import { mergeRun, buildOutputSet, buildWeekNotes, notesWeekStart, type MergePage, type PrintedItem } from "@daymarkable/core";
-import { composeActionList, composeDailyPuzzle, composeDailyUpdate, composeMeetingNotes, composePlanner, inkCoverage, parseInkSvg, type PuzzleInput } from "@daymarkable/compose";
+import { appendLines, buildDailyNotes, buildOutputSet, dailyNotesDate, dailyNotesName, lineTokens, mergeRun, newLines, pageLines, type DailyNoteEntry, type MergePage, type PrintedItem } from "@daymarkable/core";
+import { composeActionList, composeDailyNotes, composeDailyPuzzle, composeDailyUpdate, composePlanner, inkCoverage, parseInkSvg, type PuzzleInput } from "@daymarkable/compose";
 import { crosswordWords, gatherDailyUpdate } from "@daymarkable/news";
 import {
   GENERAL_KNOWLEDGE,
@@ -87,6 +87,8 @@ const ARCHIVE_FOLDER = `${OUTPUT_FOLDER}/Archive`;
 export const PUZZLE_FOLDER = `${OUTPUT_FOLDER}/Puzzles`;
 /** Yesterday's briefs, kept so a headline can be looked up again. */
 export const HEADLINES_FOLDER = `${OUTPUT_FOLDER}/Daily Headlines`;
+/** Earlier days' "Notes - <date>", filed when a newer day's is published. */
+export const NOTES_FOLDER = `${OUTPUT_FOLDER}/Notes`;
 
 /**
  * Folders we used to publish into, under the name the product had then.
@@ -120,6 +122,7 @@ const KEEP_FOLDERS = [
   ARCHIVE_FOLDER,
   PUZZLE_FOLDER,
   HEADLINES_FOLDER,
+  NOTES_FOLDER,
   ...LEGACY_OUTPUT_FOLDERS,
   ...LEGACY_SUBFOLDERS.map(([old]) => `${OUTPUT_FOLDER}/${old}`),
 ] as const;
@@ -134,7 +137,11 @@ export const DAILY_UPDATE_NAME = "Daily Update";
 export const DAILY_PUZZLE_NAME = "Daily Puzzle";
 
 /** Everything ScriptumIQ writes to the tablet, by name. */
-export const OUTPUT_NAMES = ["Planner", "Action List", "Notes", DAILY_UPDATE_NAME, DAILY_PUZZLE_NAME] as const;
+/**
+ * Everything ScriptumIQ writes to the tablet under a fixed name. The daily Notes are named by their
+ * date ("Notes - 10-01-2026") and recognised by `dailyNotesDate` instead.
+ */
+export const OUTPUT_NAMES = ["Planner", "Action List", DAILY_UPDATE_NAME, DAILY_PUZZLE_NAME] as const;
 
 /**
  * The two notebooks that are output and nothing else.
@@ -160,7 +167,8 @@ export const NEVER_READ_BACK = [DAILY_PUZZLE_NAME, DAILY_UPDATE_NAME, "dayLy Puz
  * current must NEVER be on this list, and a test holds it to that — `cleanStaleOutputs` deletes a
  * legacy name wherever it finds one, which would put tonight's brief in the bin the moment it landed.
  */
-export const LEGACY_OUTPUT_NAMES = ["Meeting Notes", "dayLy Update", "dayLy Puzzle"] as const;
+/** "Notes" is the meetings-only notebook the daily Notes replaced in October 2026. */
+export const LEGACY_OUTPUT_NAMES = ["Meeting Notes", "Notes", "dayLy Update", "dayLy Puzzle"] as const;
 
 /** For the filing step: a daily notebook left under a name we used to write, found and filed anyway. */
 const LEGACY_NAMES_OF: Readonly<Record<string, readonly string[]>> = {
@@ -243,6 +251,7 @@ export function isOurDocument(doc: TabletDocument): boolean {
   const named =
     (OUTPUT_NAMES as readonly string[]).includes(doc.name) ||
     (LEGACY_OUTPUT_NAMES as readonly string[]).includes(doc.name) ||
+    dailyNotesDate(doc.name) !== null ||
     doc.name === CALIBRATION_NOTEBOOK;
   return (inRoot && named) || (doc.path.startsWith(`${OUTPUT_FOLDER}/`) && !inKeepFolder(doc.path));
 }
@@ -485,6 +494,9 @@ export function selectDocuments(docs: TabletDocument[], settings: { watchFolders
   return docs.filter((d) => {
     if (inKeepFolder(d.path)) return false;
     if ((NEVER_READ_BACK as readonly string[]).includes(d.name)) return false;
+    // Output only: its lines are a transcription already, and reading one back would report the
+    // printed text as tomorrow's new handwriting, and the day after's, for ever.
+    if (dailyNotesDate(d.name) !== null) return false;
     if (isOurDocument(d)) return true; // our own planner pages: the closed loop
     if (d.fileType === "epub") return false;
     if (d.fileType === "pdf" && !settings.includePdfs) return false;
@@ -624,6 +636,8 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     const downloaded: Array<{ doc: DownloadedDocument; changedPageIds: string[] }> = [];
     /** Every page id of every notebook whose pages were listed tonight — what a deleted page is proved against. */
     const listedPages = new Map<string, Set<string>>();
+    /** Each listed page's cloud timestamp, which dates its writing for the daily Notes. */
+    const pageModified = new Map<string, string | null>();
     const baselineOnly: TabletDocument[] = [];
     /** Pages seen but not decoded: snapshotted so they are never mistaken for new ink. */
     const baselinePages: Array<{ docId: string; pages: Array<{ pageId: string; index: number; hash: string | null }> }> = [];
@@ -638,6 +652,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       }
       const pageRefs = await deps.tablet.listPages(doc);
       listedPages.set(doc.id, new Set(pageRefs.map((p) => p.pageId)));
+      for (const p of pageRefs) pageModified.set(`${doc.id}/${p.pageId}`, p.modified);
       const pageSnap = await repo.loadPageSnapshots(db, user.id, doc.id);
       // "Have we ever recorded this notebook's pages?" — NOT "have we seen the document?". A
       // document can carry a hash snapshot with no page rows behind it (it was baselined whole,
@@ -728,6 +743,8 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // ---- 3. decode ------------------------------------------------------------------
     const mode = params.kind === "nightly" ? "batch" : "standard";
     const mergePages: MergePage[] = [];
+    /** Tonight's reading of every decoded page, as written lines, for the daily Notes. */
+    const readings: Array<{ docId: string; pageId: string; notebook: string; pageIndex: number; lines: string[]; ours: boolean }> = [];
     const decodedKinds = new Map<string, { kind: string; confidence: number }>();
     if (decodeInputs.length) {
       log(`decode: ${decodeInputs.length} pages via ${mode} API (${deps.decodeModel})`);
@@ -753,6 +770,11 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
         stats.checkboxUpdates += r.extraction.checkbox_updates.length;
         // Strokes are parsed for every page but only reproduced for one the merge judges a
         // drawing, which is the cheap order: parsing is a regex, reproducing is half a page.
+        // On one of our own pages the transcription can include what we printed; only the notes the
+        // decoder found there are handwriting. Everywhere else the transcription is the page.
+        const ours = r.extraction.page_kind === "planner";
+        const written = ours ? r.extraction.notes.map((n) => n.text).join("\n") : r.extraction.page_kind === "blank" ? "" : r.extraction.transcription;
+        readings.push({ docId: meta.doc.document.id, pageId: meta.pageId, notebook: meta.doc.document.name, pageIndex: meta.pageIndex, lines: pageLines(written), ours });
         const drawing = meta.svg ? parseInkSvg(meta.svg) : null;
         mergePages.push({
           notebook: meta.doc.document.name,
@@ -787,28 +809,62 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     stats.meetingsFound = merged.changes.meetingsCreated;
     stats.inboxItems = merged.state.inbox.filter((i) => i.status === "pending").length;
 
+    // ---- 4b. the day's new handwriting (the daily Notes) ------------------------------
+    // What each page says now, less what it said at its last reading, dated by when it was written.
+    // The last reading is kept only as word fingerprints (rule 5), so it is compared in that form.
+    const printOf = (line: string) => lineTokens(line).map((t) => deps.sealer.fingerprint(t));
+    const lastReadings = await repo.loadPageReadings(db, user.id, [...new Set(readings.map((r) => r.docId))]);
+    const windowDate = windowStart.setZone(tz).toISODate()!;
+    const fresh: DailyNoteEntry[] = [];
+    for (const r of readings) {
+      const key = `${r.docId}/${r.pageId}`;
+      const added = newLines(lastReadings.get(key) ?? null, r.lines, printOf);
+      if (added.length === 0) continue;
+      const date = writtenOn(pageModified.get(key) ?? null, localDate, tz, params.kind, windowDate);
+      fresh.push({ date, docId: r.docId, pageId: r.pageId, notebook: r.notebook, pageIndex: r.pageIndex, lines: added });
+    }
+    // A sync earlier the same day may have started these dates' documents; add to them, not over them.
+    const noteDates = [...new Set(fresh.map((e) => e.date))].sort();
+    const dayEntries = new Map<string, DailyNoteEntry>();
+    for (const e of await repo.loadDailyNotes(db, deps.sealer, user.id, noteDates)) dayEntries.set(`${e.date}|${e.docId}|${e.pageId}`, e);
+    const touched: DailyNoteEntry[] = [];
+    for (const e of fresh) {
+      const k = `${e.date}|${e.docId}|${e.pageId}`;
+      const before = dayEntries.get(k);
+      const next = before ? { ...e, lines: appendLines(before.lines, e.lines) } : e;
+      dayEntries.set(k, next);
+      touched.push(next);
+    }
+    if (fresh.length) log(`notes: ${fresh.reduce((n, e) => n + e.lines.length, 0)} new line(s) on ${fresh.length} page(s), for ${noteDates.join(", ")}`);
+
     // ---- 5. compose -----------------------------------------------------------------
     const generatedAt = now().setZone(tz).toISO()!;
-    // With weekly archiving on, the live Notes notebook holds this week only; everything older
-    // has been filed to the tablet, so it stays short and today's notes are at the top.
-    const weekStart = settings.weeklyNotesArchive ? notesWeekStart(localDate) : null;
     const views = buildOutputSet(merged.state, {
       today: localDate,
       timezone: tz,
       generatedAt,
       runLabel,
-      notesWeekStart: weekStart,
       stats: { pagesRead: stats.pagesDecoded, tasksFound: stats.tasksFound, eventsFound: stats.eventsFound, meetingRequestsFound: stats.meetingRequestsFound, notesFound: stats.meetingsFound },
     });
     const planner = await composePlanner(views.planner, merged.state.tasks);
     const actionList = await composeActionList({ model: views.actionList, date: localDate, generatedAt, runLabel });
-    const meetingNotes = await composeMeetingNotes({ model: views.meetingNotes, date: localDate, generatedAt, runLabel });
-    type Output = { kind: "planner" | "action_list" | "meeting_notes" | "daily_update" | "daily_puzzle"; name: string; composed: { pdf: Uint8Array; pageCount: number; printed: PrintedItem[] } };
+    type Output = {
+      kind: "planner" | "action_list" | "meeting_notes" | "daily_update" | "daily_puzzle";
+      name: string;
+      composed: { pdf: Uint8Array; pageCount: number; printed: PrintedItem[] };
+      /** Set on a daily Notes document: the day it reports. */
+      notesDate?: string;
+    };
     const outputs: Output[] = [
       { kind: "planner" as const, name: "Planner", composed: planner },
       { kind: "action_list" as const, name: "Action List", composed: actionList },
-      { kind: "meeting_notes" as const, name: "Notes", composed: meetingNotes },
     ];
+    // A day with nothing new written gets no document: the latest one stays where it is.
+    for (const date of noteDates) {
+      const model = buildDailyNotes(date, [...dayEntries.values()]);
+      if (model.lineCount === 0) continue;
+      outputs.push({ kind: "meeting_notes" as const, name: dailyNotesName(date), composed: await composeDailyNotes({ model, generatedAt, runLabel }), notesDate: date });
+    }
 
     // ---- 5b. the optional extras -----------------------------------------------------
     // Both are switched on by default and off by the customer, and neither can fail the night:
@@ -845,7 +901,9 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       await deps.cache.put(run.id, `outputs/${o.name}.pdf`, o.composed.pdf);
       printed.push(...o.composed.printed);
     }
-    log(`compose: Planner ${planner.pageCount}p, Action List ${actionList.pageCount}p, Notes ${meetingNotes.pageCount}p; ${printed.length} checkbox rows printed`);
+    const notesOut = outputs.filter((o) => o.notesDate);
+    const notesPart = notesOut.length ? notesOut.map((o) => `${o.name} ${o.composed.pageCount}p`).join(", ") : "no new Notes";
+    log(`compose: Planner ${planner.pageCount}p, Action List ${actionList.pageCount}p, ${notesPart}; ${printed.length} checkbox rows printed`);
 
     // ---- 6. upload + archive rotation ------------------------------------------------
     const tabletIds = new Map<string, string>();
@@ -854,7 +912,6 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       const folder = await deps.tablet.ensureFolder(target);
       const archive = await deps.tablet.ensureFolder(ARCHIVE_FOLDER);
       await rotateArchive(deps, tree.documents, folder, archive, localDate, log);
-      if (weekStart) await archiveFinishedWeeks(deps, merged.state, tree.documents, archive, weekStart, localDate, generatedAt, log);
       // The daily extras keep their own folders. Only reached for when the feature is on, so an
       // account that has switched the puzzle off never grows an empty Puzzles folder.
       const filed = new Set<string>();
@@ -869,15 +926,20 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       // `tree` was listed before the filing above, so a notebook that has just been filed still reads
       // as sitting in the output folder. Under a legacy name — the first night after a rename — the
       // cleaner would take it for a stray and delete it, which by id is the copy just archived.
+      // The daily Notes before the cleaner, which would otherwise see a day being filed as a stray.
+      const notes = await publishDailyNotes(deps, tree.documents, folder, notesOut, log);
+      for (const id of notes.touched) filed.add(id);
+      for (const [name, id] of notes.uploaded) tabletIds.set(name, id);
       await cleanStaleOutputs(deps.tablet, tree.documents.filter((d) => !filed.has(d.id)), folder.id, log);
       for (const o of outputs) {
+        if (o.notesDate) continue;
         const res = await deps.tablet.uploadPdf(o.name, o.composed.pdf, folder, { replace: true });
-        tabletIds.set(o.kind, res.id);
+        tabletIds.set(o.name, res.id);
       }
       log(`upload: ${outputs.length} notebooks replaced in ${target === ROOT_OUTPUT_FOLDER ? "the tablet root" : target}`);
     }
     for (const o of outputs) {
-      await repo.registerDocument(db, { userId: user.id, runId: run.id, kind: o.kind, name: o.name, cachePath: `outputs/${o.name}.pdf`, bytes: o.composed.pdf.length, pageCount: o.composed.pageCount, tabletDocId: tabletIds.get(o.kind) ?? null });
+      await repo.registerDocument(db, { userId: user.id, runId: run.id, kind: o.kind, name: o.name, cachePath: `outputs/${o.name}.pdf`, bytes: o.composed.pdf.length, pageCount: o.composed.pageCount, tabletDocId: tabletIds.get(o.name) ?? null });
     }
 
     // ---- 7. email: one per decoded meeting, registered address only (rule 10) -------
@@ -920,7 +982,9 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
           user.id,
           localDate,
           chosen.map((o) => ({ name: o.name, pdf: o.composed.pdf, pageCount: o.composed.pageCount })),
-          { openActions: views.actionList.openCount, meetings: views.meetingNotes.meetings.length },
+          // Tonight's new meetings: with the meetings-only notebook gone, the whole list is not a
+          // number this mail can usefully quote.
+          { openActions: views.actionList.openCount, meetings: merged.newMeetings.length },
         );
         if (await repo.emailAlreadySent(db, mail.idempotencyKey)) {
           log("delivery: already sent for this date");
@@ -941,6 +1005,12 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
 
     // ---- 9. persist state + snapshots (only after everything above succeeded) -------
     await repo.saveWorkingSet(db, deps.sealer, user.id, run.id, merged.state, printed);
+    // Our own pages are read once — tomorrow's Planner is a new document — so their readings are
+    // not kept: they would only pile up under ids that never come back.
+    for (const r of readings) if (!r.ours) await repo.savePageReading(db, user.id, run.id, r.docId, r.pageId, r.lines.map(printOf));
+    for (const e of touched) await repo.saveDailyNote(db, deps.sealer, user.id, e);
+    const pruned = await repo.pruneDailyNotes(db, user.id, DateTime.fromISO(localDate).minus({ days: DAILY_NOTES_KEEP_DAYS }).toISODate()!);
+    if (pruned) log(`notes: deleted the stored lines of ${pruned} page(s) older than ${DAILY_NOTES_KEEP_DAYS} days (the tablet keeps the documents)`);
     for (const d of baselineOnly) await repo.upsertDocSnapshot(db, user.id, run.id, { id: d.id, hash: d.hash, name: d.name, path: d.path, fileType: d.fileType, lastModified: d.lastModified, pageCount: d.pageCount });
     for (const { docId, pages } of baselinePages) {
       for (const p of pages) await repo.upsertPageSnapshot(db, user.id, run.id, docId, { pageId: p.pageId, index: p.index, hash: p.hash, kind: null, confidence: null });
@@ -989,50 +1059,81 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
   }
 }
 
-/** "Notes - Week of 09-07-2026" — the Sunday that began the week. */
-export function weekNotesName(weekStart: string): string {
-  const [y, m, d] = weekStart.split("-");
-  // Dashes, not slashes: a document name becomes part of its path, and a "/" inside one would
-  // read as a folder boundary everywhere paths are compared.
-  return `Notes - Week of ${m}-${d}-${y}`;
+/**
+ * How long the day's new lines are kept after their date (schema.dailyNotes). Long enough for the
+ * night's run to add to a document a sync started during the day; no longer, because they are
+ * transcription (rule 5). The tablet keeps the documents themselves.
+ */
+export const DAILY_NOTES_KEEP_DAYS = 2;
+
+/**
+ * The local date a page was written on, for the daily Notes.
+ *
+ * The page's own cloud timestamp when it has one — a page written at 23:40 belongs to that day, not
+ * to the morning the nightly run read it. Without one: the day that just ended for a nightly run,
+ * which is what it reads, and today for a sync. Never after today, and never before the run's window
+ * opened — a timestamp from the distant past on a page the run is reading now is not a reason to
+ * file its writing under a month ago.
+ */
+export function writtenOn(modified: string | null, localDate: string, timezone: string, kind: "nightly" | "on_demand", windowDate: string): string {
+  const fallback = kind === "nightly" ? DateTime.fromISO(localDate).minus({ days: 1 }).toISODate()! : localDate;
+  const at = parseCloudDate(modified);
+  if (at === null) return fallback;
+  const day = DateTime.fromJSDate(at).setZone(timezone).toISODate()!;
+  if (day > localDate) return localDate;
+  if (day < windowDate) return fallback;
+  return day;
 }
 
 /**
- * File each finished week's notes onto the tablet as its own notebook, once.
+ * Put tonight's "Notes - <date>" documents on the tablet.
  *
- * Idempotent by existence (rule 4): a week already on the tablet is skipped, so re-running a
- * Sunday cannot produce a second copy and no state has to be tracked to know what was archived.
- * Archived notebooks live under /dayMarkable/Archive, which the run never reads back — filing
- * them anywhere else would feed them into the next decode as if they were the user's own notes.
+ * The newest day lives beside the Planner; every earlier day is filed in /ScriptumIQ/Notes, which is
+ * in KEEP_FOLDERS so it is never read back and never tidied. So publishing a day also files whichever
+ * day was live before it. A day re-published by a later sync — the night's run adding to the copy a
+ * sync made that afternoon — replaces that copy wherever it now is, and is never left twice.
+ *
+ * Returns what it uploaded, by name, and every document it moved or deleted: the caller's tree was
+ * listed before any of this, and the cleaner must not act on those.
  */
-async function archiveFinishedWeeks(
+export async function publishDailyNotes(
   deps: PipelineDeps,
-  state: Parameters<typeof buildWeekNotes>[0],
   docs: readonly TabletDocument[],
-  archive: TabletFolder,
-  currentWeekStart: string,
-  localDate: string,
-  generatedAt: string,
+  folder: TabletFolder,
+  notes: ReadonlyArray<{ name: string; composed: { pdf: Uint8Array }; notesDate?: string }>,
   log: (m: string) => void,
-): Promise<void> {
-  const weeks = new Set<string>();
-  for (const m of state.meetings) if (m.date && m.date < currentWeekStart) weeks.add(notesWeekStart(m.date));
-  const existing = new Set(docs.filter((d) => d.parentId === archive.id).map((d) => d.name));
+): Promise<{ uploaded: Map<string, string>; touched: Set<string> }> {
+  const uploaded = new Map<string, string>();
+  const touched = new Set<string>();
+  if (notes.length === 0) return { uploaded, touched };
+  const archive = await deps.tablet.ensureFolder(NOTES_FOLDER);
+  const live = docs.filter((d) => d.parentId === folder.id && dailyNotesDate(d.name) !== null);
+  const filedNames = new Set(docs.filter((d) => d.parentId === archive.id).map((d) => d.name));
+  const publishing = new Set(notes.map((o) => o.name));
+  const newest = [...live.map((d) => dailyNotesDate(d.name)!), ...notes.map((o) => o.notesDate!)].sort().at(-1)!;
 
-  for (const week of [...weeks].sort()) {
-    const name = weekNotesName(week);
-    if (existing.has(name)) continue;
-    const model = buildWeekNotes(state, week);
-    if (model.meetings.length === 0) continue;
+  for (const d of live) {
+    const date = dailyNotesDate(d.name)!;
+    // Tonight's upload replaces it in place.
+    if (date === newest && publishing.has(d.name)) continue;
     try {
-      const composed = await composeMeetingNotes({ model, date: localDate, generatedAt, runLabel: `week of ${week}` });
-      await deps.tablet.uploadPdf(name, composed.pdf, archive, { replace: true });
-      log(`notes archive: filed "${name}" (${model.meetings.length} note${model.meetings.length === 1 ? "" : "s"}, ${composed.pageCount}p)`);
+      if (publishing.has(d.name) || filedNames.has(d.name)) {
+        // Re-published into the archive below, or already filed there: one copy, not two.
+        await deps.tablet.deleteDocument(d);
+      } else if (date !== newest) {
+        await deps.tablet.moveDocument(d, archive);
+        log(`filed "${d.name}" into ${archive.name}`);
+      } else continue;
+      touched.add(d.id);
     } catch (err) {
-      // Never fail the night over an archive copy: the live notebook still goes to the tablet.
-      log(`notes archive skipped for ${week}: ${(err as Error).message}`);
+      log(`could not file "${d.name}": ${(err as Error).message}`);
     }
   }
+  for (const o of notes) {
+    const res = await deps.tablet.uploadPdf(o.name, o.composed.pdf, o.notesDate === newest ? folder : archive, { replace: true });
+    uploaded.set(o.name, res.id);
+  }
+  return { uploaded, touched };
 }
 
 /**

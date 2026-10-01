@@ -65,7 +65,7 @@ export default function LandingPage() {
           <div className="mk-card">
             <IconMail />
             <div className="mk-card-title">Meeting notes, twice</div>
-            <p>Each meeting summarized with its decisions and follow-ups — a Meeting Notes notebook on the tablet and one email per meeting, quoting your own ink.</p>
+            <p>Everything you wrote today, typeset in a dated Notes document on the tablet under each notebook&apos;s name, and one email per meeting with its decisions and follow-ups, quoting your own ink.</p>
           </div>
         </div>
         <div className="mk-quote">

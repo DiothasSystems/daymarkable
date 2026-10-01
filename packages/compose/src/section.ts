@@ -93,7 +93,7 @@ export function sourceRef(source: { notebook: string; pageIndex: number }): stri
   return `${name.toUpperCase()} · p.${source.pageIndex + 1}`;
 }
 
-export type PageKindCode = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "INBOX" | "ACTIONS" | "MEETINGS" | "NEWS" | "PUZZLE";
+export type PageKindCode = "DAY" | "WEEK" | "MONTH" | "QUARTER" | "YEAR" | "INBOX" | "ACTIONS" | "MEETINGS" | "NEWS" | "PUZZLE" | "NOTES";
 
 /**
  * Printed on every page we write; what lets a tick be matched back to the item it was made against.

@@ -178,8 +178,8 @@ export async function getRegistry(userId: string) {
     .filter((x): x is { e: typeof x.e; next: string } => x.next !== null)
     .map(({ e, next }) => (e.date === next ? e : { ...e, date: next }))
     .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? "") || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
-  // The same notes the tablet's live Notes notebook prints: one whose page was deleted from the
-  // tablet is left out here too (the calendar and the weekly archive still have it).
+  // A meeting note whose page was deleted from the tablet is left out of this list (the calendar
+  // still has it).
   const meetings = state.meetings.filter((m) => !m.deleted && !m.sourceGone).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || (b.time ?? "").localeCompare(a.time ?? ""));
   const inbox = state.inbox.filter((i) => i.status === "pending");
   const doneRecently = state.tasks.filter((t) => t.status === "done" && t.completedOn && t.completedOn >= DateTime.fromISO(today).minus({ days: 7 }).toISODate()!);

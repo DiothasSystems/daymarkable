@@ -78,28 +78,23 @@ export function PairingWizard({ tablet, onPaired }: { tablet: Account["tablet"];
 
 // ------------------------------------------------------------ watch folders
 /** Where the generated notebooks land on the tablet. */
-/** Close the Notes notebook each week and file the finished week onto the tablet. */
-export function WeeklyNotesArchive({ initial }: { initial: boolean }) {
-  const [on, setOn] = useState(initial);
-  const { state, error, save } = useSaver(async (v: boolean) => trpc.account.updateSettings.mutate({ weeklyNotesArchive: v }));
+/**
+ * How the daily Notes work. Nothing to set: it replaced the weekly-archive switch, which only made
+ * sense for the meetings-only notebook it went with.
+ */
+export function DailyNotesInfo() {
   return (
     <div className="stack">
       <p className="muted" style={{ fontSize: 14 }}>
-        Newest notes are always at the top of the Notes notebook. With this on, each Sunday&apos;s run files the week
-        that just ended into <span className="mono">ScriptumIQ/Archive</span> as{" "}
-        <span className="mono">Notes - Week of MM-DD-YYYY</span>, and the live notebook starts the new week empty.
+        Each day you write, the tablet gets a <span className="mono">Notes - MM-DD-YYYY</span> document with
+        everything new you wrote that day, under the name of each notebook. Only lines added since a page was last
+        read appear, so a page you keep adding to is not repeated. The newest day sits beside your Planner; earlier
+        days are filed in <span className="mono">ScriptumIQ/Notes</span>. A day you write nothing gets no document.
       </p>
-      <label className="check">
-        <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
-        <span>
-          File a notebook per week
-          <div className="hint">Off keeps every note in one notebook, which grows without limit.</div>
-        </span>
-      </label>
-      <div className="row">
-        <button onClick={() => void save(on)} disabled={state === "saving"}>Save</button>
-        <Status state={state} error={error} />
-      </div>
+      <p className="muted" style={{ fontSize: 14 }}>
+        Pages titled as a meeting are also kept on this site under Documents, Notebooks, and emailed to you if
+        meeting emails are on.
+      </p>
     </div>
   );
 }

@@ -1,14 +1,15 @@
 /**
- * Republish: rebuild the three notebooks from the stored working set and upload them, without
- * syncing, rendering or decoding anything.
+ * Republish: rebuild the Planner and Action List from the stored working set and upload them, without
+ * syncing, rendering or decoding anything. The daily Notes are not rebuilt: they are what was written
+ * on a day, and no edit made since changes that.
  *
  * This is the cheap half of a run. It exists because correcting a misread in the web UI changes
  * the canonical data but not the PDFs already sitting on the tablet, and making the user spend
  * an on-demand sync (whose quota exists to bound TOKEN spend) on a job that calls no model
  * would be the wrong trade. No API cost, no quota, no snapshot writes.
  */
-import { buildOutputSet, notesWeekStart, type PrintedItem } from "@daymarkable/core";
-import { composeActionList, composeMeetingNotes, composePlanner } from "@daymarkable/compose";
+import { buildOutputSet, type PrintedItem } from "@daymarkable/core";
+import { composeActionList, composePlanner } from "@daymarkable/compose";
 import { schema, type Db, type Sealer } from "@daymarkable/db";
 import type { TabletProvider } from "@daymarkable/tablet";
 import { DateTime } from "luxon";
@@ -60,21 +61,12 @@ export async function republishNotebooks(deps: RepublishDeps, userId: string, op
   const generatedAt = nowLocal.toISO()!;
 
   const state = await repo.loadWorkingSet(db, deps.sealer, userId);
-  // Same week filter as a run, so a republish never resurrects notes the archive already took.
-  const views = buildOutputSet(state, {
-    today: localDate,
-    timezone: tz,
-    generatedAt,
-    runLabel: "updated",
-    notesWeekStart: user.settings.weeklyNotesArchive ? notesWeekStart(localDate) : null,
-  });
+  const views = buildOutputSet(state, { today: localDate, timezone: tz, generatedAt, runLabel: "updated" });
   const planner = await composePlanner(views.planner, state.tasks);
   const actionList = await composeActionList({ model: views.actionList, date: localDate, generatedAt, runLabel: "updated" });
-  const meetingNotes = await composeMeetingNotes({ model: views.meetingNotes, date: localDate, generatedAt, runLabel: "updated" });
   const outputs = [
     { kind: "planner" as const, name: "Planner", composed: planner },
     { kind: "action_list" as const, name: "Action List", composed: actionList },
-    { kind: "meeting_notes" as const, name: "Notes", composed: meetingNotes },
   ];
 
   // Attach to the latest successful run so the viewer serves these from its cache (rule 12)

@@ -142,7 +142,7 @@ export default function ItemEditor() {
     Alert.alert(
       note ? "Delete this note?" : "Remove this item?",
       note
-        ? "It leaves the Notes notebook and its weekly archive, and its text is erased. The page on your tablet is not changed."
+        ? "It is removed here and on the website, and its text is erased. Your tablet, including its daily Notes, is not changed."
         : `It leaves the list for good — the same as crossing it out on paper.`,
       [
         { text: "Keep it", style: "cancel" },

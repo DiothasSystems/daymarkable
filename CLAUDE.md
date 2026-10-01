@@ -6,7 +6,8 @@ modified during the day that just ended), decodes them with Claude vision using 
 registered ink conventions, and writes back to the tablet: a planner
 (day/week/month/quarter/year calendar templates, with the user's Outlook/Google calendar
 overlaid when connected), a living Action List checkbox notebook (append-only, ordered by
-date then priority), and a Meeting Notes notebook. Each decoded meeting is also emailed to
+date then priority), and a daily Notes document ("Notes - MM-DD-YYYY": everything newly written that
+day, under each notebook's name — see rule 19). Each decoded meeting is also emailed to
 the user's registered address — one email per meeting, subject = topic, date, time. Decoded
 meeting-setup actions become draft calendar invites in the user's selected calendar system.
 Planner pages are hand-checkable; ticks and margin notes are read the next night (closed
@@ -129,7 +130,8 @@ unchanged.
    List and calendar notebooks without re-reading documents (re-decoding costs token money;
    a day of storage costs a fraction of a cent). The run's final step deletes the PREVIOUS
    night's cache and logs the deletion; a 48h storage lifecycle rule is the failsafe.
-   Nothing is archived beyond one day. Cache encrypted at rest; device tokens encrypted at
+   Nothing is archived beyond one day — the one bounded exception is the day's new handwriting
+   (`daily_notes`, encrypted, deleted two days after its date; rule 19). Cache encrypted at rest; device tokens encrypted at
    rest. No user content in logs — log counts and hashes, not text. (Fixtures from the
    founder's own pages are the sanctioned exception.)
 6. **Every planner page is an input form.** When changing planner templates, keep checkboxes
@@ -144,18 +146,19 @@ unchanged.
    it (date, then priority); items leave only by tick or explicit drop. Never emit a fresh
    list that orphans open items.
 
-   Notes are different: the live Notes notebook drops a note once the page or notebook it was
+   Meeting notes (the `meetings` rows behind the website's Notebooks tab and the meeting emails) are
+   different: the list drops a note once the page or notebook it was
    read from is deleted from the tablet (`pipeline/src/sourceGone.ts`, stamped on
-   `meetings.source_gone` before the merge). The note is hidden, never deleted — the weekly archive
-   and the calendar still carry it, and a notebook restored from the trash brings its notes back.
+   `meetings.source_gone` before the merge). The note is hidden, never deleted — the calendar still
+   carries it, and a notebook restored from the trash brings its notes back.
    Absence is proved only against what was listed that night: a notebook missing from the tree, a
    page missing from a notebook whose pages were listed. An empty tree proves nothing.
    The customer can also delete a note from the web or the app (`documents.decide`, itemType
-   "meeting", action "drop"). That goes further: out of the archive and the calendar too, and the
+   "meeting", action "drop"). That goes further: out of the calendar too, and the
    body is erased on the spot. The row stays as a tombstone (topic, date, source) because without
    it the next read of the page merges the note straight back in. A note dated more than
    `FUTURE_NOTE_DAYS` (7) after the night it was read is a misread date and takes the page's date
-   instead (`noteDate` in merge.ts) — otherwise it heads the newest-first notebook until that day.
+   instead (`noteDate` in merge.ts) — otherwise it heads the newest-first list until that day.
 9. **Ink conventions are per-user config.** The set of markups meaning
    action/follow-up/priority/schedule (asterisk, underline, highlight, circle, box,
    exclamation, margin star, keywords) lives in one config module and is injected into the
@@ -307,6 +310,31 @@ unchanged.
     by field. The email is still the root of trust for a reset — someone with the mailbox can choose
     a new password — which is the honest limit of this scheme; what the password adds is that the
     mailbox alone no longer signs anyone in quietly.
+
+19. **The daily Notes report what was written, not what was a meeting.** Until October 2026 the Notes
+    notebook held meetings only — a page counted when the decoder found a meeting title — and a day of
+    ordinary writing produced an empty notebook while the same pages filled the Action List. Now each
+    day with new writing gets `Notes - MM-DD-YYYY` (`dailyNotesName`): one section per notebook, by
+    name, and under it the lines added on each page. The newest day sits beside the Planner; publishing
+    a newer day files the previous one into `/ScriptumIQ/Notes` (`publishDailyNotes`), which is in
+    `KEEP_FOLDERS`. A day with nothing new gets no document. The meetings-only "Notes" is a legacy name
+    and the cleaner removes it; meetings themselves still exist, on the website and as emails.
+
+    "Only what is new" is `newLines` (core/dailyNotes.ts): tonight's reading of a page, less its last
+    reading, matched line by line on word overlap so a re-read's small wobble does not report a line
+    twice. The last reading is kept as **keyed word fingerprints** (`page_readings`, `Sealer.fingerprint`)
+    and never as text, which is what rule 5 allows; a page with no stored reading is new in full, which
+    is every page the first time it is read after this shipped. The day's lines themselves are kept
+    encrypted in `daily_notes` for TWO days only — a sync during the day and the night's run add to the
+    same date's document — then pruned. Writing is dated by the page's own cloud timestamp in the
+    account's zone (`writtenOn`), else by the day the run reads: yesterday for the nightly run, today
+    for a sync.
+
+    The document is output only: `selectDocuments` never reads one back, because its printed lines would
+    come back as tomorrow's new handwriting, and the day after's, for ever. On ScriptumIQ's own pages
+    (page_kind "planner") only the decoder's notes count as writing, never the transcription, which can
+    include what we printed; and their readings are not stored, since tomorrow's Planner is a new
+    document with new ids.
 
 
 ## Testing

@@ -5,7 +5,10 @@
  * Privacy (CLAUDE.md rule 5): page images, downloads, transcriptions, and generated PDFs live
  * ONLY in the 1-day run cache, never here. This database keeps the retained working set
  * (tasks, events, meeting notes, meeting requests) plus hashes, counts, and costs. Meeting note
- * bodies and device tokens are stored encrypted (see crypto.ts).
+ * bodies and device tokens are stored encrypted (see crypto.ts). One bounded exception: the day's
+ * new handwriting (daily_notes), encrypted and deleted two days after its date, so a sync during the
+ * day and the night's run can add to the same daily Notes document. Page readings themselves are
+ * kept only as keyed word fingerprints (page_readings).
  */
 import {
   boolean,
@@ -398,6 +401,46 @@ export const meetings = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("meetings_user_date").on(t.userId, t.date)],
+);
+
+/**
+ * What each page said at its last reading, as WORD FINGERPRINTS, not words: one list of keyed
+ * fingerprints per line (Sealer.fingerprint). It exists so the daily Notes document reports only the
+ * lines added since a page was last read, and it holds no transcription — rule 5 keeps those out of
+ * this database — so it is kept as long as the page is.
+ */
+export const pageReadings = pgTable(
+  "page_readings",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    docId: text("doc_id").notNull(),
+    pageId: text("page_id").notNull(),
+    lines: jsonb("lines").$type<string[][]>().notNull(),
+    updatedRunId: uuid("updated_run_id"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.docId, t.pageId] })],
+);
+
+/**
+ * The day's new handwriting, one row per page per local date, encrypted (bodyEnc: string[] of lines).
+ * Kept only while the day's Notes document can still be added to — a sync during the day and the
+ * night's run both write the same date — and deleted two days after (repo.pruneDailyNotes), because
+ * this is transcription and rule 5 allows it no longer than that. The tablet holds the document.
+ */
+export const dailyNotes = pgTable(
+  "daily_notes",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    localDate: date("local_date").notNull(),
+    docId: text("doc_id").notNull(),
+    pageId: text("page_id").notNull(),
+    notebook: text("notebook").notNull(),
+    pageIndex: integer("page_index").notNull(),
+    bodyEnc: text("body_enc").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.localDate, t.docId, t.pageId] })],
 );
 
 export const meetingRequests = pgTable(

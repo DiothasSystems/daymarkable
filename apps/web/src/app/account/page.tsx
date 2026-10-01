@@ -2,7 +2,7 @@ import { CancelSubscription } from "@/components/CancelSubscription";
 import { Shell } from "@/components/Shell";
 import { CalibrationPanel, LexiconEditor } from "@/components/Calibration";
 import { RateRun } from "@/components/RateRun";
-import { CalendarInbox, ConventionsPicker, DailyPuzzleSettings, DailyUpdateSettings, DeliveryEmail, OutputLocation, PairingWizard, PasswordSettings, TimezonePicker, WatchFolders, WeeklyNotesArchive } from "@/components/SettingsForms";
+import { CalendarInbox, ConventionsPicker, DailyPuzzleSettings, DailyUpdateSettings, DeliveryEmail, OutputLocation, PairingWizard, PasswordSettings, TimezonePicker, WatchFolders, DailyNotesInfo } from "@/components/SettingsForms";
 import { fmtDateTime } from "@/lib/format";
 import { requireUser } from "@/server/guard";
 import { cancelView, feedbackSummary, getAccount, getCalibration, listRuns } from "@/server/services";
@@ -61,7 +61,7 @@ export default async function AccountPage() {
         </section>
         <section className="card">
           <h2>Notes</h2>
-          <WeeklyNotesArchive initial={account.settings.weeklyNotesArchive} />
+          <DailyNotesInfo />
         </section>
         <section className="card">
           <h2>Email</h2>
