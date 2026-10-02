@@ -485,7 +485,7 @@ to disagree quietly:
 **One command**, on the machine the phone is plugged into:
 
 ```
-powershell -ExecutionPolicy Bypass -File scriptsndroid-build.ps1 -Install
+powershell -ExecutionPolicy Bypass -File scripts\android-build.ps1 -Install
 ```
 
 Prebuild, patch, assemble, install over adb. About two minutes for one ABI.

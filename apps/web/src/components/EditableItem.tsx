@@ -7,11 +7,12 @@ import { errorMessage, trpc } from "@/lib/trpc";
  * Click-to-fix text for a decoded item. The correction replaces the item and the words that
  * changed are promoted into the writer's vocabulary, so the same misread does not recur.
  */
-export function EditableItem({ itemType, itemId, text, className }: { itemType: "task" | "event" | "meeting" | "inbox"; itemId: string; text: string; className?: string }) {
+/** `startEditing` opens it already editing — for a separate "Fix" button, which remounts it with a new key. */
+export function EditableItem({ itemType, itemId, text, className, startEditing }: { itemType: "task" | "event" | "meeting" | "inbox"; itemId: string; text: string; className?: string; startEditing?: boolean }) {
   const router = useRouter();
   const [value, setValue] = useState(text);
   const [saved, setSaved] = useState(text);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing ?? false);
   const [busy, setBusy] = useState(false);
   const [learned, setLearned] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);

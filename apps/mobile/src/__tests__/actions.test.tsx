@@ -134,8 +134,11 @@ describe("the action list", () => {
     });
     const s = await show();
     expect(await s.findByText(/unsure it read these correctly/)).toBeTruthy();
-    await fireEvent.press(s.getByLabelText("Not relevant: Ring Kolb?"));
+    await fireEvent.press(s.getByLabelText("Remove: Ring Kolb?"));
     await waitFor(() => expect(mockDecide).toHaveBeenCalledWith({ itemType: "inbox", itemId: "i1", action: "drop" }));
+    // Approve is what puts it on the list.
+    await fireEvent.press(s.getByLabelText("Approve: Ring Kolb?"));
+    await waitFor(() => expect(mockDecide).toHaveBeenCalledWith({ itemType: "inbox", itemId: "i1", action: "complete" }));
   });
 
   it("fixes an Inbox item where it is read, with the notebook and page in view", async () => {
@@ -146,7 +149,7 @@ describe("the action list", () => {
     });
     const s = await show();
     expect(await s.findByText(/PLUME · p\.3/)).toBeTruthy();
-    await fireEvent.press(s.getByLabelText("Edit: Ring Kolb?"));
+    await fireEvent.press(s.getByLabelText("Fix: Ring Kolb?"));
     expect(s.getByText("WRITTEN ON PLUME · p.3")).toBeTruthy();
     await fireEvent.changeText(s.getByLabelText("What the page says"), "Ring Kolb about the quote");
     await fireEvent.press(s.getByText("Save"));

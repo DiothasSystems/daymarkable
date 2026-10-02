@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { EditableItem } from "@/components/EditableItem";
 import { errorMessage, trpc } from "@/lib/trpc";
 
 type ItemType = "task" | "event" | "inbox" | "meeting_request" | "meeting";
@@ -73,6 +74,38 @@ It is removed here and in the app, and its text is erased. Your tablet, includin
     >
       Delete note
     </button>
+  );
+}
+
+/**
+ * An Inbox item with its three choices named: Fix the reading, Approve it onto the list, or Remove
+ * it. A bare checkbox and a cross left what a tick on an unsure item does to be guessed; Fix comes
+ * first because a misread fixed and then approved also teaches the decoder.
+ */
+export function InboxRow({ itemId, text, meta }: { itemId: string; text: string; meta: string }) {
+  const { run, busy } = useDecide();
+  const [fixing, setFixing] = useState(0);
+  return (
+    <span style={{ display: "block", width: "100%" }}>
+      <EditableItem key={fixing} itemType="inbox" itemId={itemId} text={text} startEditing={fixing > 0} />
+      <div className="meta">{meta}</div>
+      <span className="row" style={{ marginTop: 8, gap: 8 }}>
+        <button type="button" className="small secondary" aria-label={`Fix: ${text}`} disabled={busy} onClick={() => setFixing((n) => n + 1)}>Fix</button>
+        <button type="button" className="small" aria-label={`Approve: ${text}`} disabled={busy} onClick={() => void run("inbox", itemId, "complete")}>Approve</button>
+        <button
+          type="button"
+          className="small tertiary"
+          aria-label={`Remove: ${text}`}
+          disabled={busy}
+          onClick={() => {
+            if (!confirm(`Remove this item?\n\n${text}\n\nIt is not put on the list.`)) return;
+            void run("inbox", itemId, "drop");
+          }}
+        >
+          Remove
+        </button>
+      </span>
+    </span>
   );
 }
 

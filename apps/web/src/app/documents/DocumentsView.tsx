@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { EditableItem } from "@/components/EditableItem";
-import { DeleteNoteButton, DeleteNotesDayButton, DropButton, TickBox } from "@/components/ItemActions";
+import { DeleteNoteButton, DeleteNotesDayButton, DropButton, InboxRow, TickBox } from "@/components/ItemActions";
 import { NoteBody } from "@/components/NoteBody";
 import type { getRegistry, listDocuments } from "@/server/services";
 import { fmtDate } from "@/lib/format";
@@ -96,13 +96,11 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
           </ul>
           {registry.inbox.length ? (
             <>
-              <p className="kicker" style={{ marginTop: 16 }}>Inbox — confirm these</p>
+              <p className="kicker" style={{ marginTop: 16 }}>Inbox — not sure these were read right · Fix, Approve onto the list, or Remove</p>
               <ul className="list">
                 {registry.inbox.map((i) => (
                   <li key={i.id}>
-                    <TickBox itemType="inbox" itemId={i.id} label={`Confirm: ${i.text}`} />
-                    <span><EditableItem itemType="inbox" itemId={i.id} text={i.text} /><div className="meta">{[i.source.notebook ? `from ${i.source.notebook} p${i.source.pageIndex + 1}` : null, i.kind.replace("_", " "), `${Math.round(i.confidence * 100)}% sure`, i.detail].filter(Boolean).join(" · ")}</div></span>
-                    <span style={{ marginLeft: "auto" }}><DropButton itemType="inbox" itemId={i.id} text={i.text} /></span>
+                    <InboxRow itemId={i.id} text={i.text} meta={[i.source.notebook ? `from ${i.source.notebook} p${i.source.pageIndex + 1}` : null, i.kind.replace("_", " "), `${Math.round(i.confidence * 100)}% sure`, i.detail].filter(Boolean).join(" · ")} />
                   </li>
                 ))}
               </ul>

@@ -143,36 +143,22 @@ export default function Actions() {
                     if (changed) await refreshAll();
                   }} />
                 ) : (
-                  <Row key={item.id} first={i === 0}>
-                    <Checkbox
-                      checked={!!ticking[item.id]}
-                      busy={!!ticking[item.id]}
-                      label={`Confirm: ${item.text}`}
-                      onPress={() => void decide("inbox", item.id, "complete")}
-                    />
-                    {/* Tapping the text fixes the reading, as on the web: an Inbox item is a guess,
-                        and the useful edit is the one that teaches the decoder what was written. */}
-                    <Pressable
-                      onPress={() => setEditing(item.id)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Edit: ${item.text}`}
-                      style={({ pressed }) => ({ flex: 1, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}
-                    >
+                  // Three named choices rather than a checkbox and a cross: what a tick on an
+                  // unsure item MEANS (put it on the list) is not obvious, and naming it is.
+                  // Fix first, because a misread fixed and then approved teaches the decoder.
+                  <View key={item.id} style={{ paddingVertical: space.sm, gap: space.sm, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: color.border }}>
+                    <View>
                       <Text style={type.body}>{item.text}</Text>
                       <Text style={[type.label, { marginTop: 2 }]}>
                         {[sourceLine(item.source), item.kind.replace("_", " ").toUpperCase(), `${Math.round(item.confidence * 100)}% SURE`].filter(Boolean).join(" · ")}
                       </Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Not relevant: ${item.text}`}
-                      onPress={() => void decide("inbox", item.id, "drop")}
-                      hitSlop={6}
-                      style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.5 : 1 })}
-                    >
-                      <Text style={[type.small, { color: color.meta }]}>✕</Text>
-                    </Pressable>
-                  </Row>
+                    </View>
+                    <View style={{ flexDirection: "row", gap: space.sm, opacity: ticking[item.id] ? 0.5 : 1 }}>
+                      <InboxChoice title="Fix" label={`Fix: ${item.text}`} variant="secondary" disabled={!!ticking[item.id]} onPress={() => setEditing(item.id)} />
+                      <InboxChoice title="Approve" label={`Approve: ${item.text}`} variant="primary" disabled={!!ticking[item.id]} onPress={() => void decide("inbox", item.id, "complete")} />
+                      <InboxChoice title="Remove" label={`Remove: ${item.text}`} variant="tertiary" disabled={!!ticking[item.id]} onPress={() => void decide("inbox", item.id, "drop")} />
+                    </View>
+                  </View>
                 ),
               )}
             </Card>
@@ -200,6 +186,27 @@ export default function Actions() {
 }
 
 type InboxItem = Registry["inbox"][number];
+
+/** One of an Inbox item's three choices: a full-size touch target with its name on it. */
+function InboxChoice({ title, label, variant, disabled, onPress }: { title: string; label: string; variant: "primary" | "secondary" | "tertiary"; disabled: boolean; onPress(): void }) {
+  const skin =
+    variant === "primary"
+      ? { backgroundColor: color.midnight }
+      : variant === "secondary"
+        ? { borderWidth: 1.5, borderColor: color.midnight }
+        : {};
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [{ flex: 1, minHeight: TOUCH_TARGET, alignItems: "center", justifyContent: "center", borderRadius: 4, opacity: pressed ? 0.6 : 1 }, skin]}
+    >
+      <Text style={{ fontFamily: font.sansBold, fontSize: 15, color: variant === "primary" ? color.parchment : variant === "secondary" ? color.midnight : color.goldText, textDecorationLine: variant === "tertiary" ? "underline" : "none" }}>{title}</Text>
+    </Pressable>
+  );
+}
 
 /**
  * Fix what an Inbox item says, in place. The notebook and page stay in view, so the page can be
