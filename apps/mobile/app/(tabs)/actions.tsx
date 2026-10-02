@@ -16,7 +16,8 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, trpc } from "@/api";
 import { TabletBanner } from "@/components/TabletBanner";
-import { Card, Checkbox, DueChip, Empty, ErrorNote, Label, Loading } from "@/components/ui";
+import { TextField } from "@/components/fields";
+import { Button, Card, Checkbox, DueChip, Empty, ErrorNote, Label, Loading } from "@/components/ui";
 import { dueTag, sourceLine } from "@/format";
 import { useQuery, useReloadOnReturn } from "@/useApi";
 import { TOUCH_TARGET, color, font, space, type } from "@/theme";
@@ -31,6 +32,8 @@ export default function Actions() {
   /** Ids whose tick is in flight, so the row can show its new state without being tapped twice. */
   const [ticking, setTicking] = useState<Record<string, true>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  /** The Inbox item open for fixing, if any. */
+  const [editing, setEditing] = useState<string | null>(null);
   const refreshAll = useCallback(async () => {
     await Promise.all([reg.reload(), docs.reload()]);
   }, [reg, docs]);
@@ -133,31 +136,45 @@ export default function Actions() {
               {/* Rule 3: these are under the confidence threshold. They are asked about, never
                   assumed onto the list. */}
               <Text style={[type.small, { marginBottom: space.sm }]}>ScriptumIQ was unsure it read these correctly.</Text>
-              {r.inbox.map((item, i) => (
-                <Row key={item.id} first={i === 0}>
-                  <Checkbox
-                    checked={!!ticking[item.id]}
-                    busy={!!ticking[item.id]}
-                    label={`Confirm: ${item.text}`}
-                    onPress={() => void decide("inbox", item.id, "complete")}
-                  />
-                  <View style={{ flex: 1, paddingVertical: space.sm }}>
-                    <Text style={type.body}>{item.text}</Text>
-                    <Text style={[type.label, { marginTop: 2 }]}>
-                      {[item.kind.replace("_", " ").toUpperCase(), sourceLine(item.source)].filter(Boolean).join(" · ")}
-                    </Text>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Not relevant: ${item.text}`}
-                    onPress={() => void decide("inbox", item.id, "drop")}
-                    hitSlop={6}
-                    style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.5 : 1 })}
-                  >
-                    <Text style={[type.small, { color: color.meta }]}>✕</Text>
-                  </Pressable>
-                </Row>
-              ))}
+              {r.inbox.map((item, i) =>
+                editing === item.id ? (
+                  <InboxEditor key={item.id} first={i === 0} item={item} onDone={async (changed) => {
+                    setEditing(null);
+                    if (changed) await refreshAll();
+                  }} />
+                ) : (
+                  <Row key={item.id} first={i === 0}>
+                    <Checkbox
+                      checked={!!ticking[item.id]}
+                      busy={!!ticking[item.id]}
+                      label={`Confirm: ${item.text}`}
+                      onPress={() => void decide("inbox", item.id, "complete")}
+                    />
+                    {/* Tapping the text fixes the reading, as on the web: an Inbox item is a guess,
+                        and the useful edit is the one that teaches the decoder what was written. */}
+                    <Pressable
+                      onPress={() => setEditing(item.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit: ${item.text}`}
+                      style={({ pressed }) => ({ flex: 1, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}
+                    >
+                      <Text style={type.body}>{item.text}</Text>
+                      <Text style={[type.label, { marginTop: 2 }]}>
+                        {[sourceLine(item.source), item.kind.replace("_", " ").toUpperCase(), `${Math.round(item.confidence * 100)}% SURE`].filter(Boolean).join(" · ")}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Not relevant: ${item.text}`}
+                      onPress={() => void decide("inbox", item.id, "drop")}
+                      hitSlop={6}
+                      style={({ pressed }) => ({ width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.5 : 1 })}
+                    >
+                      <Text style={[type.small, { color: color.meta }]}>✕</Text>
+                    </Pressable>
+                  </Row>
+                ),
+              )}
             </Card>
           ) : null}
 
@@ -179,6 +196,43 @@ export default function Actions() {
         </View>
       )}
     </ScrollView>
+  );
+}
+
+type InboxItem = Registry["inbox"][number];
+
+/**
+ * Fix what an Inbox item says, in place. The notebook and page stay in view, so the page can be
+ * looked at while typing what it really says.
+ */
+function InboxEditor({ item, first, onDone }: { item: InboxItem; first: boolean; onDone(changed: boolean): void | Promise<void> }) {
+  const [text, setText] = useState(item.text);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    const next = text.trim();
+    if (!next || next === item.text) return void onDone(false);
+    setBusy(true);
+    setError(null);
+    try {
+      await trpc.corrections.fix.mutate({ itemType: "inbox", itemId: item.id, text: next });
+      await onDone(true);
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
+  };
+  const source = sourceLine(item.source);
+  return (
+    <View style={{ paddingVertical: space.sm, gap: space.sm, borderTopWidth: first ? 0 : 1, borderTopColor: color.border }}>
+      {source ? <Text style={type.label}>{`WRITTEN ON ${source}`}</Text> : null}
+      <TextField value={text} onChange={setText} multiline minHeight={70} label="What the page says" />
+      {error ? <ErrorNote>{error}</ErrorNote> : null}
+      <View style={{ flexDirection: "row", gap: space.sm }}>
+        <Button title="Save" onPress={() => void save()} busy={busy} />
+        <Button title="Cancel" variant="tertiary" onPress={() => void onDone(false)} />
+      </View>
+    </View>
   );
 }
 

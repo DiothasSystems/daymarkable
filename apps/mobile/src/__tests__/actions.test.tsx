@@ -19,6 +19,7 @@ import { SessionProvider } from "@/session";
 const mockRegistry = jest.fn();
 const mockList = jest.fn();
 const mockDecide = jest.fn();
+const mockFix = jest.fn();
 
 jest.mock("@/api", () => ({
   trpc: {
@@ -28,6 +29,7 @@ jest.mock("@/api", () => ({
       decide: { mutate: (...a: unknown[]) => mockDecide(...a) },
       republish: { mutate: jest.fn() },
     },
+    corrections: { fix: { mutate: (...a: unknown[]) => mockFix(...a) } },
     auth: { logout: { mutate: jest.fn() } },
   },
   errorMessage: (e: unknown) => (e as Error).message,
@@ -134,6 +136,21 @@ describe("the action list", () => {
     expect(await s.findByText(/unsure it read these correctly/)).toBeTruthy();
     await fireEvent.press(s.getByLabelText("Not relevant: Ring Kolb?"));
     await waitFor(() => expect(mockDecide).toHaveBeenCalledWith({ itemType: "inbox", itemId: "i1", action: "drop" }));
+  });
+
+  it("fixes an Inbox item where it is read, with the notebook and page in view", async () => {
+    mockFix.mockResolvedValue({ ok: true, learned: [], promoted: false });
+    mockRegistry.mockResolvedValue({
+      ...emptyRegistry,
+      inbox: [{ id: "i1", kind: "task", text: "Ring Kolb?", detail: null, confidence: 0.4, source: { notebook: "Plume", pageIndex: 2 }, status: "pending", payload: {}, createdOn: TODAY }],
+    });
+    const s = await show();
+    expect(await s.findByText(/PLUME · p\.3/)).toBeTruthy();
+    await fireEvent.press(s.getByLabelText("Edit: Ring Kolb?"));
+    expect(s.getByText("WRITTEN ON PLUME · p.3")).toBeTruthy();
+    await fireEvent.changeText(s.getByLabelText("What the page says"), "Ring Kolb about the quote");
+    await fireEvent.press(s.getByText("Save"));
+    await waitFor(() => expect(mockFix).toHaveBeenCalledWith({ itemType: "inbox", itemId: "i1", text: "Ring Kolb about the quote" }));
   });
 
   it("says nothing is open rather than showing an empty card", async () => {

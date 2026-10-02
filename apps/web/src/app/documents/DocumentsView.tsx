@@ -101,7 +101,7 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
                 {registry.inbox.map((i) => (
                   <li key={i.id}>
                     <TickBox itemType="inbox" itemId={i.id} label={`Confirm: ${i.text}`} />
-                    <span><EditableItem itemType="inbox" itemId={i.id} text={i.text} /><div className="meta">{i.kind} · {Math.round(i.confidence * 100)}% sure{i.detail ? ` · ${i.detail}` : ""}</div></span>
+                    <span><EditableItem itemType="inbox" itemId={i.id} text={i.text} /><div className="meta">{[i.source.notebook ? `from ${i.source.notebook} p${i.source.pageIndex + 1}` : null, i.kind.replace("_", " "), `${Math.round(i.confidence * 100)}% sure`, i.detail].filter(Boolean).join(" · ")}</div></span>
                     <span style={{ marginLeft: "auto" }}><DropButton itemType="inbox" itemId={i.id} text={i.text} /></span>
                   </li>
                 ))}
