@@ -14,7 +14,8 @@
  */
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from "react-native";
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from "react-native";
+import Svg, { Circle, Line, Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, siteUrl, trpc } from "@/api";
 import { Hero } from "@/components/Hero";
@@ -52,6 +53,42 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const secret = useRef<string | null>(null);
   const deadline = useRef(0);
+
+  /*
+   * Keeping the field being typed in above the keyboard. Android draws edge to edge now, so the
+   * window no longer shrinks when the keyboard opens and KeyboardAvoidingView has nothing to react
+   * to: the keyboard simply covered the password box. The keyboard's height is padded onto the
+   * bottom of the scroll, and the focused field is scrolled to just under the top.
+   */
+  const scroll = useRef<ScrollView>(null);
+  const fieldY = useRef<Record<string, number>>({});
+  const focused = useRef<string | null>(null);
+  const [keyboard, setKeyboard] = useState(0);
+  const reveal = useCallback(() => {
+    const y = focused.current ? fieldY.current[focused.current] : undefined;
+    if (y !== undefined) scroll.current?.scrollTo({ y: Math.max(0, y - space.xl * 3), animated: true });
+  }, []);
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", (e) => {
+      setKeyboard(e.endCoordinates.height);
+      // After the padding lands, or there is nothing yet to scroll into.
+      setTimeout(reveal, 50);
+    });
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboard(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [reveal]);
+  const track = (name: string) => ({
+    onLayout: (e: { nativeEvent: { layout: { y: number } } }) => {
+      fieldY.current[name] = e.nativeEvent.layout.y;
+    },
+    onFocus: () => {
+      focused.current = name;
+      if (keyboard) reveal();
+    },
+  });
 
   const request = useCallback(async () => {
     const address = email.trim();
@@ -158,13 +195,15 @@ export default function SignIn() {
       editable={!busy}
       accessibilityLabel="Email address"
       style={input}
+      {...track("email")}
     />
   );
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: color.parchment }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: space.xl, paddingTop: insets.top + space.xl, paddingBottom: insets.bottom + space.xl }}
+        ref={scroll}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: space.xl, paddingTop: insets.top + space.xl, paddingBottom: insets.bottom + space.xl + (Platform.OS === "android" ? keyboard : 0) }}
         keyboardShouldPersistTaps="handled"
       >
         {/* The scene the site opens with, scaled to the phone, and a way into the tour for the one
@@ -188,22 +227,20 @@ export default function SignIn() {
               Your email and password. We then email you a link to finish — open it anywhere, and this phone signs in.
             </Text>
             {emailField(() => undefined)}
-            <TextInput
+            <PasswordField
               value={password}
-              onChangeText={setPassword}
-              placeholder="Password"
-              placeholderTextColor={color.meta}
-              secureTextEntry
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="current-password"
-              textContentType="password"
-              returnKeyType="go"
-              onSubmitEditing={() => void request()}
+              onChange={setPassword}
+              onSubmit={() => void request()}
               editable={!busy}
-              accessibilityLabel="Password"
-              style={input}
+              track={track("password")}
             />
+            <Pressable
+              onPress={() => backTo("reset", true)}
+              accessibilityRole="button"
+              style={{ minHeight: TOUCH_TARGET, justifyContent: "center", alignSelf: "flex-end", marginTop: -space.sm, marginBottom: space.sm }}
+            >
+              <Text style={{ fontFamily: font.sans, fontSize: 15, color: color.goldText, textDecorationLine: "underline" }}>Forgot password?</Text>
+            </Pressable>
             <PrimaryButton label={busy ? "Checking…" : "Sign in"} onPress={() => void request()} disabled={busy || !email.trim() || !password} />
             {/* The one screen someone without an account can reach. Registration is closed
                 (rule 15), so this is also the only place the app can honestly explain itself to
@@ -277,6 +314,68 @@ export default function SignIn() {
  * than a WebView: nothing here is signed in, so there is no session to hand across, and a frame
  * that looks like the app but is the open web is the wrong thing to put a stranger in.
  */
+/**
+ * The password box, with an eye that shows what was typed. A password typed blind on a phone keyboard
+ * is a password typed wrong, and five of those lock the address (rule 18). Hidden is the default,
+ * every time the screen opens.
+ */
+function PasswordField({
+  value,
+  onChange,
+  onSubmit,
+  editable,
+  track,
+}: {
+  value: string;
+  onChange(v: string): void;
+  onSubmit(): void;
+  editable: boolean;
+  track: { onLayout(e: { nativeEvent: { layout: { y: number } } }): void; onFocus(): void };
+}) {
+  const [shown, setShown] = useState(false);
+  return (
+    <View onLayout={track.onLayout} style={{ marginBottom: space.md, justifyContent: "center" }}>
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        onFocus={track.onFocus}
+        placeholder="Password"
+        placeholderTextColor={color.meta}
+        secureTextEntry={!shown}
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="current-password"
+        textContentType="password"
+        returnKeyType="go"
+        onSubmitEditing={onSubmit}
+        editable={editable}
+        accessibilityLabel="Password"
+        style={[input, { marginBottom: 0, paddingRight: TOUCH_TARGET + space.xs }]}
+      />
+      <Pressable
+        onPress={() => setShown((s) => !s)}
+        accessibilityRole="button"
+        accessibilityLabel={shown ? "Hide password" : "Show password"}
+        hitSlop={4}
+        style={({ pressed }) => ({ position: "absolute", right: 0, width: TOUCH_TARGET, height: TOUCH_TARGET, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.5 : 1 })}
+      >
+        <Eye open={!shown} />
+      </Pressable>
+    </View>
+  );
+}
+
+/** An eye, struck through once the password is showing: tap to hide it again. */
+function Eye({ open }: { open: boolean }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={color.midnight} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <Circle cx={12} cy={12} r={3} />
+      {open ? null : <Line x1={3} y1={21} x2={21} y2={3} />}
+    </Svg>
+  );
+}
+
 function Register() {
   return <PrimaryButton label="Register" onPress={() => void Linking.openURL(`${siteUrl()}/start`)} outline />;
 }
