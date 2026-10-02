@@ -12,7 +12,8 @@
  */
 import { Link, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Pressable, RefreshControl, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "@/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, trpc } from "@/api";
 import { TabletBanner } from "@/components/TabletBanner";
@@ -68,7 +69,7 @@ export default function Actions() {
   const r = reg.data;
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       contentContainerStyle={{ paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xxl }}
       refreshControl={<RefreshControl refreshing={reg.refreshing || docs.refreshing} onRefresh={() => void refreshAll()} tintColor={color.midnight} />}
     >
@@ -181,7 +182,7 @@ export default function Actions() {
 
         </View>
       )}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }
 

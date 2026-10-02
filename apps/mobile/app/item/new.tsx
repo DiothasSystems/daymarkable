@@ -11,7 +11,8 @@
  */
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "@/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, trpc } from "@/api";
 import { Choice, DateField, Field, TextField, TimeField } from "@/components/fields";
@@ -71,7 +72,7 @@ export default function NewItem() {
     <View style={{ flex: 1, paddingTop: insets.top }}>
       <BackBar title={kind === "event" ? "New calendar entry" : "New action"} onBack={() => router.back()} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView
+        <KeyboardAwareScrollView
           contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl }}
           keyboardShouldPersistTaps="handled"
         >
@@ -123,7 +124,7 @@ export default function NewItem() {
         ) : null}
 
         <Button title={folded ? "Back to the list" : "Add"} onPress={() => (folded ? router.back() : void create())} busy={busy} />
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
     </View>
   );

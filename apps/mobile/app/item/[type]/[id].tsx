@@ -20,7 +20,8 @@
  */
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "@/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, trpc } from "@/api";
 import { Choice, DateField, Field, TextField, TimeField } from "@/components/fields";
@@ -188,7 +189,7 @@ export default function ItemEditor() {
 
   return frame(
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl }}
         keyboardShouldPersistTaps="handled"
       >
@@ -312,7 +313,7 @@ export default function ItemEditor() {
         <View style={{ marginTop: space.xl }}>
           <Button title={draft.itemType === "meeting" ? "Delete this note" : "Remove from the list"} variant="tertiary" onPress={remove} busy={busy} />
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </KeyboardAvoidingView>,
   );
 }

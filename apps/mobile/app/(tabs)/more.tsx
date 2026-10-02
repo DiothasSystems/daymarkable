@@ -17,7 +17,8 @@
  */
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
-import { RefreshControl, ScrollView, Text, View } from "react-native";
+import { RefreshControl, Text, View } from "react-native";
+import { KeyboardAwareScrollView } from "@/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trpc } from "@/api";
 import { Feedback } from "@/components/Feedback";
@@ -59,7 +60,7 @@ export default function More() {
   const run = docs.data?.run ?? null;
 
   return (
-    <ScrollView
+    <KeyboardAwareScrollView
       contentContainerStyle={{ paddingTop: insets.top + space.lg, paddingBottom: insets.bottom + space.xxl }}
       refreshControl={<RefreshControl refreshing={docs.refreshing || quota.refreshing} onRefresh={() => void refreshAll()} />}
     >
@@ -102,6 +103,6 @@ export default function More() {
           </View>
         </Card>
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 }

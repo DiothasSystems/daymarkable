@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewNavigation } from "react-native-webview";
 import { API_URL, errorMessage, trpc } from "@/api";
 import { BackBar, Button, ErrorNote } from "@/components/ui";
+import { useKeyboardHeight } from "@/keyboard";
 import { color, font, space, type } from "@/theme";
 
 type Pane = "setup" | "settings" | "support" | "billing";
@@ -80,8 +81,12 @@ export default function WebPane() {
     return false;
   }, []);
 
+  // The page cannot be scrolled from out here, so the frame shrinks to the space above the keyboard
+  // instead and the page scrolls its own field into view, as a browser does (src/keyboard.tsx).
+  const keyboard = useKeyboardHeight();
+
   return (
-    <View style={{ flex: 1, backgroundColor: color.parchment, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: color.parchment, paddingTop: insets.top, paddingBottom: keyboard }}>
       <BackBar
         title={TITLES[pane] ?? "ScriptumIQ"}
         onBack={() => router.back()}

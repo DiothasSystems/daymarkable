@@ -10,6 +10,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useState } from "react";
 import { Platform, Pressable, Text, TextInput, View } from "react-native";
 import { dayTitle, parseIso } from "@/format";
+import { useRevealOnFocus } from "@/keyboard";
 import { TOUCH_TARGET, color, font, radius, space, type } from "@/theme";
 
 export function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
@@ -37,10 +38,13 @@ export function TextField({
   minHeight?: number;
   label: string;
 }) {
+  // Inside a KeyboardAwareScrollView, scrolls this box clear of the keyboard (src/keyboard.tsx).
+  const reveal = useRevealOnFocus();
   return (
     <TextInput
       value={value}
       onChangeText={onChange}
+      onFocus={reveal}
       placeholder={placeholder}
       placeholderTextColor={color.meta}
       multiline={multiline}
