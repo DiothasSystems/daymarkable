@@ -12,7 +12,6 @@ import {
   eq,
   inArray,
   isNull,
-  lt,
   schema,
   sql,
   type Db,
@@ -511,9 +510,18 @@ export async function saveDailyNote(db: Db, sealer: Sealer, userId: string, e: D
     .onConflictDoUpdate({ target: [schema.dailyNotes.userId, schema.dailyNotes.localDate, schema.dailyNotes.docId, schema.dailyNotes.pageId], set: values });
 }
 
-/** Delete the day's handwriting once its document can no longer be added to (rule 5). */
-export async function pruneDailyNotes(db: Db, userId: string, before: string): Promise<number> {
-  const gone = await db.delete(schema.dailyNotes).where(and(eq(schema.dailyNotes.userId, userId), lt(schema.dailyNotes.localDate, before))).returning();
+/** Every day's entries, for the web and the app to show, newest day first. */
+export async function loadDailyNotesHistory(db: Db, sealer: Sealer, userId: string): Promise<DailyNoteEntry[]> {
+  const rows = await db.query.dailyNotes.findMany({ where: eq(schema.dailyNotes.userId, userId), orderBy: [desc(schema.dailyNotes.localDate)] });
+  return rows.map((r) => ({ date: r.localDate, docId: r.docId, pageId: r.pageId, notebook: r.notebook, pageIndex: r.pageIndex, lines: sealer.openJson<string[]>(r.bodyEnc) }));
+}
+
+/**
+ * Delete one day's Notes from the store, at the customer's request. The tablet's copy is theirs and
+ * is not touched; nor are the page readings, so the same lines are not reported again as new.
+ */
+export async function deleteDailyNotesDay(db: Db, userId: string, date: string): Promise<number> {
+  const gone = await db.delete(schema.dailyNotes).where(and(eq(schema.dailyNotes.userId, userId), eq(schema.dailyNotes.localDate, date))).returning();
   return gone.length;
 }
 

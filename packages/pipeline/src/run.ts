@@ -974,6 +974,17 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
       } else {
         const wanted = settings.deliveryDocuments;
         const chosen = outputs.filter((o) => (o.kind === "planner" ? wanted.planner : o.kind === "action_list" ? wanted.actionList : wanted.meetingNotes));
+        // The day's Notes belong in the day's mail even when this run made none: a Sync now in the
+        // evening reads the writing, so the night's run finds nothing new and composes no document,
+        // and the mail went out with everything but the Notes. Rebuilt from the day's stored lines
+        // and only attached, since the tablet already has it.
+        const readDay = params.kind === "nightly" ? DateTime.fromISO(localDate).minus({ days: 1 }).toISODate()! : localDate;
+        if (wanted.meetingNotes && !chosen.some((o) => o.notesDate === readDay)) {
+          const model = buildDailyNotes(readDay, await repo.loadDailyNotes(db, deps.sealer, user.id, [readDay]));
+          if (model.lineCount > 0) {
+            chosen.push({ kind: "meeting_notes", name: dailyNotesName(readDay), composed: await composeDailyNotes({ model, generatedAt, runLabel }), notesDate: readDay });
+          }
+        }
         if (chosen.length === 0) {
           log("delivery: no documents selected — nothing sent");
         } else {
@@ -1009,8 +1020,6 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // not kept: they would only pile up under ids that never come back.
     for (const r of readings) if (!r.ours) await repo.savePageReading(db, user.id, run.id, r.docId, r.pageId, r.lines.map(printOf));
     for (const e of touched) await repo.saveDailyNote(db, deps.sealer, user.id, e);
-    const pruned = await repo.pruneDailyNotes(db, user.id, DateTime.fromISO(localDate).minus({ days: DAILY_NOTES_KEEP_DAYS }).toISODate()!);
-    if (pruned) log(`notes: deleted the stored lines of ${pruned} page(s) older than ${DAILY_NOTES_KEEP_DAYS} days (the tablet keeps the documents)`);
     for (const d of baselineOnly) await repo.upsertDocSnapshot(db, user.id, run.id, { id: d.id, hash: d.hash, name: d.name, path: d.path, fileType: d.fileType, lastModified: d.lastModified, pageCount: d.pageCount });
     for (const { docId, pages } of baselinePages) {
       for (const p of pages) await repo.upsertPageSnapshot(db, user.id, run.id, docId, { pageId: p.pageId, index: p.index, hash: p.hash, kind: null, confidence: null });
@@ -1058,13 +1067,6 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     return { runId: run.id, status: "failed", localDate, stats, error: msg };
   }
 }
-
-/**
- * How long the day's new lines are kept after their date (schema.dailyNotes). Long enough for the
- * night's run to add to a document a sync started during the day; no longer, because they are
- * transcription (rule 5). The tablet keeps the documents themselves.
- */
-export const DAILY_NOTES_KEEP_DAYS = 2;
 
 /**
  * The local date a page was written on, for the daily Notes.

@@ -76,6 +76,34 @@ It is removed here and in the app, and its text is erased. Your tablet, includin
   );
 }
 
+/** Delete one day of the daily Notes from the site and the app. The tablet keeps its copy. */
+export function DeleteNotesDayButton({ date, label }: { date: string; label: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      className="small secondary"
+      aria-label={`Delete notes for ${label}`}
+      disabled={busy}
+      onClick={async () => {
+        if (!confirm(`Delete the notes for ${label}?\n\nThey are removed here and in the app, and their text is erased. The document on your tablet is not changed.`)) return;
+        setBusy(true);
+        try {
+          await trpc.documents.deleteNotesDay.mutate({ date });
+          router.refresh();
+        } catch (err) {
+          alert(errorMessage(err));
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      Delete this day
+    </button>
+  );
+}
+
 function useDecide() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

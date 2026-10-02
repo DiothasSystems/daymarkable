@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, inArray, isNull, schema, sql, type UserSettings } from "@daymarkable/db";
-import { nextOccurrence, occurrencesInRange, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
+import { buildDailyNotes, nextOccurrence, occurrencesInRange, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
 import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, createItem as addItem, getItem as readItem, updateItem as editItem, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type ItemEdit, type NewItem, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
@@ -183,7 +183,10 @@ export async function getRegistry(userId: string) {
   const meetings = state.meetings.filter((m) => !m.deleted && !m.sourceGone).sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || (b.time ?? "").localeCompare(a.time ?? ""));
   const inbox = state.inbox.filter((i) => i.status === "pending");
   const doneRecently = state.tasks.filter((t) => t.status === "done" && t.completedOn && t.completedOn >= DateTime.fromISO(today).minus({ days: 7 }).toISODate()!);
-  return { today, actions, events, meetings, inbox, doneRecently, meetingRequests: state.meetingRequests.filter((m) => m.state !== "dropped") };
+  // Every day's Notes, newest first: what the tablet's "Notes - <date>" documents print (rule 19).
+  const entries = await repo.loadDailyNotesHistory(rt.db, rt.sealer, userId);
+  const dailyNotes = [...new Set(entries.map((e) => e.date))].map((date) => buildDailyNotes(date, entries));
+  return { today, actions, events, meetings, dailyNotes, inbox, doneRecently, meetingRequests: state.meetingRequests.filter((m) => m.state !== "dropped") };
 }
 
 /** A calendar screen asks for a month; anything much wider is a client with a bug. */
@@ -652,6 +655,14 @@ export async function decideItem(userId: string, itemType: DecisionItemType, ite
   const created = res.created.tasks.length + res.created.events.length + res.created.meetingRequests.length;
   await rebuildAfterEdit(userId);
   return { label: res.label, status: res.status, created };
+}
+
+/** Delete one day's Notes from the site and the app. The tablet's document is not touched. */
+export async function deleteDailyNotesDay(userId: string, date: string) {
+  const rt = await getRuntime();
+  const pages = await repo.deleteDailyNotesDay(rt.db, userId, date);
+  if (pages === 0) throw new Error("no notes for that day");
+  return { date, pages };
 }
 
 // ------------------------------------------------------------------ delivery address (rule 10)

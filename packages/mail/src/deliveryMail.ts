@@ -58,7 +58,13 @@ export function buildDeliveryMail(to: string, userId: string, localDate: string,
     `${summary.openActions} open actions, ${summary.meetings} meetings.`,
     ...docs.map((d) => `- ${d.name} (${d.pageCount} pages)`),
   ].join("\n");
-  const attachments: MailAttachment[] = docs.map((d) => ({ filename: `${d.name.replace(/\s+/g, "-")}-${localDate}.pdf`, content: d.pdf }));
+  // A document already named by its day ("Notes - 09-20-2026") keeps that date, which is the day it
+  // reports and not the night it was sent.
+  const attachments: MailAttachment[] = docs.map((d) => {
+    const dated = /\d{2}-\d{2}-\d{4}$/.test(d.name);
+    const base = d.name.replace(/\s+-\s+/g, "-").replace(/\s+/g, "-");
+    return { filename: dated ? `${base}.pdf` : `${base}-${localDate}.pdf`, content: d.pdf };
+  });
   return { to, subject: `ScriptumIQ — ${localDate}`, html, text, idempotencyKey: deliveryIdempotencyKey(userId, localDate, to), attachments };
 }
 

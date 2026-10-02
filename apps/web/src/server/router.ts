@@ -135,6 +135,16 @@ export const appRouter = router({
         throw serviceError(err, "documents.republish");
       }
     }),
+    /** Delete one day of the daily Notes (rule 19). The tablet keeps its copy. */
+    deleteNotesDay: protectedProcedure
+      .input(z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }))
+      .mutation(async ({ ctx, input }) => {
+        try {
+          return await svc.deleteDailyNotesDay(ctx.user.id, input.date);
+        } catch (err) {
+          throw serviceError(err, "documents.deleteNotesDay");
+        }
+      }),
     // Tick an item off or drop it — the same transitions a pen makes on a printed page.
     decide: protectedProcedure
       .input(z.object({

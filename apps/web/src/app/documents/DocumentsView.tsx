@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { EditableItem } from "@/components/EditableItem";
-import { DeleteNoteButton, DropButton, TickBox } from "@/components/ItemActions";
+import { DeleteNoteButton, DeleteNotesDayButton, DropButton, TickBox } from "@/components/ItemActions";
 import { NoteBody } from "@/components/NoteBody";
 import type { getRegistry, listDocuments } from "@/server/services";
 import { fmtDate } from "@/lib/format";
@@ -123,6 +123,29 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
 
       {tab === "meetings" ? (
         <div className="stack">
+          <p className="kicker">Daily notes</p>
+          {registry.dailyNotes.length === 0 ? <div className="card muted">No daily notes yet. Everything new you write on a day appears here the night after, or after Sync now.</div> : null}
+          {registry.dailyNotes.map((day) => (
+            <article className="card" key={day.date}>
+              <div className="row between" style={{ alignItems: "baseline" }}>
+                <h2 style={{ marginBottom: 4 }}>{fmtDate(day.date)}</h2>
+                <span className="meta">{day.notebooks.length} notebook{day.notebooks.length === 1 ? "" : "s"} · {day.lineCount} line{day.lineCount === 1 ? "" : "s"}</span>
+              </div>
+              {day.notebooks.map((nb) => (
+                <section key={nb.notebook} style={{ marginTop: 14 }}>
+                  <h3 style={{ marginBottom: 6 }}>{nb.notebook}</h3>
+                  {nb.pages.map((p) => (
+                    <div key={p.pageIndex} style={{ marginBottom: 10 }}>
+                      <div className="source-ref">PAGE {p.pageIndex + 1}</div>
+                      <NoteBody text={p.lines.join("\n")} />
+                    </div>
+                  ))}
+                </section>
+              ))}
+              <div className="row" style={{ justifyContent: "flex-end", marginTop: 14 }}><DeleteNotesDayButton date={day.date} label={fmtDate(day.date)} /></div>
+            </article>
+          ))}
+          <p className="kicker" style={{ marginTop: 18 }}>Meetings</p>
           {registry.meetings.length === 0 ? <div className="card muted">No meetings decoded yet. Title a page with the meeting and date.</div> : null}
           {registry.meetings.map((m) => (
             <article className="card" key={m.id}>

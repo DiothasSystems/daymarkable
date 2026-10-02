@@ -130,8 +130,8 @@ unchanged.
    List and calendar notebooks without re-reading documents (re-decoding costs token money;
    a day of storage costs a fraction of a cent). The run's final step deletes the PREVIOUS
    night's cache and logs the deletion; a 48h storage lifecycle rule is the failsafe.
-   Nothing is archived beyond one day — the one bounded exception is the day's new handwriting
-   (`daily_notes`, encrypted, deleted two days after its date; rule 19). Cache encrypted at rest; device tokens encrypted at
+   Nothing is archived beyond one day. The retained working set is the exception, encrypted where it
+   carries words: meeting-note bodies and each day's new handwriting (`daily_notes`, rule 19). Cache encrypted at rest; device tokens encrypted at
    rest. No user content in logs — log counts and hashes, not text. (Fixtures from the
    founder's own pages are the sanctioned exception.)
 6. **Every planner page is an input form.** When changing planner templates, keep checkboxes
@@ -325,8 +325,12 @@ unchanged.
     twice. The last reading is kept as **keyed word fingerprints** (`page_readings`, `Sealer.fingerprint`)
     and never as text, which is what rule 5 allows; a page with no stored reading is new in full, which
     is every page the first time it is read after this shipped. The day's lines themselves are kept
-    encrypted in `daily_notes` for TWO days only — a sync during the day and the night's run add to the
-    same date's document — then pruned. Writing is dated by the page's own cloud timestamp in the
+    encrypted in `daily_notes` on the same terms as meeting notes — until the customer deletes the day
+    (`documents.deleteNotesDay`) or the account — so the web's Notebooks tab and the app's Notes tab can
+    show every day, newest first (founder's decision, 2026-10-02; it was two days before that). A sync
+    and that night's run add to the same date. The night's PDF mail always carries the day it covers,
+    rebuilt from these rows when a sync already read the writing and the night found nothing new.
+    Writing is dated by the page's own cloud timestamp in the
     account's zone (`writtenOn`), else by the day the run reads: yesterday for the nightly run, today
     for a sync.
 

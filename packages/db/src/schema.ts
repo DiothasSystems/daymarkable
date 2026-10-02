@@ -5,10 +5,9 @@
  * Privacy (CLAUDE.md rule 5): page images, downloads, transcriptions, and generated PDFs live
  * ONLY in the 1-day run cache, never here. This database keeps the retained working set
  * (tasks, events, meeting notes, meeting requests) plus hashes, counts, and costs. Meeting note
- * bodies and device tokens are stored encrypted (see crypto.ts). One bounded exception: the day's
- * new handwriting (daily_notes), encrypted and deleted two days after its date, so a sync during the
- * day and the night's run can add to the same daily Notes document. Page readings themselves are
- * kept only as keyed word fingerprints (page_readings).
+ * bodies and device tokens are stored encrypted (see crypto.ts), and so is each day's new
+ * handwriting (daily_notes), which is the daily Notes and kept on the same terms as meeting notes.
+ * Page readings themselves are kept only as keyed word fingerprints (page_readings).
  */
 import {
   boolean,
@@ -423,10 +422,10 @@ export const pageReadings = pgTable(
 );
 
 /**
- * The day's new handwriting, one row per page per local date, encrypted (bodyEnc: string[] of lines).
- * Kept only while the day's Notes document can still be added to — a sync during the day and the
- * night's run both write the same date — and deleted two days after (repo.pruneDailyNotes), because
- * this is transcription and rule 5 allows it no longer than that. The tablet holds the document.
+ * The day's new handwriting, one row per page per local date, encrypted (bodyEnc: string[] of lines):
+ * what the daily Notes document prints, and what the web and the app show. Kept on the same terms as
+ * meeting notes — until the customer deletes the day (repo.deleteDailyNotesDay) or the account — by
+ * the founder's decision on 2026-10-02, so the notes can be read somewhere other than the tablet.
  */
 export const dailyNotes = pgTable(
   "daily_notes",

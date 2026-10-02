@@ -122,6 +122,15 @@ describe("runPipeline (fixtures)", () => {
     expect(readings[0]!.lines[0]!.length).toBeGreaterThan(0);
   });
 
+  it("keeps every day's Notes for the web and the app, and deletes a day only when asked", async () => {
+    const history = await repo.loadDailyNotesHistory(handle.db, deps.sealer, userId);
+    expect(history.map((e) => e.date)).toEqual(["2026-09-01"]);
+    // Another account's day is not this one's to delete.
+    const other = await repo.ensureUser(handle.db, "someone@example.com", "UTC");
+    expect(await repo.deleteDailyNotesDay(handle.db, other.id, "2026-09-01")).toBe(0);
+    expect(await repo.loadDailyNotesHistory(handle.db, deps.sealer, userId)).toHaveLength(1);
+  });
+
   it("re-running the same local date is skipped (idempotent, rule 4)", async () => {
     const out = await runPipeline(deps, { userId, kind: "nightly", requestedVia: "test" });
     expect(out.status).toBe("skipped");
@@ -164,6 +173,29 @@ describe("runPipeline (fixtures)", () => {
         // Four now: the three lists plus the Daily Puzzle, which is on by default and costs nothing.
     // The Daily Update is absent because this account has set no topics.
     expect(tablet.uploads.length).toBe(uploadsBefore + 4);
+  });
+
+  it("the night's delivery mail carries the day's Notes even when a sync already read the writing", async () => {
+    const u = await repo.ensureUser(handle.db, "delivery@example.com", "America/New_York");
+    const s = (await repo.getUser(handle.db, u.id)).settings;
+    await handle.db
+      .update(schema.users)
+      .set({ settings: { ...s, deliveryEmail: "pdfs@example.com", deliveryVerifiedAt: "2026-09-01T00:00:00.000Z", deliveryDocuments: { planner: true, actionList: true, meetingNotes: true } } })
+      .where(eq(schema.users.id, u.id));
+    // An evening Sync now reads the page: the day's Notes are made then.
+    const sync = await runPipeline(deps, { userId: u.id, kind: "on_demand", requestedVia: "test", localDate: "2026-09-20", windowHours: 24 * 30 });
+    expect(sync.status).toBe("succeeded");
+    // At midnight nothing is new, so the night composes no Notes of its own.
+    mail.sent.length = 0;
+    const night = await runPipeline(deps, { userId: u.id, kind: "nightly", requestedVia: "scheduler", localDate: "2026-09-21" });
+    expect(night.status).toBe("succeeded");
+    expect(night.stats!.pagesDecoded).toBe(0);
+    const delivered = mail.sent.find((m) => m.to === "pdfs@example.com");
+    expect(delivered?.attachments?.map((a) => a.filename)).toContain("Notes-09-20-2026.pdf");
+    // Deleting the day takes it out of the store; nothing else about the account changes.
+    expect(await repo.deleteDailyNotesDay(handle.db, u.id, "2026-09-20")).toBeGreaterThan(0);
+    expect(await repo.loadDailyNotesHistory(handle.db, deps.sealer, u.id)).toHaveLength(0);
+    expect(await handle.db.query.pageReadings.findMany({ where: eq(schema.pageReadings.userId, u.id) })).not.toHaveLength(0);
   });
 
   it("on-demand runs get sequential keys and satisfy the date for the scheduler (rule 11)", async () => {
