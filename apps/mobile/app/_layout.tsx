@@ -24,6 +24,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SessionGate } from "@/SessionGate";
 import { SessionProvider } from "@/session";
 import { color } from "@/theme";
 
@@ -73,6 +74,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <SessionProvider>
+        <SessionGate />
         <StatusBar style="dark" />
         <Stack
           screenOptions={{
