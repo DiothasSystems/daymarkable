@@ -20,6 +20,7 @@ const mockRegistry = jest.fn();
 const mockList = jest.fn();
 const mockDecide = jest.fn();
 const mockFix = jest.fn();
+const mockUpdate = jest.fn();
 
 jest.mock("@/api", () => ({
   trpc: {
@@ -30,6 +31,7 @@ jest.mock("@/api", () => ({
       republish: { mutate: jest.fn() },
     },
     corrections: { fix: { mutate: (...a: unknown[]) => mockFix(...a) } },
+    items: { update: { mutate: (...a: unknown[]) => mockUpdate(...a) } },
     auth: { logout: { mutate: jest.fn() } },
   },
   errorMessage: (e: unknown) => (e as Error).message,
@@ -80,7 +82,16 @@ const emptyRegistry = {
   inbox: [],
   doneRecently: [],
   meetingRequests: [],
+  actionGroups: [],
+  dailyNotes: [],
 };
+
+/** A registry holding these open actions, grouped as the server groups them (one group is enough here). */
+const withActions = (tasks: ReturnType<typeof task>[]) => ({
+  ...emptyRegistry,
+  actions: tasks,
+  actionGroups: tasks.length ? [{ key: tasks[0]!.due ? "soon" : "undated", label: tasks[0]!.due ? "Next 3 days" : "No date yet", tasks }] : [],
+});
 
 const task = (over: Record<string, unknown> = {}) => ({
   id: "t1",
@@ -110,7 +121,7 @@ beforeEach(() => {
 
 describe("the action list", () => {
   it("shows what is open, where it came from, and when it is due", async () => {
-    mockRegistry.mockResolvedValue({ ...emptyRegistry, actions: [task({ due: "2026-09-15" })] });
+    mockRegistry.mockResolvedValue(withActions([task({ due: "2026-09-15" })]));
     const s = await show();
     expect(await s.findByText("Call the dentist")).toBeTruthy();
     // Provenance counts pages from one, the way a person does.
@@ -118,8 +129,26 @@ describe("the action list", () => {
     expect(s.getByText("TOMORROW")).toBeTruthy();
   });
 
+  it("offers Low, Medium and High and a date to type on an action with no date, and saves both", async () => {
+    mockUpdate.mockResolvedValue({ itemType: "task", itemId: "t1", label: "Call the dentist" });
+    mockRegistry.mockResolvedValue(withActions([task()]));
+    const s = await show();
+    expect(await s.findByText("NO DATE YET · 1")).toBeTruthy();
+    // Closed until asked, so a list of undated actions is not a wall of controls.
+    await fireEvent.press(s.getByLabelText("Change due date or priority: Call the dentist"));
+    // Medium is the default, and shows as chosen.
+    expect((await s.findByLabelText("Medium priority: Call the dentist")).props.accessibilityState.selected).toBe(true);
+    await fireEvent.press(s.getByLabelText("High priority: Call the dentist"));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith({ itemType: "task", itemId: "t1", patch: { priority: "high" } }));
+    // The date is typed, as it is written on the tablet; the server reads it.
+    await fireEvent.press(s.getByLabelText("Change due date or priority: Call the dentist"));
+    await fireEvent.changeText(await s.findByLabelText("Due date: Call the dentist"), "Oct 14");
+    await fireEvent(s.getByLabelText("Due date: Call the dentist"), "submitEditing");
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith({ itemType: "task", itemId: "t1", patch: { dueText: "Oct 14" } }));
+  });
+
   it("ticks an item off with one tap", async () => {
-    mockRegistry.mockResolvedValue({ ...emptyRegistry, actions: [task()] });
+    mockRegistry.mockResolvedValue(withActions([task()]));
     const s = await show();
     await fireEvent.press(await s.findByLabelText("Mark done: Call the dentist"));
     await waitFor(() => expect(mockDecide).toHaveBeenCalledWith({ itemType: "task", itemId: "t1", action: "complete" }));

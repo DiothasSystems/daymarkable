@@ -28,6 +28,24 @@ export { BODY_BOTTOM };
 const CODE_W = 90;
 
 /**
+ * The Action List's write-on columns (October 2026): a DUE line for a date, then three boxes, L M H,
+ * for a priority. They replaced the single WHEN / PRI line, where a priority had to be spelled in a
+ * code of the writer's own. The boxes are printed EMPTY whatever the item's priority — the current
+ * one is printed as a word under the row instead — because a box printed filled would be read back
+ * that night as the writer's tick. 30px keeps them over rule 6's 28px floor.
+ */
+export const PRI_BOX = 30;
+const PRI_GAP = 26;
+const DUE_W = 210;
+export const PRIORITY_FIELD_W = DUE_W + 30 + 3 * PRI_BOX + 2 * PRI_GAP + 12;
+/** Left edge of the DUE line and of each priority box, relative to the right edge of the row. */
+function priorityColumns(): { dueX: number; boxX: number[] } {
+  const fx = CONTENT_RIGHT - CODE_W - PRIORITY_FIELD_W;
+  const first = fx + DUE_W + 30;
+  return { dueX: fx, boxX: [0, 1, 2].map((k) => first + k * (PRI_BOX + PRI_GAP)) };
+}
+
+/**
  * Markers people actually write at the head of a note line: a dash or bullet, "1.", "1)",
  * "1.)", "a)", "b.)". A bare letter followed by a dot is deliberately NOT a marker — "A."
  * starts plenty of sentences — so a letter only counts when it closes with a bracket.
@@ -147,6 +165,8 @@ export interface RowItem {
   emphasis: boolean;
   /** Draw the ruled WHEN / PRI field the user writes a date or priority into. */
   field?: boolean;
+  /** Draw the Action List's DUE line and L / M / H priority boxes instead (PRIORITY_FIELD_W). */
+  priorityField?: boolean;
 }
 
 export class Section {
@@ -196,6 +216,19 @@ export class Section {
     this.canvas.label(text, MAIN_X, this.y);
     if (right) this.canvas.text(right, CONTENT_RIGHT, this.y + 30, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
     if (fieldHeading) this.canvas.text(fieldHeading, CONTENT_RIGHT - CODE_W - FIELD_W, this.y + 30, { font: f.mono, size: 22, color: TERTIARY, tracking: 0.12 });
+    this.y += 54;
+  }
+
+  /** A section label with the DUE and L / M / H column headings over the rows' write-on columns. */
+  priorityLabel(text: string, right?: string): void {
+    this.ensure(70);
+    const f = this.canvas.fonts;
+    this.canvas.label(text, MAIN_X, this.y);
+    const { dueX, boxX } = priorityColumns();
+    const head = { font: f.mono, size: 22, color: TERTIARY, tracking: 0.12 } as const;
+    this.canvas.text("DUE", dueX, this.y + 30, head);
+    ["L", "M", "H"].forEach((l, k) => this.canvas.text(l, boxX[k]! + PRI_BOX / 2, this.y + 30, { ...head, align: "center" }));
+    if (right) this.canvas.text(right, CONTENT_RIGHT, this.y + 30, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
     this.y += 54;
   }
 
@@ -307,7 +340,7 @@ export class Section {
     const f = this.canvas.fonts;
     const textX = MAIN_X + CHECKBOX_PX + 24;
     const codeW = CODE_W;
-    const tagW = item.field ? FIELD_W : item.tag ? this.canvas.textWidth(item.tag, f.mono, 24) + 30 : 0;
+    const tagW = item.priorityField ? PRIORITY_FIELD_W : item.field ? FIELD_W : item.tag ? this.canvas.textWidth(item.tag, f.mono, 24) + 30 : 0;
     const textW = MAIN_W - (textX - MAIN_X) - codeW - tagW - 24;
     // A canvas must exist before text can be measured, so claim one, wrap, then reserve the
     // real height. The item code is taken last: codes restart on each page.
@@ -320,7 +353,13 @@ export class Section {
     const color = item.carried ? CARRIED : INK;
     lines.forEach((l, i) => this.canvas.text(l, textX, this.y + BODY_SIZE + i * LINE_H, { font, size: BODY_SIZE, color }));
     this.canvas.text(code, CONTENT_RIGHT, this.y + BODY_SIZE, { font: f.mono, size: 24, color: TERTIARY, align: "right" });
-    if (item.field) {
+    if (item.priorityField) {
+      // The date already known printed grey on the DUE line, and three empty boxes to tick.
+      const { dueX, boxX } = priorityColumns();
+      this.canvas.hline(dueX, dueX + DUE_W, this.y + BODY_SIZE + 10, 3, RULE);
+      if (item.tag) this.canvas.text(this.canvas.fit(item.tag, f.mono, 24, DUE_W), dueX, this.y + BODY_SIZE, { font: f.mono, size: 24, color: TERTIARY, tracking: 0.04 });
+      for (const x of boxX) this.canvas.checkbox(x, this.y + 8, PRI_BOX);
+    } else if (item.field) {
       // A ruled line to write on, with whatever ScriptumIQ already knows printed grey on it.
       const fx = CONTENT_RIGHT - codeW - FIELD_W;
       this.canvas.hline(fx, CONTENT_RIGHT - codeW - 24, this.y + BODY_SIZE + 10, 3, RULE);

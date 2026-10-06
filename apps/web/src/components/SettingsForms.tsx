@@ -11,7 +11,7 @@ const MEANINGS = [
   { id: "follow_up", label: "A follow-up with someone" },
   { id: "schedule", label: "Something to put on my calendar" },
   { id: "note", label: "A note to keep, not a task" },
-  { id: "priority", label: "High priority" },
+  { id: "priority", label: "A high-priority action" },
 ];
 
 /** Enough rows that a writer with several marks is not filling them in one at a time. */
@@ -221,6 +221,12 @@ export function ConventionsPicker({ initial, catalog }: { initial: Conventions; 
         Tell ScriptumIQ which of your marks mean something. Only the ones you turn on carry meaning — an underline
         means nothing if you leave it off. This is the single biggest thing you control: the decoder trusts your own
         markup over its guess at your wording.
+      </p>
+      <p className="muted">
+        <strong>Pick one mark for high priority.</strong> Two stars (<span className="mono">**</span>) are suggested;
+        an exclamation mark or an underline works too — set its meaning to &quot;A high-priority action&quot;.
+        Every other action is Medium, and you can still change any one on the Action List: tick L, M or H on the
+        tablet, or tap Low, Medium or High here and in the app.
       </p>
       {catalog.filter((c) => !c.takesKeyword).map((c) => {
         const on = find(c.id);

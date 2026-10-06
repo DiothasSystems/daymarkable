@@ -146,6 +146,22 @@ unchanged.
    it (date, then priority); items leave only by tick or explicit drop. Never emit a fresh
    list that orphans open items.
 
+   It is ORGANISED the same way on the tablet, the website and the phone (core `actionBuckets.ts`,
+   since October 2026): Overdue, Today, Next 3 days, Later, then No date yet. An action is placed by
+   its WORKING date (`workingDate`): its own due date, or, with none, its priority — High counts as
+   due today, Medium as due in three days, Low has none and sits under No date yet. Only placement
+   changes: the due date stays blank until written or typed, and erasing it puts the action back on
+   its priority. Within a group: working date, then priority, then age. Every row names its own
+   notebook and page, because the groups no longer do. Medium is the default priority (stored as `normal`, shown as Medium); High
+   comes from the high-priority ink mark the user picks in setup (two stars, `double_star`, is the
+   starter) or from a choice on the list. On the tablet each row has a DUE line and three boxes,
+   L / M / H, which are printed EMPTY whatever the item's priority — the current one is printed as a
+   word under the row — because a box printed filled would be read back that night as the user's
+   tick. Ticked boxes arrive as `written_priority` (more than one: the highest); the website and the
+   app set the same fields through `items.update`, so whichever change is applied last stands. A
+   date typed on the website or in the app is read by the server, in the account's timezone, with
+   core `parseTypedDate` ("10/14", "Oct 14", "fri") — one reader, so the two cannot disagree.
+
    Meeting notes (the `meetings` rows behind the website's Notebooks tab and the meeting emails) are
    different: the list drops a note once the page or notebook it was
    read from is deleted from the tablet (`pipeline/src/sourceGone.ts`, stamped on

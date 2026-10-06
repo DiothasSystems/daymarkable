@@ -25,7 +25,7 @@ type Priority = "high" | "normal" | "low";
 
 const PRIORITIES: readonly { value: Priority; label: string }[] = [
   { value: "high", label: "High" },
-  { value: "normal", label: "Normal" },
+  { value: "normal", label: "Medium" },
   { value: "low", label: "Low" },
 ];
 

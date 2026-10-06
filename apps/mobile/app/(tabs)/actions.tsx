@@ -17,6 +17,7 @@ import { KeyboardAwareScrollView } from "@/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, trpc } from "@/api";
 import { TabletBanner } from "@/components/TabletBanner";
+import { ActionSchedule } from "@/components/ActionSchedule";
 import { TextField } from "@/components/fields";
 import { Button, Card, Checkbox, DueChip, Empty, ErrorNote, Label, Loading } from "@/components/ui";
 import { dueTag, sourceLine } from "@/format";
@@ -33,6 +34,8 @@ export default function Actions() {
   /** Ids whose tick is in flight, so the row can show its new state without being tapped twice. */
   const [ticking, setTicking] = useState<Record<string, true>>({});
   const [failure, setFailure] = useState<string | null>(null);
+  /** The dated action whose schedule controls are open, if any (undated ones always show them). */
+  const [scheduling, setScheduling] = useState<string | null>(null);
   /** The Inbox item open for fixing, if any. */
   const [editing, setEditing] = useState<string | null>(null);
   const refreshAll = useCallback(async () => {
@@ -97,38 +100,53 @@ export default function Actions() {
         <View style={{ paddingHorizontal: space.lg, gap: space.lg }}>
           <Card>
             <Label style={{ marginBottom: space.sm }}>{`OPEN · ${r.actions.length}`}</Label>
-            {r.actions.length === 0 ? (
-              <Empty>Nothing open. Write something down tonight.</Empty>
-            ) : (
-              r.actions.map((t, i) => {
-                const tag = dueTag(t.due, r.today);
-                const source = sourceLine(t.source);
-                return (
-                  <Row key={t.id} first={i === 0}>
-                    <Checkbox
-                      checked={!!ticking[t.id]}
-                      busy={!!ticking[t.id]}
-                      label={`Mark done: ${t.text}`}
-                      onPress={() => void decide("task", t.id, "complete")}
-                    />
-                    <Pressable
-                      onPress={() => router.push({ pathname: "/item/[type]/[id]", params: { type: "task", id: t.id } })}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Edit: ${t.text}`}
-                      style={({ pressed }) => ({ flex: 1, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}
-                    >
-                      <Text style={type.body}>{t.text}</Text>
-                      {source || t.carriedCount ? (
-                        <Text style={[type.label, { marginTop: 2 }]}>
-                          {[source, t.carriedCount ? `CARRIED ${t.carriedCount}D` : null].filter(Boolean).join(" · ")}
-                        </Text>
+            {r.actions.length === 0 ? <Empty>Nothing open. Write something down tonight.</Empty> : null}
+            {/* Grouped as the tablet prints it: by when it is due, then priority (core actionBuckets). */}
+            {groupsOf(r).map((g) => (
+              <View key={g.key} style={{ marginTop: space.sm }}>
+                <Label style={{ marginBottom: 2, color: g.key === "overdue" ? color.goldText : undefined }}>
+                  {`${g.label.toUpperCase()} · ${g.tasks.length}`}
+                </Label>
+                {g.tasks.map((t, i) => {
+                  const tag = dueTag(t.due, r.today);
+                  const source = sourceLine(t.source);
+                  // Closed until asked: with Medium the default, most actions have no date.
+                  const showSchedule = scheduling === t.id;
+                  return (
+                    <View key={t.id} style={{ borderTopWidth: i === 0 ? 0 : 1, borderTopColor: color.border, paddingBottom: showSchedule ? space.sm : 0 }}>
+                      <Row first>
+                        <Checkbox
+                          checked={!!ticking[t.id]}
+                          busy={!!ticking[t.id]}
+                          label={`Mark done: ${t.text}`}
+                          onPress={() => void decide("task", t.id, "complete")}
+                        />
+                        <Pressable
+                          onPress={() => router.push({ pathname: "/item/[type]/[id]", params: { type: "task", id: t.id } })}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Edit: ${t.text}`}
+                          style={({ pressed }) => ({ flex: 1, paddingVertical: space.sm, opacity: pressed ? 0.6 : 1 })}
+                        >
+                          <Text style={type.body}>{t.text}</Text>
+                          {/* Every row says where it was written, to check a reading against the page. */}
+                          <Text style={[type.label, { marginTop: 2 }]}>
+                            {[t.priority === "high" ? "HIGH" : t.priority === "low" ? "LOW" : null, source, t.carriedCount ? `CARRIED ${t.carriedCount}D` : null].filter(Boolean).join(" · ") || "TYPED IN THE APP"}
+                          </Text>
+                        </Pressable>
+                        <Pressable onPress={() => setScheduling((id) => (id === t.id ? null : t.id))} accessibilityRole="button" accessibilityLabel={`Change due date or priority: ${t.text}`} hitSlop={8}>
+                          <DueChip label={tag ? tag.label : "NO DATE"} soon={tag ? tag.soon : false} />
+                        </Pressable>
+                      </Row>
+                      {showSchedule ? (
+                        <View style={{ paddingLeft: 40 }}>
+                          <ActionSchedule itemId={t.id} text={t.text} due={t.due} priority={t.priority} today={r.today} onSaved={async () => { setScheduling(null); await refreshAll(); }} />
+                        </View>
                       ) : null}
-                    </Pressable>
-                    {tag ? <DueChip label={tag.label} soon={tag.soon} /> : t.priority === "high" ? <DueChip label="PRIORITY" soon /> : null}
-                  </Row>
-                );
-              })
-            )}
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
           </Card>
 
           {r.inbox.length ? (
@@ -187,6 +205,16 @@ export default function Actions() {
 }
 
 type InboxItem = Registry["inbox"][number];
+
+/**
+ * The server's due-date groups — or, from a server older than this build, one plain group, so an app
+ * installed before the server is upgraded still lists every action instead of crashing on a field
+ * that is not there yet.
+ */
+function groupsOf(r: Registry): Registry["actionGroups"] {
+  const groups = (r as Partial<Registry>).actionGroups;
+  return groups ?? (r.actions.length ? [{ key: "undated" as const, label: "Open", tasks: r.actions }] : []);
+}
 
 /** One of an Inbox item's three choices: a full-size touch target with its name on it. */
 function InboxChoice({ title, label, variant, disabled, onPress }: { title: string; label: string; variant: "primary" | "secondary" | "tertiary"; disabled: boolean; onPress(): void }) {

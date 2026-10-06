@@ -48,6 +48,21 @@ describe("parseExtraction", () => {
   });
 });
 
+describe("the Action List's priority boxes and high-priority mark", () => {
+  // Rule 6: the decoder must know what the composer draws.
+  it("tells the decoder about the DUE line, the empty L / M / H boxes and the due-date groups", () => {
+    const prompt = buildSystemPrompt({ conventions: STARTER_CONVENTIONS });
+    for (const words of ["DUE line and L / M / H boxes", "the H box", "\"high\"", "NO DATE YET", "always printed EMPTY"]) expect(prompt).toContain(words);
+  });
+
+  it("gives new accounts two stars as the high-priority mark, told apart from one star", () => {
+    expect(STARTER_CONVENTIONS.active).toContainEqual({ id: "double_star", meaning: "priority" });
+    const described = describeConventions(STARTER_CONVENTIONS);
+    expect(described).toContain("distinct from a single asterisk");
+    expect(described).toContain("HIGH-PRIORITY");
+  });
+});
+
 describe("conventions", () => {
   it("starter set is described in the prompt, deterministically", () => {
     const a = buildSystemPrompt({ conventions: STARTER_CONVENTIONS });

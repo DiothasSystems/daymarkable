@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, inArray, isNull, schema, sql, type UserSettings } from "@daymarkable/db";
-import { buildDailyNotes, nextOccurrence, occurrencesInRange, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
+import { actionBuckets, buildDailyNotes, nextOccurrence, parseTypedDate, occurrencesInRange, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
 import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, createItem as addItem, getItem as readItem, updateItem as editItem, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type ItemEdit, type NewItem, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
@@ -186,7 +186,9 @@ export async function getRegistry(userId: string) {
   // Every day's Notes, newest first: what the tablet's "Notes - <date>" documents print (rule 19).
   const entries = await repo.loadDailyNotesHistory(rt.db, rt.sealer, userId);
   const dailyNotes = [...new Set(entries.map((e) => e.date))].map((date) => buildDailyNotes(date, entries));
-  return { today, actions, events, meetings, dailyNotes, inbox, doneRecently, meetingRequests: state.meetingRequests.filter((m) => m.state !== "dropped") };
+  // The same grouping the tablet's Action List prints (core actionBuckets.ts): by due date, then priority.
+  const actionGroups = actionBuckets(actions, today).map((g) => ({ key: g.key, label: g.label, tasks: g.tasks }));
+  return { today, actions, actionGroups, events, meetings, dailyNotes, inbox, doneRecently, meetingRequests: state.meetingRequests.filter((m) => m.state !== "dropped") };
 }
 
 /** A calendar screen asks for a month; anything much wider is a client with a bug. */
@@ -512,6 +514,12 @@ export const itemEditSchema = z.discriminatedUnion("itemType", [
     patch: z.object({
       text: z.string().min(1).max(2000).optional(),
       due: isoDate.optional(),
+      /**
+       * A due date as typed into the website or the app ("10/14", "Oct 14", "fri"), read on the
+       * server in the account's own timezone by core parseTypedDate — one reader, so the two clients
+       * cannot disagree about what "fri" means. Empty clears the date.
+       */
+      dueText: z.string().max(40).optional(),
       dueTime: clockTime.optional(),
       priority: z.enum(["high", "normal", "low"]).optional(),
       kind: z.enum(["action", "follow_up"]).optional(),
@@ -571,8 +579,20 @@ export async function getItemForEdit(userId: string, itemType: "task" | "event" 
   return readItem(rt.db, rt.sealer, userId, itemType, itemId);
 }
 
-export async function updateItem(userId: string, edit: ItemEdit) {
+export async function updateItem(userId: string, input: z.infer<typeof itemEditSchema>) {
   const rt = await getRuntime();
+  let edit = input as ItemEdit;
+  if (input.itemType === "task" && input.patch.dueText !== undefined) {
+    const { dueText, ...rest } = input.patch;
+    const typed = dueText.trim();
+    let due: string | null = null;
+    if (typed) {
+      const user = await repo.getUser(rt.db, userId);
+      due = parseTypedDate(typed, DateTime.now().setZone(user.timezone).toISODate()!);
+      if (due === null) throw new Error(`"${typed}" is not a date we can read. Try 10/14, Oct 14 or Friday.`);
+    }
+    edit = { ...input, patch: { ...rest, due } };
+  }
   const r = await editItem(rt.db, rt.sealer, userId, edit);
   await rebuildAfterEdit(userId);
   return r;

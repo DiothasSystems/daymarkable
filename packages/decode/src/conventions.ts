@@ -8,6 +8,7 @@ export type ConventionMeaning = "action" | "follow_up" | "priority" | "schedule"
 
 export type ConventionId =
   | "asterisk"
+  | "double_star"
   | "underline"
   | "highlight"
   | "circle"
@@ -27,6 +28,10 @@ export interface ConventionCatalogEntry {
 
 export const CONVENTION_CATALOG: readonly ConventionCatalogEntry[] = [
   { id: "asterisk", label: "Asterisk", visual: "an asterisk (*) or star drawn at the start of, or next to, a line", takesKeyword: false },
+  // The suggested HIGH-PRIORITY mark (added October 2026): two of the single asterisk a writer
+  // already uses for an action, so it costs nothing to learn. Told apart from one star explicitly,
+  // or a writer with both registered gets every starred line read as urgent.
+  { id: "double_star", label: "Two stars", visual: "two asterisks or stars together (** or two stars side by side) at the start of, or next to, a line — distinct from a single asterisk", takesKeyword: false },
   { id: "underline", label: "Underline", visual: "a hand-drawn line under a word, phrase, or whole line", takesKeyword: false },
   { id: "highlight", label: "Highlighter stroke", visual: "a thick translucent highlighter stroke over text", takesKeyword: false },
   { id: "circle", label: "Circled text", visual: "a loop or oval drawn around a word or phrase", takesKeyword: false },
@@ -56,10 +61,15 @@ export interface UserInkConventions {
   active: ActiveConvention[];
 }
 
-/** Starter set from BUILD_PLAN Phase 0 item 5: asterisk = action, underline = follow-up, "TODO" = action. */
+/**
+ * Starter set from BUILD_PLAN Phase 0 item 5 — asterisk = action, underline = follow-up, "TODO" =
+ * action — plus two stars = high priority, since October 2026: every action is Medium unless a
+ * mark or a tick in the Action List's H box says otherwise.
+ */
 export const STARTER_CONVENTIONS: UserInkConventions = {
   active: [
     { id: "asterisk", meaning: "action" },
+    { id: "double_star", meaning: "priority" },
     { id: "underline", meaning: "follow_up" },
     { id: "keyword", meaning: "action", keyword: "TODO" },
   ],
@@ -68,7 +78,7 @@ export const STARTER_CONVENTIONS: UserInkConventions = {
 const MEANING_TEXT: Record<ConventionMeaning, string> = {
   action: "an ACTION the user must do (emit a task with kind \"action\")",
   follow_up: "a FOLLOW-UP the user must chase with someone (emit a task with kind \"follow_up\")",
-  priority: "HIGH PRIORITY (set priority \"high\" on the task or event it marks)",
+  priority: "a HIGH-PRIORITY item: emit it as a task (kind \"action\" unless another mark or its wording makes it a follow-up) with priority \"high\"; on an event, set priority high on the event instead",
   schedule: "something to SCHEDULE (emit a meeting_request or event)",
   note: "a NOTE worth keeping but not a task (include the marked text in notes[], and do NOT emit a task for it)",
 };

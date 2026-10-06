@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { EditableItem } from "@/components/EditableItem";
 import { DeleteNoteButton, DeleteNotesDayButton, DropButton, InboxRow, TickBox } from "@/components/ItemActions";
+import { ActionSchedule } from "@/components/ActionSchedule";
 import { NoteBody } from "@/components/NoteBody";
 import type { getRegistry, listDocuments } from "@/server/services";
 import { fmtDate } from "@/lib/format";
@@ -85,15 +86,27 @@ export function DocumentsView({ documents, registry, initialTab }: { documents: 
       {tab === "actions" ? (
         <div className="card">
           <p className="kicker">{registry.actions.length} open · tick the box to close · ✕ to drop · click any text to fix a misread</p>
-          <ul className="list">
-            {registry.actions.map((t) => (
-              <li key={t.id}>
-                <TickBox itemType="task" itemId={t.id} label={`Mark done: ${t.text}`} />
-                <span><EditableItem itemType="task" itemId={t.id} text={t.text} /><div className="meta">{[t.due ? fmtDate(t.due) : "no date", t.priority === "high" ? "HIGH" : null, t.kind === "follow_up" ? "follow-up" : null, t.people.join(", ") || null, t.carriedCount ? `carried ${t.carriedCount}×` : null, `from ${t.source.notebook} p${t.source.pageIndex + 1}`].filter(Boolean).join(" · ")}</div></span>
-                <span style={{ marginLeft: "auto" }}><DropButton itemType="task" itemId={t.id} text={t.text} /></span>
-              </li>
-            ))}
-          </ul>
+          {registry.actionGroups.map((g) => (
+            <section key={g.key} style={{ marginTop: 14 }}>
+              <p className="kicker" style={{ color: g.key === "overdue" ? "var(--gold-text)" : undefined, marginBottom: 4 }}>
+                {g.label} · {g.tasks.length}{g.key === "undated" ? " · low priority, no date" : ""}
+              </p>
+              <ul className="list">
+                {g.tasks.map((t) => (
+                  <li key={t.id}>
+                    <TickBox itemType="task" itemId={t.id} label={`Mark done: ${t.text}`} />
+                    <span style={{ flex: 1 }}>
+                      <EditableItem itemType="task" itemId={t.id} text={t.text} />
+                      {/* Every row says where it was written, to check a reading against the page. */}
+                      <div className="meta">{[t.source.notebook ? `from ${t.source.notebook} p${t.source.pageIndex + 1}` : null, t.kind === "follow_up" ? "follow-up" : null, t.people.join(", ") || null, t.carriedCount ? `carried ${t.carriedCount}×` : null].filter(Boolean).join(" · ")}</div>
+                      <ActionSchedule itemId={t.id} due={t.due} priority={t.priority} today={registry.today} />
+                    </span>
+                    <span style={{ marginLeft: "auto" }}><DropButton itemType="task" itemId={t.id} text={t.text} /></span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
           {registry.inbox.length ? (
             <>
               <p className="kicker" style={{ marginTop: 16 }}>Inbox — not sure these were read right · Fix, Approve onto the list, or Remove</p>

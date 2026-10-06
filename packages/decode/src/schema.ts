@@ -71,11 +71,11 @@ export const CheckboxUpdateSchema = z.object({
   struck: z.boolean(),
   margin_note: z.string().nullable(),
   /**
-   * A date the user wrote by hand in the row's WHEN / PRIORITY field. ScriptumIQ never invents
+   * A date the user wrote by hand on the row's DUE line (WHEN / PRI on older pages). ScriptumIQ never invents
    * a due date, so this is the only way a printed action acquires one.
    */
   written_due: IsoDate.nullable().default(null),
-  /** A priority the user wrote in the same field ("!", "P1", "HIGH", "low"). */
+  /** A priority the user marked: a tick in the row's L / M / H box, or a word or mark on the DUE line. */
   written_priority: z.enum(["high", "normal", "low"]).nullable().default(null),
   confidence: Confidence,
 });
@@ -159,8 +159,8 @@ export const SCHEMA_DESCRIPTION = `{
               "attendees": string[], "text": string, "decisions": string[], "confidence": 0..1 }],
   "checkbox_updates": [{ "item_code": string | null, "label": string, "checked": boolean, "struck": boolean,
               "margin_note": string | null,
-              "written_due": "YYYY-MM-DD" | null,      // date HANDWRITTEN in the row's WHEN field
-              "written_priority": "high" | "normal" | "low" | null,  // priority handwritten there
+              "written_due": "YYYY-MM-DD" | null,      // date HANDWRITTEN on the row's DUE line
+              "written_priority": "high" | "normal" | "low" | null,  // L / M / H box ticked, or priority written
               "confidence": 0..1 }],
   "overall_confidence": 0..1,
   "needs_escalation": boolean

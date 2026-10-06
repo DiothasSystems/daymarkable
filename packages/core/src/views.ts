@@ -2,7 +2,7 @@
  * View models for the nightly document set (ARCHITECTURE §6), built from the working set.
  * Pure date math on YYYY-MM-DD strings; the caller supplies "today" in the user's timezone.
  */
-import { compareActions } from "./daily.js";
+import { actionBuckets, type ActionBucketKey } from "./actionBuckets.js";
 import { activeEvents, draftedMeetingRequests, openActionList, pendingInbox } from "./merge.js";
 import { eventsOnDate, occurrencesInRange } from "./recurrence.js";
 import type { Meeting, StoredEvent, StoredInboxItem, StoredMeetingRequest, StoredTask, WorkingSet } from "./state.js";
@@ -99,9 +99,10 @@ export interface InboxPageModel {
 }
 
 export interface ActionListGroup {
-  /** The reMarkable file the page belongs to — the group's heading. */
+  /** When these are due: "Overdue", "Today", "Next 7 days", "Later", "No date yet" (actionBuckets.ts). */
+  key: ActionBucketKey;
   label: string;
-  /** Page reference and the date written on the page, when it carries one: "p.4 · Wed 3 Sep". */
+  /** Unused since the list is grouped by due date; each row names its own notebook and page. */
   subtitle: string | null;
   date: string | null;
   tasks: StoredTask[];
@@ -230,59 +231,18 @@ export function buildDaily(state: WorkingSet, opts: ViewOptions): DailySheetMode
   };
 }
 
-const PRIORITY_ORDER: Record<StoredTask["priority"], number> = { high: 0, normal: 1, low: 2 };
-
-const GROUP_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const GROUP_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "Wed 3 Sep" — the page's own date, for the group subheading. */
-function formatGroupDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${GROUP_DAYS[d.getUTCDay()]} ${d.getUTCDate()} ${GROUP_MONTHS[d.getUTCMonth()]}`;
-}
-
 /**
- * Grouped by the page the items were written on: one group per (notebook, page), headed by the
- * reMarkable file's name with the page reference and the page's own date beneath it. An action
- * read back beside the rest of that sitting's notes is far easier to place than the same line
- * filed under a bare date.
- *
- * Groups are ordered by urgency, not alphabetically: the earliest due date in the group first,
- * then the highest priority in it, and only then the notebook name — so the page holding the
- * work that is actually due leads the list, and pages with nothing dated or flagged fall into a
- * stable alphabetical tail.
+ * The Action List: every open action grouped by when it is due, highest priority first within each
+ * group, with the undated ones last (actionBuckets.ts). Each row names the notebook and page it came
+ * from, which is what grouping by page used to say for a whole group.
  */
 export function buildActionList(state: WorkingSet, opts: ViewOptions): ActionListModel {
   const tasks = openActionList(state);
-  const byPage = new Map<string, StoredTask[]>();
-  for (const t of tasks) {
-    const key = `${t.source.notebook} ${t.source.pageIndex}`;
-    byPage.set(key, [...(byPage.get(key) ?? []), t]);
-  }
-  const groups: ActionListGroup[] = [...byPage.values()]
-    .map((list) => {
-      const sorted = [...list].sort(compareActions);
-      const first = sorted[0]!.source;
-      const dues = sorted.map((t) => t.due).filter((d): d is string => d !== null);
-      return {
-        label: first.notebook.trim() || "Unfiled",
-        subtitle: [`p.${first.pageIndex + 1}`, first.pageDate ? formatGroupDate(first.pageDate) : null].filter(Boolean).join(" · "),
-        date: dues.length ? dues.reduce((a, b) => (a < b ? a : b)) : null,
-        tasks: sorted,
-        rank: Math.min(...sorted.map((t) => PRIORITY_ORDER[t.priority])),
-      };
-    })
-    .sort((a, b) => {
-      if (a.date !== b.date) {
-        if (a.date === null) return 1;
-        if (b.date === null) return -1;
-        return a.date < b.date ? -1 : 1;
-      }
-      if (a.rank !== b.rank) return a.rank - b.rank;
-      return a.label.localeCompare(b.label) || (a.subtitle ?? "").localeCompare(b.subtitle ?? "");
-    })
-    .map(({ rank: _rank, ...g }) => g);
+  // By when each is due, then priority (actionBuckets.ts); every row carries its own source.
+  const groups: ActionListGroup[] = actionBuckets(tasks, opts.today).map((g) => {
+    const dues = g.tasks.map((t) => t.due).filter((d): d is string => d !== null);
+    return { key: g.key, label: g.label, subtitle: null, date: dues.length ? dues.reduce((a, c) => (a < c ? a : c)) : null, tasks: g.tasks };
+  });
   const completedRecently = state.tasks
     .filter((t) => t.status === "done" && t.completedOn !== null && t.completedOn >= addDays(opts.today, -1))
     .sort((a, b) => a.text.localeCompare(b.text));

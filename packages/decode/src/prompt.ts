@@ -22,11 +22,12 @@ the two names as the same product everywhere below.
 - Under a printed item there may be a small grey monospace SOURCE REFERENCE naming where it was
   read from, of the form "NOTEBOOK · p.4", or a person or project. It is printed metadata, never
   handwriting: never emit it as a task, note, or margin note.
-- The Action List groups its rows by the PAGE they were written on. Each group starts with the
-  reMarkable file's name as an uppercase monospace section label, with a smaller grey line under
-  it giving the page and, when the writer dated that page, its date — "p.4 · Thu 3 Sep". Both
-  are printed headings, not handwriting and not items. The rows beneath a heading all came from
-  that page.
+- The Action List groups its rows by WHEN THEY ARE DUE, under uppercase monospace section labels:
+  OVERDUE, TODAY, NEXT 3 DAYS, LATER, NO DATE YET. Those labels are printed headings, not
+  handwriting and not items. Under each row's text a grey monospace line carries what is already
+  known — the date it is due ("DUE OCT 9", "TODAY", "LATE OCT 5") or how long it has been carried
+  ("CARRIED 3D"), "HIGH" or "LOW" (its current priority; Medium is not printed), "follow-up",
+  people, and the row's SOURCE REFERENCE "NOTEBOOK · p.4" — all printed metadata.
 - Checkbox rows: a small square box, the item text, and a short monospace item code at the
   right edge of the row (A01, A02... actions; C01... carried-over items; I01... Inbox items to
   confirm; M01... meeting invites to confirm; W01... tasks on the Week page; F01... "Focus"
@@ -36,20 +37,24 @@ the two names as the same product everywhere below.
   unchecked. struck = the text is crossed out with a line through it (that means "drop this").
   Copy the item code exactly, and copy the row's text into "label" even when you are sure of the
   code — the label is what lets a mark be honoured if the code is misread.
-- WHEN / PRIORITY field: on the Action List, each row has a short ruled write-on line between
-  the item text and the item code, under a column heading reading "WHEN / PRI". It is where the
-  user assigns a date or a priority to an action that has neither. Read what is written there
-  into the SAME checkbox_updates entry as the row:
-    * a date in any form ("9/14", "Sep 14", "Fri", "next Tue") → written_due, resolved to
-      YYYY-MM-DD against today's date, preferring the nearest FUTURE match;
-    * a priority mark ("!", "!!", "P1", "HIGH", "H", "*", "URGENT") → written_priority "high";
-      ("P3", "LOW", "L", a down arrow) → "low"; ("P2", "NORMAL") → "normal";
-    * both can appear together ("9/14 !").
-  A row can carry a written date or priority WITHOUT being ticked or struck — report it just
-  the same, with checked and struck false. If the field holds printed grey text (a due tag the
-  planner already knew, e.g. "DUE SEP 14" or "CARRIED 3D") and no handwriting, that is printed
-  metadata: leave written_due and written_priority null. Anything written in the field is an
-  annotation on that row, never a new task and never a margin_note.
+- DUE line and L / M / H boxes: on the Action List, between each row's text and its item code,
+  there is a short ruled DUE line and then three small empty boxes, under column headings reading
+  "DUE" and "L M H". They are where the user gives an action a date or a priority. Read them into
+  the SAME checkbox_updates entry as the row:
+    * a date handwritten on the DUE line, in any form ("9/14", "Sep 14", "Fri", "next Tue") →
+      written_due, resolved to YYYY-MM-DD against today's date, preferring the nearest FUTURE match;
+    * ANY mark in one of the three small boxes (tick, cross, dot, scribble, fill) → written_priority:
+      the L box → "low", the M box → "normal", the H box → "high". If more than one is marked, report
+      the highest. A priority word or mark written on the DUE line ("!", "HIGH", "LOW") counts the
+      same way.
+  These are separate from the row's own checkbox at the LEFT edge, which alone means "done": a mark
+  in L, M or H never sets checked. A row can carry a date or a priority without being ticked or
+  struck — report it just the same, with checked and struck false. The DUE line and the boxes are
+  always printed EMPTY — the date already known is in the grey line under the text, not on the DUE
+  line — so anything written on the line and every mark in a box is the user's. Anything written in these columns is an annotation on
+  that row, never a new task and never a margin_note.
+  (Pages printed before October 2026 have a single "WHEN / PRI" line here instead of DUE and the
+  boxes: read a date or priority written on it the same way.)
 - Ruled lines with no printed text (NOTES areas, blank goal lines, sidebar lines) are for
   handwriting: anything written there is a NEW task or note (emit it in tasks or notes, not in
   checkbox_updates), with the page's date as context.
