@@ -92,6 +92,8 @@ unchanged.
     calendar entries and note bodies can all be edited (`items.update` / `items.create`),
     after which the user is prompted to send the rebuilt notebooks to the tablet. Setup,
     settings and payment are the web's own responsive pages in a WebView. See docs/MOBILE_PLAN.md.
+    Android is built on the Windows machine (`scripts/android-build.ps1`); iOS on the Mac mini
+    (`scripts/ios-build.sh`), and `docs/IOS_HANDOFF.md` is where a session there starts.
   - `services/render` — Python container (`rmscene`) exposing `POST /render` (.rm → PNG).
 - Postgres via Drizzle ORM; migrations in `packages/db`. Queue: pg-boss (Phase 2).
 - Env vars in `.env` locally, and in `/root/daymarkable/.env` on the production VPS (the old name,
@@ -210,6 +212,11 @@ unchanged.
     plan change, cancel, refund) happens in `apps/web`. `apps/mobile` must contain no
     payment processing, purchase links, or price display — subscription management from a
     phone goes through the responsive web experience.
+    In the PHONE'S BROWSER, never inside the app (founder's decision, October 2026, Android and iOS
+    alike): a customer subscribes on the website before installing the app, and the app's
+    Subscription button, the tour, and any in-app web page that links or redirects to /billing,
+    /subscription or /pricing all open the browser instead (`apps/mobile/src/webRouting.ts`). The
+    in-app WebView never loads a billing page.
 15. **Registration is closed; an invitation is the whole of what opens it.** `server/access.ts`
     answers who may sign in and is the durable piece; the waiting list is a Phase 0 stopgap that
     supplies one of its grounds and goes when registration opens. `/start` takes an address onto

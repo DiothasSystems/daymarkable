@@ -15,10 +15,9 @@
  * Where that button goes depends on who is holding the phone, because the two cases are not the
  * same transaction:
  *
- *   Signed in — they have an account and may simply not have checked out yet. `/subscription` and
- *   `/billing` both want a session, and the app has one, so the WebView opens the web's own page
- *   already signed in (app/web/[pane].tsx). That is the "mobile html purchase flow": one checkout,
- *   on the web, reached without typing a password again.
+ *   Signed in — they have an account and may simply not have checked out yet. Checkout is the
+ *   website's, in the phone's browser, never a frame inside the app (src/webRouting.ts, rule 14):
+ *   the browser may ask them to sign in, which is the price of keeping money out of the app.
  *
  *   Signed out — there is nothing to hand a session to, and registration is closed anyway
  *   (rule 15). An invitation is the whole of what opens it, so the honest button asks for one, on
@@ -33,6 +32,7 @@ import { siteUrl } from "@/api";
 import { BackBar, Button } from "@/components/ui";
 import { useSession } from "@/session";
 import { TOUCH_TARGET, color, font, radius, space, type } from "@/theme";
+import { billingUrl } from "@/webRouting";
 
 /* --------------------------------------------------------------------------------------------
  * The drawings.
@@ -281,7 +281,8 @@ export default function Tour() {
   /** The one thing this screen is for. See the header comment for why it forks on the session. */
   const start = useCallback(() => {
     if (session) {
-      router.push({ pathname: "/web/[pane]", params: { pane: "billing" } });
+      // Checking out happens on the website, in the phone's browser — never in the app (rule 14).
+      void Linking.openURL(billingUrl());
       return;
     }
     void Linking.openURL(`${siteUrl()}/start`);

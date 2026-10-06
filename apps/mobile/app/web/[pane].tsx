@@ -1,5 +1,6 @@
 /**
- * The web's own pages, inside the app: first-time setup, settings, support, billing.
+ * The web's own pages, inside the app: first-time setup, settings and support. NOT billing: that is
+ * always the phone's browser, on Android and iOS alike (src/webRouting.ts, rule 14).
  *
  * Not laziness — the alternative is a second copy of every one of those forms, drifting from the
  * first. And there is a better reason than that: `requireUser` on the server already sequences
@@ -21,11 +22,13 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Linking, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewNavigation } from "react-native-webview";
-import { API_URL, errorMessage, trpc } from "@/api";
+import { errorMessage, trpc } from "@/api";
 import { BackBar, Button, ErrorNote } from "@/components/ui";
 import { useKeyboardHeight } from "@/keyboard";
 import { color, font, space, type } from "@/theme";
+import { billingUrl, destinationFor } from "@/webRouting";
 
+/** "billing" survives only so an older link to it lands somewhere sensible: the browser. */
 type Pane = "setup" | "settings" | "support" | "billing";
 
 const TITLES: Record<Pane, string> = {
@@ -35,23 +38,6 @@ const TITLES: Record<Pane, string> = {
   billing: "Subscription",
 };
 
-/**
- * Domains that are ours: the product's name, and the one it had until September 2026. The old one
- * stays because it still answers — it redirects to the new — and a frame that refused the hop would
- * throw a signed-in customer out to the phone's browser halfway through loading Settings.
- */
-const OUR_DOMAINS = ["scriptumiq.com", "daymarkable.com"] as const;
-
-/** The hosts this frame will follow. Anything else is the wider web and belongs in a browser. */
-function ours(url: string): boolean {
-  try {
-    const host = new URL(url).host;
-    return host === new URL(API_URL).host || OUR_DOMAINS.some((d) => host === d || host.endsWith(`.${d}`));
-  } catch {
-    return false;
-  }
-}
-
 export default function WebPane() {
   const { pane } = useLocalSearchParams<{ pane: Pane }>();
   const router = useRouter();
@@ -59,9 +45,17 @@ export default function WebPane() {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Set when a billing page was handed to the browser instead of shown here. */
+  const [toBrowser, setToBrowser] = useState(false);
 
   const open = useCallback(async () => {
     setError(null);
+    if (pane === "billing") {
+      // Never in the app: the subscription page opens in the phone's browser.
+      setToBrowser(true);
+      void Linking.openURL(billingUrl());
+      return;
+    }
     try {
       const r = await trpc.auth.webHandoff.mutate({ pane });
       setUrl(r.url);
@@ -74,9 +68,18 @@ export default function WebPane() {
     void open();
   }, [open]);
 
-  /** Follow our own pages, hand everything else to the phone's browser. */
+  /**
+   * Follow our own pages; hand billing and the wider web to the phone's browser. A billing page is
+   * caught here however it was reached — a link, or /setup redirecting an account that has not paid.
+   */
   const shouldLoad = useCallback((nav: WebViewNavigation) => {
-    if (nav.url.startsWith("about:") || ours(nav.url)) return true;
+    const where = destinationFor(nav.url);
+    if (where === "frame") return true;
+    if (where === "billing") {
+      setToBrowser(true);
+      void Linking.openURL(billingUrl());
+      return false;
+    }
     void Linking.openURL(nav.url);
     return false;
   }, []);
@@ -100,7 +103,19 @@ export default function WebPane() {
         </View>
       ) : null}
 
-      {url ? (
+      {toBrowser ? (
+        <View style={{ padding: space.lg, gap: space.md }}>
+          <Text style={type.heading}>Your subscription is on the website</Text>
+          <Text style={type.bodyMuted}>
+            Plans, payment and cancelling are all managed at scriptumiq.com. We have opened it in your browser — sign in
+            there if it asks.
+          </Text>
+          <Button title="Open it again" variant="secondary" onPress={() => void Linking.openURL(billingUrl())} />
+          <Button title="Back" variant="tertiary" onPress={() => router.back()} />
+        </View>
+      ) : null}
+
+      {url && !toBrowser ? (
         <WebView
           source={{ uri: url }}
           onNavigationStateChange={(nav) => setLoading(nav.loading)}
@@ -114,7 +129,7 @@ export default function WebPane() {
           style={{ flex: 1, backgroundColor: color.parchment }}
           onError={() => setError("That page would not load. Check your connection.")}
         />
-      ) : !error ? (
+      ) : !error && !toBrowser ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           <ActivityIndicator color={color.midnight} />
           <Text style={[type.small, { marginTop: space.sm, fontFamily: font.sans }]}>Opening…</Text>

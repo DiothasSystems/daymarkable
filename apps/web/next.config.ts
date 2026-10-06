@@ -15,6 +15,11 @@ const config: NextConfig = {
     cfg.resolve.extensionAlias = { ".js": [".ts", ".tsx", ".js"], ".mjs": [".mts", ".mjs"] };
     return cfg;
   },
+  // iOS asks for this at a fixed path with no extension; it is built from APPLE_TEAM_ID (server/aasa.ts).
+  rewrites: async () => [
+    { source: "/.well-known/apple-app-site-association", destination: "/api/apple-app-site-association" },
+    { source: "/apple-app-site-association", destination: "/api/apple-app-site-association" },
+  ],
   headers: async () => [
     {
       source: "/(.*)",

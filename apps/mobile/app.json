@@ -12,7 +12,11 @@
     "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.diothassystems.daymarkable",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.diothassystems.daymarkable",

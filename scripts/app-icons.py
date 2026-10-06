@@ -195,7 +195,9 @@ def main() -> None:
     # iOS and the generic icon: opaque, no transparency. The emblem nearly full-bleed on Midnight,
     # which is how the ScriptumIQ app icon was drawn (design/brand_scriptumiq/app-icon-191.png): a
     # dark tile, the gold points and band giving the edge. dayMarkable's sat on Parchment.
-    over(MIDNIGHT, 1024, emblem(1024, 0.96)).save(OUT / "icon.png")
+    # RGB, not RGBA: App Store review rejects an app icon that has an alpha channel at all, even a
+    # fully opaque one, and this is the image Expo makes the iOS icon from.
+    over(MIDNIGHT, 1024, emblem(1024, 0.96)).convert("RGB").save(OUT / "icon.png")
 
     # Android adaptive icon: the launcher masks this to a circle, squircle or whatever the device
     # prefers, and animates it, so only the middle ~66% is safe. The emblem is already a circle,

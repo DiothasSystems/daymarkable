@@ -6,7 +6,8 @@ is prompted to update the documents on the tablet; the main requirement is ticki
 seeing the calendar.**
 
 Status: all eight steps of §12 are built. What remains is not code: Apple Developer and Google
-Play enrolment, an EAS build, and SW-001's iOS half, which cannot be verified from Windows.
+Play enrolment, an EAS build, and SW-001's iOS half, which cannot be verified from Windows — that
+half is handed to the Mac mini in `docs/IOS_HANDOFF.md`.
 
 Four decisions were taken before this was written, and everything below follows from them:
 
@@ -72,7 +73,7 @@ apps/mobile/
     (tabs)/notes.tsx         meeting notes list, reader, editor — SW-010, SW-004
     (tabs)/more.tsx          documents, settings, payment, support, feedback
     item/[id].tsx            edit an action or event: text and fields — §5
-    web/[route].tsx          the WebView host (setup, settings, billing, support)
+    web/[route].tsx          the WebView host (setup, settings, support; billing goes to the browser)
   src/
     api.ts                   tRPC client, Bearer header, 401 → sign-out
     session.ts               expo-secure-store
@@ -160,7 +161,7 @@ that may not (rule 15) — so the app must show "check your mail" regardless, an
 | Setup wizard | WebView `/setup` | six steps, incl. tablet pairing | SW-009 |
 | Support | WebView `/support` | one page, already frame-agnostic by design | SW-007 |
 | Settings | WebView `/settings` | | SW-011 |
-| Payment | WebView `/billing` on the public host | | SW-008 |
+| Payment | `/billing` in the phone's BROWSER, never the WebView (src/webRouting.ts) | | SW-008 |
 
 **Actions** mirrors `documents.registry`'s own grouping — open actions ordered by date then priority
 (rule 8), then Inbox ("confirm these", rule 3), then what was finished in the last seven days — and
@@ -299,9 +300,10 @@ doubles the maintenance of the one flow most likely to change. And the pairing s
 to my.remarkable.com for an eight-character one-time code, which is a browser errand anyway.
 
 The part worth noticing: `requireUser` already sequences sign-in → billing → onboarding. Load
-`/setup` in a WebView and an unpaid account is redirected to `/billing` by the server, with the app
-none the wiser. SW-008 and SW-009 are satisfied by the same WebView and the app never learns what
-anything costs — which is exactly what rule 14 wants.
+`/setup` in a WebView and an unpaid account is redirected to `/billing` by the server — and since
+October 2026 the WebView refuses that page and opens it in the phone's browser instead
+(src/webRouting.ts): billing is never shown inside the app, on Android or iOS. The app never learns
+what anything costs, which is exactly what rule 14 wants.
 
 **Getting the WebView signed in** (built in step 7). The app has a bearer; these pages read a
 cookie. Three things that do not work: the session id as a query parameter (a credential in a URL

@@ -17,7 +17,7 @@
  */
 import { useRouter } from "expo-router";
 import { useCallback } from "react";
-import { RefreshControl, Text, View } from "react-native";
+import { Linking, RefreshControl, Text, View } from "react-native";
 import { KeyboardAwareScrollView } from "@/keyboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { trpc } from "@/api";
@@ -27,6 +27,7 @@ import { Button, Card, ErrorNote, Label, Loading } from "@/components/ui";
 import { useSession } from "@/session";
 import { useQuery, useReloadOnReturn } from "@/useApi";
 import { space, type } from "@/theme";
+import { billingUrl } from "@/webRouting";
 
 type Docs = Awaited<ReturnType<typeof trpc.documents.list.query>>;
 type Quota = Awaited<ReturnType<typeof trpc.runs.quota.query>>;
@@ -95,7 +96,9 @@ export default function More() {
                 the page shows anything of its own. */}
             <Button title="How ScriptumIQ works" variant="secondary" onPress={() => router.push("/tour")} />
             <Button title="Settings" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "settings" } })} />
-            <Button title="Subscription" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "billing" } })} />
+            {/* Opens the website in the phone's browser, never in the app: billing is always the web's
+                (src/webRouting.ts, rule 14). */}
+            <Button title="Subscription (opens scriptumiq.com)" variant="secondary" onPress={() => void Linking.openURL(billingUrl())} />
             <Button title="Support" variant="secondary" onPress={() => router.push({ pathname: "/web/[pane]", params: { pane: "support" } })} />
           </View>
           <View style={{ marginTop: space.lg }}>
