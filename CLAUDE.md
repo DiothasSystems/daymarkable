@@ -354,8 +354,9 @@ unchanged.
 
 **Claude Sonnet 5.5 is the baseline decoder**, escalating to **Opus 5.5** only on pages read below the
 escalation threshold (rule 3). Both moved up on 2026-09-30 from Sonnet 5 / Opus 5: Sonnet 5.5 is the same price
-as Sonnet 5, Opus 5.5 is 20% cheaper than Opus 5 (cache reads 0.05x), and the founder is judging the
-transcriptions on their own pages for a week — Sonnet 5 / Opus 5 are the way back, one `.env` line each.
+as Sonnet 5, Opus 5.5 is 20% cheaper than Opus 5 (cache reads 0.05x). After a week on the founder's own
+pages they were KEPT (2026-10-06), on price: the same per token, so no comparison run was needed.
+Sonnet 5 / Opus 5 remain the way back, one `.env` line each, and `pnpm compare` the check if quality slips.
 Every page is read at `effort: "high"` explicitly, because Opus 5.5 defaults to `medium` and the
 second pass exists for the hardest pages. Haiku is not merely discouraged as a decoder — `RETIRED_DECODE_MODELS`
 in `packages/decode/models.ts` refuses it whatever `DECODE_MODEL`, a rotation list or a per-user
