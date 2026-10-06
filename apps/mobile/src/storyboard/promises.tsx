@@ -12,8 +12,8 @@ import { color, font, radius, space, type } from "@/theme";
 import { Stroke } from "./motion";
 
 export const PROMISES = {
-  kicker: "WHAT IT NEVER DOES",
-  title: "Some promises belong in the code.",
+  kicker: "SOME PROMISES BELONG IN THE CODE",
+  title: "What it never does",
   body: "These are enforced where it matters, not written in a policy page.",
   points: [
     "Never keeps your page images beyond 24 hours",

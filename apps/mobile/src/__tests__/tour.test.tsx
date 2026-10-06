@@ -59,7 +59,7 @@ describe("the tour", () => {
     expect(screen.getAllByRole("tab")).toHaveLength(SCENES.length + 1);
     expect(screen.getByText("Your invitation")).toBeTruthy();
     expect(screen.getByText("The loop closes")).toBeTruthy();
-    expect(screen.getByLabelText("Step 15 of 15: Some promises belong in the code.")).toBeTruthy();
+    expect(screen.getByLabelText("Step 15 of 15: What it never does")).toBeTruthy();
     expect(screen.getByText("Never logs what your notes say — counts and hashes only")).toBeTruthy();
     expect(screen.getByLabelText("Step 1 of 15: Your invitation").props.accessibilityState).toMatchObject({ selected: true });
 
