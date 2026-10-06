@@ -26,6 +26,19 @@
   .sb-phase { margin-top: 44px; }
 }
 
+/* The closing tile: a dark block, the shield beside the promises. */
+.sb-promise { margin-top: 64px; background: var(--midnight); border-radius: 6px; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: center; gap: 12px; padding: 28px; }
+.sb-promise svg { display: block; width: 100%; height: auto; }
+.sb-promise .sb-num { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: #C9973F; margin-bottom: 6px; text-transform: uppercase; }
+.sb-promise h3 { font-family: var(--font-display); font-size: 28px; font-weight: 600; margin: 0 0 10px; color: #F7F0E3; }
+.sb-promise p { font-size: 15px; line-height: 1.6; color: #F7F0E3; margin: 0 0 14px; }
+.sb-promise ul { list-style: none; margin: 0; padding: 0; }
+.sb-promise li { font-size: 15px; line-height: 1.6; color: rgba(247, 240, 227, 0.82); margin-bottom: 8px; display: flex; gap: 10px; }
+.sb-promise li span { color: #C9973F; font-weight: 700; }
+@media (max-width: 760px) {
+  .sb-promise { grid-template-columns: 1fr; padding: 20px; margin-top: 44px; }
+}
+
 /* ---- the motions ----------------------------------------------------------------------- */
 /* Ink being written: a stroke drawn along its length (each stroke has pathLength="1"). */
 .sb-ink { stroke-dasharray: 1; animation: sb-draw 8s ease-in-out infinite; }

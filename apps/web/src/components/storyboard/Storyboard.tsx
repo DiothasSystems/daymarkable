@@ -686,6 +686,40 @@ const SCENES: Scene[] = [
   },
 ];
 
+/**
+ * The closing tile, after the morning: the scenes show what it does, this says what it will not.
+ * The phone app's tour ends on the same page (apps/mobile/src/storyboard/promises.tsx) — same words.
+ */
+const PROMISES = [
+  "Never keeps your page images beyond 24 hours",
+  "Never emails an address it read on one of your pages",
+  "Never sends a calendar invite you did not confirm",
+  "Never logs what your notes say — counts and hashes only",
+];
+
+function Promises() {
+  return (
+    <section className="sb-promise" aria-labelledby="sb-never">
+      <svg viewBox="0 0 320 150" role="img" aria-label="A shield with a tick">
+        <path d="M 160 14 L 216 36 L 216 78 C 216 110 190 128 160 138 C 130 128 104 110 104 78 L 104 36 Z" fill="rgba(247,240,227,0.06)" stroke={C.gold} strokeWidth={2.5} />
+        <path d="M 137 76 L 154 93 L 187 57" pathLength={1} className="sb-ink" style={at(0.4)} fill="none" stroke={C.gold} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div className="sb-copy">
+        <div className="sb-num">Some promises belong in the code</div>
+        <h3 id="sb-never">What it never does</h3>
+        <p>These are enforced where it matters, not written in a policy page.</p>
+        <ul>
+          {PROMISES.map((p) => (
+            <li key={p}>
+              <span>→</span> {p}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 const PHASES: Record<Scene["phase"], { title: string; when: string }> = {
   setup: { title: "Set up once", when: "Day 1 · about ten minutes" },
   day: { title: "Then just write", when: "During the day" },
@@ -723,6 +757,7 @@ export function Storyboard() {
           </div>
         </section>
       ))}
+      <Promises />
     </div>
   );
 }

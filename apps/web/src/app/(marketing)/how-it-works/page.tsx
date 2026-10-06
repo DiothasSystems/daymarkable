@@ -22,7 +22,7 @@ export default function HowItWorksPage() {
         <Storyboard />
         <div className="mk-cta-row" style={{ marginTop: 56 }}>
           <Link href="/start" className="btn">Start free — 14 days</Link>
-          <Link href="/product">Everything it does →</Link>
+          <Link href="/" className="btn secondary">Return home</Link>
         </div>
       </section>
     </MarketingShell>
