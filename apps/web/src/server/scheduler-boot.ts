@@ -3,6 +3,7 @@ import { and, desc, eq, schema } from "@daymarkable/db";
 import { ensureDefaultUser, pipelineDepsFor, repo, runPipeline, startScheduler } from "@daymarkable/pipeline";
 import { DateTime } from "luxon";
 import { getRuntime } from "./runtime";
+import { sendPendingAppMail } from "./app-mail";
 import { checkBalanceWarning } from "./ops";
 
 const g = globalThis as unknown as { __dmSchedulerStarted?: boolean };
@@ -34,6 +35,12 @@ export async function bootScheduler(): Promise<void> {
           await checkBalanceWarning(log);
         } catch (err) {
           log(`credit check failed: ${(err as Error).message}`);
+        }
+        // Subscribers who arrived before the app was in a store hear about it when it is.
+        try {
+          await sendPendingAppMail(log);
+        } catch (err) {
+          log(`app mail sweep failed: ${(err as Error).message}`);
         }
       },
       log,

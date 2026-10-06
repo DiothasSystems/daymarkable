@@ -216,7 +216,11 @@ unchanged.
     alike): a customer subscribes on the website before installing the app, and the app's
     Subscription button, the tour, and any in-app web page that links or redirects to /billing,
     /subscription or /pricing all open the browser instead (`apps/mobile/src/webRouting.ts`). The
-    in-app WebView never loads a billing page.
+    in-app WebView never loads a billing page. A subscriber learns the app exists by ONE email after
+    checkout (`server/app-mail.ts`), sent only once a store carries it — `ANDROID_APP_URL` /
+    `IOS_APP_URL` on the VPS, empty until then; setting the first one mails everyone already
+    subscribed, and scriptumiq.com/app always shows the current links. "Subscribed" means a Stripe
+    subscription in trial or active, never the status alone: every account row starts as "trial".
 15. **Registration is closed; an invitation is the whole of what opens it.** `server/access.ts`
     answers who may sign in and is the durable piece; the waiting list is a Phase 0 stopgap that
     supplies one of its grounds and goes when registration opens. `/start` takes an address onto

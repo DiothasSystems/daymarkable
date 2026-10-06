@@ -161,6 +161,11 @@ export const users = pgTable("users", {
    */
   trialUsedAt: timestamp("trial_used_at", { withTimezone: true }),
   currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+  /**
+   * When the "get the phone app" mail went to this account (web server/app-mail.ts). Null until a
+   * store link exists and the account has subscribed; set once, so nobody is told twice.
+   */
+  appMailSentAt: timestamp("app_mail_sent_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -14,6 +14,7 @@ import {
   trialDaysFor,
   verifyStripeSignature,
 } from "./billing-core";
+import { sendAppMailIfDue } from "./app-mail";
 import { getRuntime } from "./runtime";
 
 /**
@@ -182,6 +183,8 @@ async function applySubscription(subscription: Json): Promise<void> {
       updatedAt: new Date(),
     })
     .where(eq(schema.users.id, userId));
+  // Now subscribed, they hear about the phone app — once, and only once a store carries it.
+  await sendAppMailIfDue(userId);
 }
 
 /**

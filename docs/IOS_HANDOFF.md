@@ -124,6 +124,10 @@ Until then the link opens in Safari and the waiting app signs in anyway — noth
 Report each as works / fails / not tested:
 
 1. App launches; splash shows the lockup on Parchment, then the sign-in screen with the animated hero.
+   "What is ScriptumIQ?" opens the tour: 14 animated storyboard scenes (one per swipe, the web's
+   "See how it works" ported in `src/storyboard/`), then "What it never does". Only the scene on
+   screen should move; check it stays smooth, and that Settings → Accessibility → Reduce Motion
+   draws every scene still.
 2. Sign in (password, then the emailed link); the app reaches Actions. Kill and relaunch: still signed in.
 3. **Forgot password?** leads to the reset screen; the eye button shows and hides the password; the
    keyboard never covers the field being typed in.
@@ -165,6 +169,14 @@ These are decisions, not code. Raise them; do not resolve them alone.
 6. **EAS or Xcode.** Archiving in Xcode (Product → Archive → Distribute) is enough for TestFlight.
    EAS Build is configured in `apps/mobile/eas.json` but the EAS project is not linked yet
    (`eas init` would add a `projectId` to app.json) — only if the founder wants cloud builds.
+
+7. **Telling subscribers the app is out.** Customers hear about the app by email after they
+   subscribe — but only once it is in a store. The VPS `.env` has `IOS_APP_URL` and
+   `ANDROID_APP_URL`; while both are empty nobody is told. When the App Store listing is live, the
+   founder sets `IOS_APP_URL=https://apps.apple.com/app/id<APP_ID>` and restarts
+   (`docker compose up -d app`): every subscriber not yet told is mailed once within 15 minutes, and
+   scriptumiq.com/app shows the button (`apps/web/src/server/app-mail.ts`, `src/lib/app-links.ts`).
+   Set it only for the public listing, never a TestFlight link: everyone who has paid gets the mail.
 
 ## 8. Working with the Windows machine
 

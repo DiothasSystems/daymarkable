@@ -1,5 +1,6 @@
 import type { Meeting } from "@daymarkable/core";
 import { describe, expect, it } from "vitest";
+import { buildAppMail } from "./appMail.js";
 import { buildAdminCodeMail, buildPasswordChangedMail, buildSetPasswordMail, buildSignInMail } from "./authMail.js";
 import { buildDeliveryMail, buildDeliveryVerificationMail } from "./deliveryMail.js";
 import { buildMeetingMail, meetingSubject } from "./meetingMail.js";
@@ -182,6 +183,27 @@ describe("admin code mail", () => {
     expect(mail.text).toContain("203.0.113.9");
     expect(mail.text).toMatch(/someone has the admin password/i);
     expect(mail.html).not.toMatch(/<img|<table|background(-color)?:/i);
+  });
+});
+
+describe("app mail", () => {
+  const page = "https://scriptumiq.com/app";
+
+  it("lists only the stores that carry the app, and points the other phone at the page", () => {
+    const mail = buildAppMail("a@example.com", "u1", { links: { android: "https://play.google.com/store/apps/details?id=x", ios: null }, pageUrl: page });
+    expect(mail.text).toContain("Android (Google Play)");
+    expect(mail.text).not.toContain("App Store");
+    expect(mail.text).toContain("The iPhone app is on its way");
+    expect(mail.text).toContain(page);
+    expect(mail.idempotencyKey).toBe("app-mail:u1");
+  });
+
+  it("with both stores, says nothing is still to come, and never mentions a price", () => {
+    const mail = buildAppMail("a@example.com", "u1", { links: { android: "https://play.example/a", ios: "https://apps.example/i" }, pageUrl: page });
+    expect(mail.text).toContain("iPhone (App Store)");
+    expect(mail.text).not.toMatch(/on its way/);
+    expect(mail.text).not.toMatch(/\$\d/);
+    expect(mail.html).toContain('href="https://apps.example/i"');
   });
 });
 

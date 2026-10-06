@@ -2,5 +2,6 @@ export * from "./provider.js";
 export * from "./alerting.js";
 export * from "./authMail.js";
 export * from "./billingMail.js";
+export * from "./appMail.js";
 export * from "./meetingMail.js";
 export * from "./deliveryMail.js";

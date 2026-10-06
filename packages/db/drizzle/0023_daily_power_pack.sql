@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "app_mail_sent_at" timestamp with time zone;

@@ -95,6 +95,10 @@ services:
       # The Apple Developer Team ID, 10 characters. Set, the iPhone app opens its own sign-in links
       # (apple-app-site-association, server/aasa.ts); unset, they open in Safari, which still works.
       APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      # The phone app's store listings (https). Until one is set nobody is told about the app; the
+      # first one set mails every subscriber once (server/app-mail.ts), and scriptumiq.com/app shows both.
+      ANDROID_APP_URL: ${ANDROID_APP_URL:-}
+      IOS_APP_URL: ${IOS_APP_URL:-}
       USER_EMAIL: ${USER_EMAIL:?set USER_EMAIL (the registered login address)}
       USER_TIMEZONE: ${USER_TIMEZONE:-America/New_York}
       RMAPI_DEVICE_TOKEN: ${RMAPI_DEVICE_TOKEN:-}
