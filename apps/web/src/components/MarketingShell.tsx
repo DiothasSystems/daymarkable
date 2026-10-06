@@ -18,7 +18,7 @@ export async function MarketingShell({ children }: { children: React.ReactNode }
           <Wordmark size={22} />
         </Link>
         <nav className="nav mk-nav" aria-label="Site">
-          <Link href="/#how">How it works</Link>
+          <Link href="/how-it-works">How it works</Link>
           <Link href="/#pages">Your pages</Link>
           <Link href="/product">Product</Link>
           <Link href="/remarkable">The tablet</Link>

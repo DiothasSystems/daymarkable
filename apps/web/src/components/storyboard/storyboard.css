@@ -1,0 +1,80 @@
+/*
+ * The "How it works" storyboard. Every animation starts from hidden and ends visible, and an
+ * element's resting state is its final state: so with motion turned off (the media query at the
+ * bottom), every frame still shows the whole picture, just still.
+ */
+.sb-phase { margin: 64px 0 20px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.sb-phase:first-child { margin-top: 0; }
+.sb-phase h2 { margin: 0; }
+.sb-phase .when { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.16em; color: var(--gold-text); text-transform: uppercase; }
+
+.sb-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+.sb-frame { background: var(--notepaper); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 2px 8px rgba(30, 42, 68, 0.06); overflow: hidden; display: flex; flex-direction: column; }
+.sb-frame svg { display: block; width: 100%; height: auto; background: var(--parchment); border-bottom: 1px solid var(--border); }
+.sb-frame .sb-copy { padding: 18px 22px 22px; }
+.sb-frame .sb-num { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: var(--gold-text); margin-bottom: 6px; text-transform: uppercase; }
+.sb-frame h3 { font-family: var(--font-display); font-size: 21px; font-weight: 600; margin: 0 0 8px; color: var(--midnight); }
+.sb-frame p { font-size: 15px; line-height: 1.6; color: var(--muted); margin: 0 0 8px; }
+.sb-frame p:last-child { margin-bottom: 0; }
+
+/* A frame left alone on its row (an odd count, or a phase of one) sits centred, not in a half-empty row. */
+.sb-grid > .sb-frame:last-child:nth-child(odd) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 14px); }
+
+@media (max-width: 760px) {
+  .sb-grid { grid-template-columns: 1fr; gap: 20px; }
+  .sb-grid > .sb-frame:last-child:nth-child(odd) { width: auto; justify-self: stretch; }
+  .sb-phase { margin-top: 44px; }
+}
+
+/* ---- the motions ----------------------------------------------------------------------- */
+/* Ink being written: a stroke drawn along its length (each stroke has pathLength="1"). */
+.sb-ink { stroke-dasharray: 1; animation: sb-draw 8s ease-in-out infinite; }
+@keyframes sb-draw {
+  0%, 6% { stroke-dashoffset: 1; }
+  22%, 88% { stroke-dashoffset: 0; }
+  96%, 100% { stroke-dashoffset: 1; }
+}
+/* Something arriving: fades and rises into place. */
+.sb-pop { animation: sb-pop 8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes sb-pop {
+  0%, 8% { opacity: 0; transform: translateY(8px) scale(0.92); }
+  18%, 88% { opacity: 1; transform: none; }
+  96%, 100% { opacity: 0; }
+}
+/* The writing hand: a small to-and-fro while the pen moves. */
+.sb-hand { animation: sb-hand 0.9s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: 0 0; }
+@keyframes sb-hand { from { transform: translate(-3px, 0) rotate(-2deg); } to { transform: translate(3px, 1px) rotate(2deg); } }
+/* A page leaving the tablet for the compass, overnight. */
+.sb-fly { animation: sb-fly 8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes sb-fly {
+  0%, 10% { opacity: 0; transform: translate(0, 0) scale(1); }
+  16% { opacity: 1; }
+  44% { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(0.55); }
+  52%, 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.4); }
+}
+/* The compass at work: a quarter turn, then a rest, like the emblem on the home page. */
+.sb-turn { animation: sb-turn 4s cubic-bezier(0.6, 0, 0.3, 1) infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes sb-turn { 0%, 40% { transform: rotate(0deg); } 60%, 100% { transform: rotate(90deg); } }
+/* A button or a fresh thing asking to be noticed. */
+.sb-pulse { animation: sb-pulse 2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes sb-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+/* Stars, and the screen of a device that is on. */
+.sb-twinkle { animation: sb-twinkle 3s ease-in-out infinite; }
+@keyframes sb-twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+/* Something travelling along a dashed line: pairing, forwarding. */
+.sb-dash { stroke-dasharray: 6 6; animation: sb-dash 1.2s linear infinite; }
+@keyframes sb-dash { to { stroke-dashoffset: -12; } }
+/* An envelope crossing from one side of a frame to the other. */
+.sb-send { animation: sb-send 8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes sb-send {
+  0%, 8% { opacity: 0; transform: translate(0, 0); }
+  14% { opacity: 1; }
+  42% { opacity: 1; transform: translate(var(--dx), var(--dy)); }
+  50%, 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sb-ink, .sb-pop, .sb-hand, .sb-fly, .sb-turn, .sb-pulse, .sb-twinkle, .sb-dash, .sb-send { animation: none !important; }
+  /* A page in flight has nowhere still to be; show the pages at rest on the tablet instead. */
+  .sb-fly, .sb-send { opacity: 0 !important; }
+}

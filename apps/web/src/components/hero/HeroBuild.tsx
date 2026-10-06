@@ -154,7 +154,7 @@ export function HeroBuild() {
           <p className="hb-p">ScriptumIQ reads the notebooks on your reMarkable overnight and hands back your day by morning: action items, meeting notes, and a schedule, loaded onto your tablet and, if you like, sent to your inbox.</p>
           <div className="hb-cta">
             <Link href="/start" className="hb-btn">Start free — 14 days</Link>
-            <a href="#how" className="hb-link">See how it works →</a>
+            <a href="/how-it-works" className="hb-link">See how it works →</a>
           </div>
           <div className="hb-foot">NO APP TO LEARN · YOUR PEN, YOUR PAPER, YOUR HANDWRITING</div>
         </div>

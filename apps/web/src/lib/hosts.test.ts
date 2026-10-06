@@ -32,6 +32,7 @@ describe("two-host routing", () => {
     expect(isPublicPath("/")).toBe(true);
     expect(isPublicPath("/pricing")).toBe(true);
     expect(isPublicPath("/remarkable")).toBe(true);
+    expect(isPublicPath("/how-it-works")).toBe(true);
     expect(isPublicPath("/login")).toBe(true);
     expect(isPublicPath("/today")).toBe(false);
     expect(isServicePath("/today")).toBe(true);
