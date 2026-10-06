@@ -30,7 +30,7 @@ else.
   (bundle id `com.diothassystems.daymarkable`, display name ScriptumIQ, build number, export
   compliance, icon without alpha), and the code has iOS branches (keyboard handling, date pickers),
   but none of it has run on an iPhone.
-- **Tests**: `pnpm --filter @daymarkable/mobile test` (Jest, 14 tests, no device needed) and
+- **Tests**: `pnpm --filter @daymarkable/mobile test` (Jest, 20 tests, no device needed) and
   `pnpm --filter @daymarkable/mobile typecheck`. Both must pass before any commit, as `pnpm test` at
   the root must (it does not touch the phone).
 
