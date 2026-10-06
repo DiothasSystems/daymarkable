@@ -37,9 +37,13 @@ import { BackBar, Button } from "@/components/ui";
 import { useSession } from "@/session";
 import { LOOP_MS, Motion } from "@/storyboard/motion";
 import { FRAME_H, FRAME_W, C } from "@/storyboard/parts";
+import { PROMISES, PromisesPage } from "@/storyboard/promises";
 import { PHASES, SCENES } from "@/storyboard/scenes";
 import { TOUCH_TARGET, color, radius, space, type } from "@/theme";
 import { billingUrl } from "@/webRouting";
+
+/** Every page of the tour: the storyboard's scenes, then what it never does. */
+const STEPS = [...SCENES.map((s) => s.title), PROMISES.title];
 
 export default function Tour() {
   const router = useRouter();
@@ -80,7 +84,7 @@ export default function Tour() {
 
   const goTo = useCallback(
     (i: number) => {
-      const clamped = Math.max(0, Math.min(SCENES.length - 1, i));
+      const clamped = Math.max(0, Math.min(STEPS.length - 1, i));
       scroller.current?.scrollTo({ x: clamped * width, animated: true });
       setPage(clamped);
     },
@@ -97,7 +101,7 @@ export default function Tour() {
     void Linking.openURL(`${siteUrl()}/start`);
   }, [session]);
 
-  const last = page === SCENES.length - 1;
+  const last = page === STEPS.length - 1;
   const artWidth = width - space.xl * 2;
 
   return (
@@ -153,16 +157,22 @@ export default function Tour() {
             </ScrollView>
           );
         })}
+
+        <ScrollView style={{ width }} contentContainerStyle={{ padding: space.xl, paddingTop: space.md }}>
+          <Motion.Provider value={last && !reduceMotion ? clock : null}>
+            <PromisesPage width={artWidth} />
+          </Motion.Provider>
+        </ScrollView>
       </ScrollView>
 
       <View style={{ paddingHorizontal: space.xl, paddingBottom: insets.bottom + space.lg, gap: space.md }}>
         <View style={{ flexDirection: "row", justifyContent: "center", gap: 6 }} accessibilityRole="tablist">
-          {SCENES.map((s, i) => (
+          {STEPS.map((title, i) => (
             <Pressable
-              key={s.title}
+              key={title}
               onPress={() => goTo(i)}
               accessibilityRole="tab"
-              accessibilityLabel={`Step ${i + 1} of ${SCENES.length}: ${s.title}`}
+              accessibilityLabel={`Step ${i + 1} of ${STEPS.length}: ${title}`}
               accessibilityState={{ selected: i === page }}
               hitSlop={6}
               style={{ height: TOUCH_TARGET / 2, justifyContent: "center" }}

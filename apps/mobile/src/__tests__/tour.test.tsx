@@ -48,7 +48,7 @@ describe("the tour", () => {
     jest.spyOn(Animated, "loop").mockReturnValue({ start: jest.fn(), stop: jest.fn(), reset: jest.fn() });
   });
 
-  it("has every scene of the website's storyboard, in order, one per step", async () => {
+  it("has every scene of the website's storyboard, in order, one per step, then the promises", async () => {
     // render is asynchronous in react-native-testing-library v14.
     await render(
       <SafeAreaProvider initialMetrics={metrics}>
@@ -56,13 +56,15 @@ describe("the tour", () => {
       </SafeAreaProvider>,
     );
     expect(SCENES).toHaveLength(14);
-    expect(screen.getAllByRole("tab")).toHaveLength(SCENES.length);
+    expect(screen.getAllByRole("tab")).toHaveLength(SCENES.length + 1);
     expect(screen.getByText("Your invitation")).toBeTruthy();
     expect(screen.getByText("The loop closes")).toBeTruthy();
-    expect(screen.getByLabelText("Step 1 of 14: Your invitation").props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByLabelText("Step 15 of 15: Some promises belong in the code.")).toBeTruthy();
+    expect(screen.getByText("Never logs what your notes say — counts and hashes only")).toBeTruthy();
+    expect(screen.getByLabelText("Step 1 of 15: Your invitation").props.accessibilityState).toMatchObject({ selected: true });
 
     await fireEvent.press(screen.getByText("Next"));
-    expect(screen.getByLabelText("Step 2 of 14: Pair your tablet").props.accessibilityState).toMatchObject({ selected: true });
+    expect(screen.getByLabelText("Step 2 of 15: Pair your tablet").props.accessibilityState).toMatchObject({ selected: true });
     // Someone signed out is asked to register, on every step.
     expect(screen.getByText("Register")).toBeTruthy();
   });
