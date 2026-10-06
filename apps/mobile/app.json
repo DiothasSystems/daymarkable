@@ -20,7 +20,29 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1E2A44"
       },
-      "icon": "./assets/play-store-icon.png"
+      "icon": "./assets/play-store-icon.png",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "scriptumiq.com",
+              "pathPrefix": "/auth/app"
+            },
+            {
+              "scheme": "https",
+              "host": "app.scriptumiq.com",
+              "pathPrefix": "/auth/app"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "plugins": [
       "expo-router",

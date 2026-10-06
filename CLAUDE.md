@@ -327,6 +327,16 @@ unchanged.
     a new password — which is the honest limit of this scheme; what the password adds is that the
     mailbox alone no longer signs anyone in quietly.
 
+    A sign-in asked for from the PHONE APP is mailed a link on `/auth/app` instead, which Android
+    opens in the installed app (an App Link: `intentFilters` in apps/mobile/app.json, verified by
+    `apps/web/public/.well-known/assetlinks.json`, which the proxy must never redirect). The app's
+    `app/auth/app.tsx` spends it by requesting `/auth/verify` — still the one place a session is made —
+    and the waiting sign-in, kept in the keychain (`src/pendingSignIn.ts`) so a closed app can carry
+    on, collects it. Opened anywhere else `/auth/app` simply redirects to `/auth/verify`. A web sign-in
+    keeps `/auth/verify`, so it stays in the browser. assetlinks.json lists the fingerprint of the key
+    the APK is signed with — today React Native's public debug key, as `scripts/android-build.ps1`
+    builds; a store release must be signed with a private key and its fingerprint added there first.
+
 19. **The daily Notes report what was written, not what was a meeting.** Until October 2026 the Notes
     notebook held meetings only — a page counted when the decoder found a meeting title — and a day of
     ordinary writing produced an empty notebook while the same pages filled the Action List. Now each

@@ -76,7 +76,9 @@ export async function requestMagicLink(rawEmail: string, password: string, clien
   const tokenHash = sha256(token);
   await rt.db.insert(schema.loginTokens).values({ tokenHash, email, expiresAt: new Date(Date.now() + LINK_TTL_MS) });
   const pollSecret = mobile ? await startDeviceLogin(rt.db, tokenHash) : undefined;
-  const link = `${publicUrl()}/auth/verify?token=${token}`;
+  // From the app, a link the phone opens IN the app (an App Link on /auth/app, which is /auth/verify
+  // anywhere else); from the web, the plain link, which stays in the browser.
+  const link = `${publicUrl()}/auth/${mobile ? "app" : "verify"}?token=${token}`;
   const res = await rt.mail.send(buildSignInMail(email, link, tokenHash, LINK_TTL_MS / 60_000, resetUrl()));
   if (res.status === "skipped") {
     // No email provider configured. The link goes to the server log so the operator can still

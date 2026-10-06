@@ -57,6 +57,12 @@ describe("two-host routing", () => {
 
   it("serves shared routes on either host", () => {
     expect(crossHostRedirect("scriptumiq.com", "/auth/verify", "?token=t", PUB, SVC)).toBeNull();
+    // The phone app's sign-in link, and the file that lets Android open it in the app: Android
+    // checks assetlinks.json on the exact host the link names and does not follow a redirect.
+    for (const host of ["scriptumiq.com", "app.scriptumiq.com"]) {
+      expect(crossHostRedirect(host, "/auth/app", "?token=t", PUB, SVC)).toBeNull();
+      expect(crossHostRedirect(host, "/.well-known/assetlinks.json", "", PUB, SVC)).toBeNull();
+    }
     expect(crossHostRedirect("app.scriptumiq.com", "/auth/logout", "", PUB, SVC)).toBeNull();
     expect(crossHostRedirect("app.scriptumiq.com", "/api/trpc/documents.list", "", PUB, SVC)).toBeNull();
     expect(crossHostRedirect("scriptumiq.com", "/pricing", "", PUB, SVC)).toBeNull();

@@ -14,6 +14,8 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next internals and static assets (they are served on both hosts).
-  matcher: ["/((?!_next/|hero/|brand/|icon\\.svg|favicon\\.ico).*)"],
+  // Everything except Next internals and static assets (they are served on both hosts). The
+  // .well-known files must never redirect: Android checks assetlinks.json on the exact host a link
+  // names, and does not follow a redirect to find it.
+  matcher: ["/((?!_next/|hero/|brand/|\\.well-known/|icon\\.svg|favicon\\.ico).*)"],
 };

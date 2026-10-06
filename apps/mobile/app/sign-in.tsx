@@ -19,6 +19,7 @@ import Svg, { Circle, Line, Path } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { errorMessage, siteUrl, trpc } from "@/api";
 import { Hero } from "@/components/Hero";
+import { clearPendingSignIn, loadPendingSignIn, savePendingSignIn } from "@/pendingSignIn";
 import { useSession } from "@/session";
 import { TOUCH_TARGET, color, font, radius, space, type } from "@/theme";
 
@@ -53,6 +54,22 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
   const secret = useRef<string | null>(null);
   const deadline = useRef(0);
+
+  // A sign-in already waiting for its link — the app was closed while its owner opened their mail,
+  // or the link itself just opened the app (app/auth/app.tsx) — carries on rather than starting over.
+  useEffect(() => {
+    let live = true;
+    void loadPendingSignIn().then((p) => {
+      if (!live || !p) return;
+      secret.current = p.pollSecret;
+      deadline.current = p.deadline;
+      setEmail(p.email);
+      setStage("waiting");
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   /*
    * Keeping the field being typed in above the keyboard. Android draws edge to edge now, so the
@@ -108,6 +125,8 @@ export default function SignIn() {
       }
       secret.current = r.pollSecret ?? null;
       deadline.current = Date.now() + DEADLINE_MS;
+      // Kept in the keychain too: the link opens in this app, which Android may have closed meanwhile.
+      if (secret.current) await savePendingSignIn({ pollSecret: secret.current, deadline: deadline.current, email: address });
       setStage(secret.current ? "waiting" : "timeout");
     } catch (err) {
       setError(errorMessage(err));
@@ -138,6 +157,7 @@ export default function SignIn() {
     const tick = async () => {
       if (!live || !secret.current) return;
       if (Date.now() > deadline.current) {
+        void clearPendingSignIn();
         setStage("timeout");
         return;
       }
@@ -145,11 +165,13 @@ export default function SignIn() {
         const r = await trpc.auth.claim.mutate({ pollSecret: secret.current });
         if (!live) return;
         if (r.status === "ready") {
+          await clearPendingSignIn();
           await signIn(r.sessionId);
           router.replace("/");
           return;
         }
         if (r.status === "expired") {
+          void clearPendingSignIn();
           setStage("timeout");
           return;
         }
@@ -172,6 +194,7 @@ export default function SignIn() {
    */
   const backTo = useCallback((next: "form" | "reset", keepAddress: boolean) => {
     secret.current = null;
+    void clearPendingSignIn();
     if (!keepAddress) setEmail("");
     setPassword("");
     setError(null);
