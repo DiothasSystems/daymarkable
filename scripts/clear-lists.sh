@@ -5,7 +5,7 @@
 #
 # DELETED: tasks, events, meetings, meeting requests, inbox items, and the doc/page snapshots.
 #          Dropping `runs` also clears each run's costs, printed item codes and cached documents,
-#          and is what makes the next run count as a first run (7-day lookback).
+#          and is what makes the next run count as a first run (reads the previous day only).
 # KEPT:    your account, the tablet pairing, the handwriting calibration sample, the lexicon,
 #          your corrections, and feedback ratings.
 #

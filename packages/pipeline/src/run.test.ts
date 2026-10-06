@@ -405,9 +405,11 @@ describe("selection and windows", () => {
     const w = changeWindowStart("2026-09-02", "America/New_York", new Date("2026-09-01T07:00:00Z"));
     expect(w.toISO()).toBe("2026-09-01T00:00:00.000-04:00");
   });
-  it("looks back a week on the very first run, so the first planner is not empty", () => {
+  it("reads only the previous day on the very first run, not a week of history", () => {
+    // A new account's first night is a night like any other: the trial shows the product on what is
+    // written next, and older notebooks are baselined until they change.
     const first = changeWindowStart("2026-09-02", "America/New_York", null);
-    expect(first.toISO()).toBe("2026-08-26T00:00:00.000-04:00");
+    expect(first.toISO()).toBe("2026-09-01T00:00:00.000-04:00");
     // An explicit override still wins.
     expect(changeWindowStart("2026-09-02", "America/New_York", null, 48).toUTC() <= DateTime.utc().minus({ hours: 47 })).toBe(true);
   });

@@ -285,8 +285,15 @@ const ARCHIVE_DAYS = 7;
  * and in the app either way, so suppressing the mail loses nothing but the noise.
  */
 export const MAX_MEETING_EMAILS_PER_RUN = 6;
-/** How far the very first run for an account looks back (see changeWindowStart). */
-export const FIRST_RUN_LOOKBACK_DAYS = 7;
+/**
+ * How far the very first run for an account looks back (see changeWindowStart): the day before, the
+ * same as every night after it. It was a week until October 2026, which made a new account's first
+ * night read a week of old writing at once — the most expensive run it would ever have, and a
+ * planner full of history — while the 14-day free trial already gives a customer time to see the
+ * product work on what they write next. Notebooks not written in that day are recorded, not read,
+ * and decode the first time they change.
+ */
+export const FIRST_RUN_LOOKBACK_DAYS = 1;
 
 /**
  * The overnight brief. Never throws: a night without news is a night without news, and failing the
@@ -510,8 +517,8 @@ export function changeWindowStart(localDate: string, timezone: string, lastSucce
   const midnight = DateTime.fromISO(localDate, { zone: timezone }).startOf("day");
   const base = midnight.minus({ days: 1 });
   if (windowHours !== undefined) return DateTime.utc().minus({ hours: windowHours });
-  // No successful run yet means no snapshots exist, so a fresh account starts from a week of
-  // notes rather than a single day — otherwise the first planner is nearly empty.
+  // No successful run yet means no snapshots exist. A new account starts from the same day as any
+  // other night (FIRST_RUN_LOOKBACK_DAYS), and its older notebooks are baselined, not read.
   if (!lastSuccessStartedAt) return midnight.minus({ days: FIRST_RUN_LOOKBACK_DAYS });
   const last = DateTime.fromJSDate(lastSuccessStartedAt).minus({ hours: 1 });
   return last < base ? last : base; // catch-up after a missed night
@@ -630,7 +637,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     stats.docsSeen = candidates.length;
     const snapshots = await repo.loadDocSnapshots(db, user.id);
     const windowStart = changeWindowStart(localDate, tz, lastSuccess?.startedAt ?? null, params.windowHours);
-    const windowWhy = params.windowHours !== undefined ? ` (${params.windowHours}h override)` : lastSuccess ? "" : ` (first run: ${FIRST_RUN_LOOKBACK_DAYS}-day lookback)`;
+    const windowWhy = params.windowHours !== undefined ? ` (${params.windowHours}h override)` : lastSuccess ? "" : " (first run: the previous day only)";
     log(`sync: ${tree.documents.length} documents, ${candidates.length} watched; window opens ${windowStart.toISO()}${windowWhy}`);
 
     const downloaded: Array<{ doc: DownloadedDocument; changedPageIds: string[] }> = [];

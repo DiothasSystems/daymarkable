@@ -296,8 +296,8 @@ do nothing.
 - [ ] **E6. Email preferences.** Keep "one email per decoded meeting" on. *Save*, then
       *Finish setup*.
 - [ ] **E7. First sync.** On the *Today* page press **Sync now**. Your very first run reads
-      everything you wrote in the **last 7 days**, so the first planner arrives with real
-      content; every run after that reads only what changed since the previous day. Two or
+      what you wrote **yesterday and today**, the same window as every night after it; older
+      notebooks are recorded, not read, and are read the next time you write in them. Two or
       three minutes later the page refreshes.
 
       Cost note: decoding runs about three to five cents a page, so a busy week might cost a

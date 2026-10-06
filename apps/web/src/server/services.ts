@@ -422,7 +422,7 @@ export async function createCalibrationSheet(userId: string, profile: WriterProf
 /**
  * Read the written sample now, on the user's say-so, rather than waiting for a sync: download
  * the sheet, render it, transcribe it, score it against the passage we asked for, and store it.
- * On success the very first extraction (7-day lookback) is started so the user gets their
+ * On success the very first extraction (the previous day's writing) is started so the user gets their
  * lists immediately after calibrating.
  */
 export async function calibrateNow(userId: string) {
