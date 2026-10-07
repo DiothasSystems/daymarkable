@@ -1,6 +1,6 @@
 import "server-only";
 import { and, desc, eq, inArray, isNull, schema, sql, type UserSettings } from "@daymarkable/db";
-import { actionBuckets, buildDailyNotes, nextOccurrence, parseTypedDate, occurrencesInRange, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
+import { NEWS_TOPICS, actionBuckets, buildDailyNotes, chosenTopicIds, nextOccurrence, parseTypedDate, occurrencesInRange, type DecisionAction, type DecisionItemType } from "@daymarkable/core";
 import { CONVENTION_CATALOG, anthropicClient, generateCalibrationPassage, learnedTerms, transcribePage, transcriptionAccuracy, validateConventions } from "@daymarkable/decode";
 import { CALIBRATION_MIN_ACCURACY, CALIBRATION_NOTEBOOK, HttpRenderer, QuotaExhaustedError, ROOT_FOLDER, RunInProgressError, createItem as addItem, getItem as readItem, updateItem as editItem, getOnDemandQuota, isOurDocument, outputFolderFor, repo, republishNotebooks, startOnDemandSync, tabletFor, type ItemEdit, type NewItem, type QuotaStatus } from "@daymarkable/pipeline";
 import { composeCalibrationSheet } from "@daymarkable/compose";
@@ -22,7 +22,8 @@ export const settingsPatchSchema = z.object({
   email: z.object({ meetingNotes: z.boolean() }).optional(),
   deliveryDocuments: z.object({ planner: z.boolean(), actionList: z.boolean(), meetingNotes: z.boolean() }).optional(),
   weeklyNotesArchive: z.boolean().optional(),
-  dailyUpdate: z.object({ enabled: z.boolean(), topics: z.array(z.string().max(80)).max(5) }).optional(),
+  // Topic ids from the fixed list (core newsTopics.ts); anything else is dropped on save.
+  dailyUpdate: z.object({ enabled: z.boolean(), topics: z.array(z.string().max(40)).max(NEWS_TOPICS.length) }).optional(),
   dailyPuzzle: z.object({ enabled: z.boolean() }).optional(),
 });
 
@@ -49,6 +50,8 @@ export async function getAccount(userId: string) {
     tablet: cred ? { paired: true as const, pairedAt: cred.pairedAt, lastOkAt: cred.lastOkAt, lastError: cred.lastError } : { paired: false as const },
     quota,
     conventionCatalog: CONVENTION_CATALOG,
+    /** The Daily Update's fixed topic list, for the picker. What each covers stays on the server. */
+    newsTopics: NEWS_TOPICS.map(({ id, label, group }) => ({ id, label, group })),
     /** Null until the customer asks for one — see rotateCalendarAddress. */
     calendarAddress: calendarAddress(user.calendarToken),
     /** When the password was last set, or null if it never was. Never the hash itself. */
@@ -82,7 +85,7 @@ export async function updateSettings(userId: string, patch: SettingsPatch) {
   if (patch.email) next.email = patch.email;
   if (patch.deliveryDocuments) next.deliveryDocuments = patch.deliveryDocuments;
   if (patch.weeklyNotesArchive !== undefined) next.weeklyNotesArchive = patch.weeklyNotesArchive;
-  if (patch.dailyUpdate) next.dailyUpdate = { enabled: patch.dailyUpdate.enabled, topics: patch.dailyUpdate.topics.map((t) => t.trim()).filter(Boolean) };
+  if (patch.dailyUpdate) next.dailyUpdate = { enabled: patch.dailyUpdate.enabled, topics: chosenTopicIds(patch.dailyUpdate.topics) };
   if (patch.dailyPuzzle) next.dailyPuzzle = { enabled: patch.dailyPuzzle.enabled };
   await rt.db.update(schema.users).set({ settings: next, updatedAt: new Date() }).where(eq(schema.users.id, userId));
   return next;

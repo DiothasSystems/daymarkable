@@ -32,12 +32,12 @@ unchanged.
   - `packages/decode` — Claude Batch API client, extraction prompt, zod schemas for the
     structured output. Reading a page happens here and nowhere else.
   - `packages/news` — the Claude calls that are not reading a page: the overnight news brief
-    (web-search tool, one request per run, headlines and summaries for the topics the customer
-    typed) and the crossword's answers and clues (`clues.ts`). The SECOND package
+    (web-search tool: one shared EDITION a night for a fixed topic list, see rule 20) and the
+    crossword's answers and clues (`clues.ts`). The SECOND package
     permitted to call Anthropic, amended on 2026-09-17 — the constraint exists to keep Anthropic
     access auditable in known places, and folding news gathering into the decoder would have made
     the decoder about two things. Any third caller needs the same explicit decision. The brief is
-    per customer; the crossword words are per DAY (see rule 16) and asked for in batches of 40,
+    per EDITION (rule 20); the crossword words are per DAY (see rule 16) and asked for in batches of 40,
     because one call for 130 answers returned 1496 entries on one attempt and unparseable output on
     the next.
   - `packages/puzzles` — sudoku, word-search and crossword generation, pure and deterministic,
@@ -267,6 +267,13 @@ unchanged.
     drawdown) still count it, because the money was still spent, and `/admin/expenses` lists it on
     its own row — so the per-account rows deliberately do not sum to the month's total.
 
+    An account is charged for ONE thing: reading its notebook pages, `stage = 'decode'`. Per-account
+    figures on the admin portal go through `accountCost` (web server/ops.ts), which names the stage as
+    well as the user, because before rule 20 each customer's own brief was booked to them as stage
+    "news" and those rows still exist; the house rows on /admin/expenses take everything else, old
+    briefs included, so the two together still make the month. The shared edition's own cost is on
+    /admin/tokens, as an average per day.
+
 17. **Forwarded invites: the address identifies, the sender authorises.** A customer forwards a
     meeting from Outlook or Google to `<token>@cal.scriptumiq.com` and it lands on their planner.
     NO mailbox is provisioned per account — one MX and one webhook serve everybody, and
@@ -377,6 +384,30 @@ unchanged.
     include what we printed; and their readings are not stored, since tomorrow's Planner is a new
     document with new ids.
 
+20. **The Daily Update is one edition a night, not one search per customer.** Until October 2026 each
+    customer typed up to five topics and got a search of their own, about $0.09 a customer a night —
+    a cost that grew with every subscriber. Now the topics are a FIXED list, `NEWS_TOPICS` in
+    `packages/core/newsTopics.ts` (36 across Technology, Business, World and society, Pop culture
+    and Sports), and the night's brief is written ONCE for all of them by `gatherEdition`
+    (packages/news): six topics to a request, in parallel, one web search per topic, three
+    headlines each. The first run of a local date that needs it writes it and stores it in
+    `daily_briefs` (local date, edition); every other run that night reads that row, so the cost is
+    fixed — estimated $0.65 a night — however many customers there are, and a retried night prints
+    the same headlines (rule 4). Like the crossword it is booked to the HOUSE (rule 16). A failed
+    edition is not stored, so the next run of the night tries again; a partial one is, and a ticked
+    topic whose request failed prints as a quiet night.
+
+    Each customer's Daily Update is the slice they ticked, in the list's order
+    (`chosenTopicIds`); settings store topic IDS, which therefore never change once shipped. Nothing
+    a customer types reaches the prompt. The free-text topics saved before this are not on the list
+    and are ignored until the customer picks again. The feature starts OFF for a new account, and the
+    setup and settings pages show the topic list only once it is switched on.
+
+    Editions are regional (`editionFor`, by the account's timezone). Only the US edition exists — the
+    founder's decision of 2026-10-07: a Europe edition (football in place of the US leagues, the ECB
+    and European markets) waits for production and enough European subscribers to justify a second
+    nightly cost. Adding one means its own sports and `brief` lines, an "eu" answer from
+    `editionFor`, and a region passed to `gatherEdition`.
 
 ## Testing
 
@@ -426,8 +457,10 @@ five topics: $0.0909 a night, of which $0.05 is the five search fees and most of
 input tokens of results. Two things got it there from $0.1873 for a SINGLE topic on Sonnet: one
 search per topic instead of a flat eight (`MAX_SEARCHES`), and no prompt cache — a 1h cache cannot be
 read by a nightly job, so every night paid a cache write at 2x input and never read it back ($0.1230
-cached vs $0.0909 uncached, same brief). Re-measure with `pnpm news:cost` before committing to a
-price; at $10/month a daily brief is about 28% of one subscription.
+cached vs $0.0909 uncached, same brief). That was a brief PER CUSTOMER, about 28% of a $10/month
+subscription; since October 2026 there is one edition a night for everybody (rule 20), estimated
+from those figures at about $0.018 a topic, $0.65 a night for 36 topics. `pnpm news:cost` writes a
+real edition and reports what it cost — run it before committing to a price.
 
 ## Per-user accuracy
 

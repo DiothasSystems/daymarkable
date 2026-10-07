@@ -365,33 +365,43 @@ export function DeliveryEmail({
 
 // ------------------------------------------------------------ the two daily extras
 
-/** The most topics honoured; matches packages/news so the form cannot promise more than it does. */
-const MAX_TOPICS = 5;
-
 /**
- * The overnight news brief. Topics are free text because that is the point — "broadband hardware",
- * "the school board", "Arsenal" — and they are searched as written rather than matched to a menu.
+ * The overnight news brief. The topics are a fixed list (packages/core newsTopics.ts): one brief is
+ * written each night for all of them and every customer's Daily Update is cut from it, which keeps
+ * the night's cost the same however many customers there are.
+ *
+ * The list is shown only once the brief is switched on — 36 checkboxes are a lot to put in front of
+ * someone who has not said they want news — and switching it off hides the list without forgetting
+ * what was ticked.
  */
-export function DailyUpdateSettings({ initial }: { initial: { enabled: boolean; topics: string[] } }) {
+export function DailyUpdateSettings({
+  initial,
+  topics,
+}: {
+  initial: { enabled: boolean; topics: string[] };
+  topics: Array<{ id: string; label: string; group: string }>;
+}) {
   const [on, setOn] = useState(initial.enabled);
-  const [topics, setTopics] = useState<string[]>(() => {
-    const t = [...initial.topics];
-    while (t.length < 3) t.push("");
-    return t;
-  });
+  // Only ids on the list: a free-text topic saved before October 2026 is not one, and is dropped.
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(initial.topics.filter((t) => topics.some((x) => x.id === t))));
   const { state, error, save } = useSaver(async () =>
-    trpc.account.updateSettings.mutate({
-      dailyUpdate: { enabled: on, topics: topics.map((t) => t.trim()).filter(Boolean).slice(0, MAX_TOPICS) },
-    }),
+    trpc.account.updateSettings.mutate({ dailyUpdate: { enabled: on, topics: topics.filter((t) => chosen.has(t.id)).map((t) => t.id) } }),
   );
-  const filled = topics.filter((t) => t.trim()).length;
+  const groups = [...new Set(topics.map((t) => t.group))];
+  const toggle = (id: string) =>
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <div className="stack">
       <p className="muted" style={{ fontSize: 14 }}>
-        Overnight, ScriptumIQ searches the news for the subjects you follow and writes a short brief — a few
-        headlines each, a sentence or two apiece. It arrives on your tablet with everything else, so it is there
-        with your coffee rather than in a feed.
+        Overnight, ScriptumIQ reads the news and writes a short brief — three headlines for each topic you follow, a
+        sentence or two apiece. It arrives on your tablet with everything else, so it is there with your coffee rather
+        than in a feed.
       </p>
       <label className="check">
         <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} />
@@ -401,48 +411,33 @@ export function DailyUpdateSettings({ initial }: { initial: { enabled: boolean; 
         </span>
       </label>
       {on ? (
-        <div className="field">
-          <label htmlFor="topic-0">What do you follow?</label>
-          <div className="hint" style={{ marginBottom: 8 }}>
-            Anything you would type into a search box. Work, business or personal — they sit in separate sections in
-            the order you list them. {MAX_TOPICS} at most, because more than that and no topic gets enough of the page
-            to be worth reading.
+        <fieldset className="field" style={{ border: 0, padding: 0, margin: 0 }}>
+          <legend style={{ fontWeight: 600, marginBottom: 4 }}>Which topics?</legend>
+          <div className="hint" style={{ marginBottom: 12 }}>
+            Tick as many as you like. They print in this order, a section each.
+            {chosen.size ? ` ${chosen.size} chosen.` : ""}
           </div>
-          <div className="stack" style={{ gap: 8 }}>
-            {topics.map((topic, i) => (
-              <div key={i} className="row" style={{ gap: 8 }}>
-                <input
-                  id={`topic-${i}`}
-                  type="text"
-                  style={{ flex: 1 }}
-                  maxLength={80}
-                  placeholder={i === 0 ? "e.g. broadband hardware" : i === 1 ? "e.g. my industry, my company, a competitor" : "e.g. a team, a city, a hobby"}
-                  value={topic}
-                  onChange={(e) => setTopics((v) => v.map((t, j) => (j === i ? e.target.value : t)))}
-                  aria-label={`Topic ${i + 1}`}
-                />
-                <button
-                  className="tertiary small"
-                  type="button"
-                  onClick={() => setTopics((v) => (v.length > 1 ? v.filter((_, j) => j !== i) : [""]))}
-                  aria-label={`Remove topic ${i + 1}`}
-                >
-                  Remove
-                </button>
+          <div className="topic-groups">
+            {groups.map((g) => (
+              <div key={g}>
+                <div className="topic-group">{g}</div>
+                {topics
+                  .filter((t) => t.group === g)
+                  .map((t) => (
+                    <label key={t.id} className="check" style={{ marginBottom: 6 }}>
+                      <input type="checkbox" checked={chosen.has(t.id)} onChange={() => toggle(t.id)} />
+                      <span>{t.label}</span>
+                    </label>
+                  ))}
               </div>
             ))}
           </div>
-          {topics.length < MAX_TOPICS ? (
-            <div className="row" style={{ marginTop: 8 }}>
-              <button className="secondary small" type="button" onClick={() => setTopics((v) => [...v, ""])}>Add another topic</button>
-            </div>
-          ) : null}
-          {filled === 0 ? (
+          {chosen.size === 0 ? (
             <div className="hint" style={{ marginTop: 8 }}>
-              With no topics there is nothing to search for, so no brief is written. Add at least one.
+              With no topics ticked there is nothing to print, so no brief arrives. Tick at least one.
             </div>
           ) : null}
-        </div>
+        </fieldset>
       ) : null}
       <div className="row">
         <button onClick={() => void save(undefined)} disabled={state === "saving"}>Save</button>

@@ -9,7 +9,7 @@
 import "server-only";
 import os from "node:os";
 import { statfs } from "node:fs/promises";
-import { and, desc, eq, gte, isNotNull, isNull, schema, sql } from "@daymarkable/db";
+import { and, desc, eq, gte, isNotNull, isNull, ne, or, schema, sql } from "@daymarkable/db";
 import { ESCALATION_THRESHOLD_MAX, ESCALATION_THRESHOLD_MIN, clampEscalationThreshold } from "@daymarkable/decode";
 import { describeOptions, type OptionGroup } from "./admin-core";
 import {
@@ -144,6 +144,44 @@ export async function setDefaultEscalationThreshold(value: number): Promise<{ ok
 }
 
 // ---------------------------------------------------------------- spend
+
+/**
+ * The one stage an ACCOUNT is charged for: reading its notebook pages. Everything else — the
+ * nightly news edition, the crossword's words — is shared by every subscriber and is the house's
+ * (rules 16 and 20). Rows from before October 2026 booked each customer's own brief to them as stage
+ * "news"; naming the stage, rather than relying on user_id alone, keeps those out of the per-account
+ * figures too.
+ */
+export const ACCOUNT_STAGE = "decode";
+
+/** run_costs rows that are this account's page reading, and nothing shared. */
+export function accountCost(userId: string) {
+  return and(eq(schema.runCosts.userId, userId), eq(schema.runCosts.stage, ACCOUNT_STAGE))!;
+}
+
+/** What the night's news edition cost, per UTC day it was paid, and the average day. */
+export interface HeadlineSpend {
+  days: DailySpend[];
+  /** Mean over the days that wrote an edition (a night nobody needed one costs nothing and is left out). */
+  avgPerDayUsd: number;
+  lastDay: DailySpend | null;
+  /** The mean, taken over a 30-day month. */
+  projectedMonthUsd: number;
+}
+
+export async function headlineSpend(sinceDays = 30): Promise<HeadlineSpend> {
+  const rt = await getRuntime();
+  const since = DateTime.utc().minus({ days: sinceDays }).startOf("day").toJSDate();
+  const rows = await rt.db
+    .select({ day: sql<string>`to_char(date_trunc('day', ${schema.runCosts.createdAt}), 'YYYY-MM-DD')`, usd: sql<string>`sum(${schema.runCosts.costUsd})` })
+    .from(schema.runCosts)
+    .where(and(eq(schema.runCosts.stage, "news"), gte(schema.runCosts.createdAt, since)))
+    .groupBy(sql`date_trunc('day', ${schema.runCosts.createdAt})`)
+    .orderBy(sql`date_trunc('day', ${schema.runCosts.createdAt}) desc`);
+  const days = rows.map((r) => ({ day: r.day, usd: Number(r.usd) }));
+  const avg = days.length ? days.reduce((n, d) => n + d.usd, 0) / days.length : 0;
+  return { days, avgPerDayUsd: avg, lastDay: days[0] ?? null, projectedMonthUsd: avg * 30 };
+}
 
 /** Dollars per UTC day over the trailing window, newest first. */
 export async function dailySpend(days = 30): Promise<DailySpend[]> {
@@ -445,13 +483,15 @@ export async function expenseSummary(): Promise<ExpenseSummary> {
     })
     .from(schema.runCosts)
     .innerJoin(schema.users, eq(schema.users.id, schema.runCosts.userId))
-    .where(gte(schema.runCosts.createdAt, monthStart))
+    .where(and(eq(schema.runCosts.stage, ACCOUNT_STAGE), gte(schema.runCosts.createdAt, monthStart)))
     .groupBy(schema.runCosts.userId, schema.users.email, schema.users.plan)
     .orderBy(sql`sum(${schema.runCosts.costUsd}) desc`);
   const house = await rt.db
     .select({ stage: schema.runCosts.stage, usd: sql<string>`sum(${schema.runCosts.costUsd})` })
     .from(schema.runCosts)
-    .where(and(isNull(schema.runCosts.userId), gte(schema.runCosts.createdAt, monthStart)))
+    // Everything that is not an account's page reading, including the per-customer briefs booked
+    // to accounts before October 2026, so the house rows plus the account rows still make the month.
+    .where(and(or(isNull(schema.runCosts.userId), ne(schema.runCosts.stage, ACCOUNT_STAGE)), gte(schema.runCosts.createdAt, monthStart)))
     .groupBy(schema.runCosts.stage)
     .orderBy(sql`sum(${schema.runCosts.costUsd}) desc`);
   return {
@@ -506,7 +546,7 @@ export async function userDailyCosts(userId: string, days = 30): Promise<UserDay
     // Joined on the COST's owner as well as the run's. Without the second condition a house cost —
     // the shared crossword, paid for by whichever run reached midnight first — would be counted
     // against that customer here, which is the distortion booking it to the house exists to avoid.
-    .leftJoin(schema.runCosts, and(eq(schema.runCosts.runId, schema.runs.id), eq(schema.runCosts.userId, userId)))
+    .leftJoin(schema.runCosts, and(eq(schema.runCosts.runId, schema.runs.id), accountCost(userId)))
     .where(eq(schema.runs.userId, userId))
     .groupBy(schema.runs.localDate)
     .orderBy(desc(schema.runs.localDate))
@@ -568,7 +608,7 @@ export async function userOpsFacts(userId: string): Promise<UserOpsFacts> {
       days: sql<string>`greatest(count(distinct date_trunc('day', ${schema.runCosts.createdAt})), 1)`,
     })
     .from(schema.runCosts)
-    .where(eq(schema.runCosts.userId, userId));
+    .where(accountCost(userId));
   return {
     confidenceAvg: items > 0 ? Number(confidence[0]!.sum) / items : null,
     confidenceItems: items,
@@ -633,7 +673,7 @@ export async function tokensPerDayByUser(): Promise<Map<string, number>> {
     })
     .from(schema.runCosts)
     // House spend has no user, and a null key in a per-user map is a bug waiting to be indexed.
-    .where(isNotNull(schema.runCosts.userId))
+    .where(and(isNotNull(schema.runCosts.userId), eq(schema.runCosts.stage, ACCOUNT_STAGE)))
     .groupBy(schema.runCosts.userId);
   return new Map(rows.map((r) => [r.userId!, Number(r.tokens) / Number(r.days)] as const));
 }

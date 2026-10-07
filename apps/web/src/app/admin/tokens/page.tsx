@@ -1,7 +1,7 @@
 import { AdminShell } from "@/components/AdminShell";
 import { fmtDateTime, fmtUsd } from "@/lib/format";
 import { requireAdmin } from "@/server/admin-guard";
-import { tokenPlan } from "@/server/ops";
+import { headlineSpend, tokenPlan } from "@/server/ops";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin · Tokens" };
@@ -15,7 +15,7 @@ function tokens(n: number): string {
 export default async function AdminTokens({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
   const session = await requireAdmin();
   const { error, saved } = await searchParams;
-  const plan = await tokenPlan();
+  const [plan, headlines] = await Promise.all([tokenPlan(), headlineSpend(30)]);
   const s = plan.settings;
   const runway = plan.runwayDays;
   const low = runway !== null && runway <= s.warnDays;
@@ -135,8 +135,8 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
       <div className="card" style={{ marginBottom: 24 }}>
         <p className="kicker">Daily extras · for new accounts</p>
         <p className="muted" style={{ fontSize: 13 }}>
-          The brief costs a web search per topic plus tokens, every night, whether or not the customer wrote anything —
-          it is the only thing here that does. The puzzle is generated locally and costs nothing at all, so switch that
+          The brief is one shared edition a night (see Daily headlines above), so this switch no longer saves money per
+          account; it only decides whether a new account starts with the brief offered. The puzzle is generated locally and costs nothing at all, so switch that
           off only if it is unwanted rather than because of money.
         </p>
         <p className="muted" style={{ fontSize: 13 }}>
@@ -146,7 +146,7 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
         <form action="/admin/api/ops/features" method="post" className="stack">
           <label className="check">
             <input type="checkbox" name="news" defaultChecked={s.newsForNewUsers} />
-            <span>New accounts get the daily brief<div className="hint">Costs a web search per topic each night.</div></span>
+            <span>New accounts get the daily brief<div className="hint">Every new account now starts with the brief off and opts in at setup, so unticking this changes nothing for them.</div></span>
           </label>
           <label className="check">
             <input type="checkbox" name="puzzle" defaultChecked={s.puzzleForNewUsers} />
@@ -154,6 +154,33 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
           </label>
           <div className="row"><button type="submit">Save</button></div>
         </form>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <p className="kicker">Daily headlines · compiling the night's edition</p>
+        <p className="muted" style={{ fontSize: 13 }}>
+          One news edition is written a night for every topic on the list and shared by every subscriber who takes the
+          Daily Update, so this is a fixed cost: it does not grow with customers, and it is booked to the house rather
+          than to anyone's account. Estimated at about $0.65 a night for 36 topics; <code>pnpm news:cost</code> writes
+          one and measures it. A night when nobody wanted a brief writes none and costs nothing.
+        </p>
+        <div className="grid three" style={{ marginTop: 12 }}>
+          <div>
+            <div className="meta">Average per day</div>
+            <div className="stat">{headlines.days.length ? fmtUsd(headlines.avgPerDayUsd) : "—"}</div>
+            <div className="meta">over {headlines.days.length} day{headlines.days.length === 1 ? "" : "s"} with an edition, last 30</div>
+          </div>
+          <div>
+            <div className="meta">Last edition</div>
+            <div className="stat">{headlines.lastDay ? fmtUsd(headlines.lastDay.usd) : "—"}</div>
+            <div className="meta">{headlines.lastDay ? `${headlines.lastDay.day} (UTC)` : "none written yet"}</div>
+          </div>
+          <div>
+            <div className="meta">Month at this average</div>
+            <div className="stat">{headlines.days.length ? fmtUsd(headlines.projectedMonthUsd) : "—"}</div>
+            <div className="meta">30 nights</div>
+          </div>
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 24 }}>

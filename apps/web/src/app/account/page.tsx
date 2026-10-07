@@ -87,7 +87,7 @@ export default async function AccountPage() {
         </section>
         <section className="card">
           <h2>Daily Update</h2>
-          <DailyUpdateSettings initial={account.settings.dailyUpdate} />
+          <DailyUpdateSettings initial={account.settings.dailyUpdate} topics={account.newsTopics} />
         </section>
         <section className="card">
           <h2>Daily Puzzle</h2>

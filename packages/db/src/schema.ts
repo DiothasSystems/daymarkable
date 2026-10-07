@@ -866,3 +866,23 @@ export const dailyPuzzles = pgTable(
   },
   (t) => [primaryKey({ columns: [t.localDate, t.kind] })],
 );
+
+/**
+ * The night's news brief, one per (local date, edition), shared by every subscriber who reads that
+ * edition (packages/core newsTopics.ts). Written by the first run of the date that needs it, read by
+ * every run after — which is also what makes a retried night print the same headlines (rule 4).
+ * Public news, not customer content: nothing here came from anyone's pages.
+ */
+export const dailyBriefs = pgTable(
+  "daily_briefs",
+  {
+    localDate: text("local_date").notNull(),
+    edition: text("edition").notNull(),
+    sections: jsonb("sections")
+      .$type<Array<{ topicId: string; items: Array<{ headline: string; summary: string; source: string | null }> }>>()
+      .notNull(),
+    model: text("model").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.localDate, t.edition] })],
+);

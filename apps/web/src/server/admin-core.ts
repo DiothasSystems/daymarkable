@@ -6,6 +6,7 @@
  */
 import { createHmac, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
+import { chosenTopicIds, newsTopic } from "@daymarkable/core";
 import { ESCALATION_THRESHOLD_MAX, ESCALATION_THRESHOLD_MIN } from "@daymarkable/decode";
 
 export const ADMIN_SESSION_TTL_MS = 60 * 60_000; // one hour, then log in again
@@ -260,7 +261,8 @@ const onOff = (b: boolean | undefined): string => (b ? "On" : "Off");
  * to see a preference is a different thing from being able to change it. Nothing here edits.
  */
 export function describeOptions(s: OptionSettings): OptionGroup[] {
-  const topics = s.dailyUpdate?.topics ?? [];
+  // Labels, from the fixed list; a free-text topic saved before October 2026 is not on it and is not read.
+  const topics = chosenTopicIds(s.dailyUpdate?.topics ?? []).map((id) => newsTopic(id)!.label);
   const delivery = s.deliveryDocuments;
   const attached = delivery
     ? [delivery.planner ? "planner" : null, delivery.actionList ? "action list" : null, delivery.meetingNotes ? "notes" : null].filter(Boolean)
@@ -280,7 +282,7 @@ export function describeOptions(s: OptionSettings): OptionGroup[] {
           detail: s.dailyUpdate?.enabled
             ? topics.length
               ? `${topics.length} topic${topics.length === 1 ? "" : "s"}: ${topics.join(", ")}`
-              : "no topics set — nothing is produced"
+              : "no topics chosen — nothing is produced"
             : undefined,
         },
         { label: "Daily puzzle", value: onOff(s.dailyPuzzle?.enabled), on: s.dailyPuzzle?.enabled ?? false },

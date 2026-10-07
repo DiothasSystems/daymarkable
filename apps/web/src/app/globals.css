@@ -120,6 +120,11 @@ label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; }
 .check input { width: 16px; height: 16px; accent-color: var(--gold); }
 .field { margin-bottom: 14px; }
 .hint { font-size: 13px; color: var(--muted); margin-top: 4px; }
+/* The Daily Update's topic picker: groups side by side where there is room, compact rows inside. */
+.topic-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px 20px; }
+.topic-group { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--meta, #8A7D5F); margin: 4px 0 4px; }
+.topic-groups .check { padding: 6px 0; border-bottom: 0; align-items: flex-start; }
+.topic-groups .check input { margin-top: 2px; flex: none; }
 
 /* Lists */
 .list { list-style: none; padding: 0; margin: 0; }

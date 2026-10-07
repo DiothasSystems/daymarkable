@@ -29,7 +29,7 @@ import { getRuntime } from "./runtime";
 import { audit, clientIp } from "./audit";
 import { billingConfigured, cancelSubscription, refundAmount, subscriptionSnapshot } from "./billing";
 import { proratedRefund } from "./finance-core";
-import { calibrationByUser, confidenceByUser, getOpsSettings, tokensPerDayByUser } from "./ops";
+import { accountCost, calibrationByUser, confidenceByUser, getOpsSettings, tokensPerDayByUser } from "./ops";
 // Re-exported so the existing admin routes keep importing these from here.
 export { audit, clientIp } from "./audit";
 
@@ -206,8 +206,8 @@ export async function listUsers(): Promise<AdminUserRow[]> {
     const runs = await rt.db.query.runs.findMany({ where: eq(schema.runs.userId, u.id) });
     const succeeded = runs.filter((r) => r.status === "succeeded");
     const pages = succeeded.reduce((n, r) => n + (r.stats?.pagesDecoded ?? 0), 0);
-    const [total] = await rt.db.select({ usd: sql<string>`coalesce(sum(${schema.runCosts.costUsd}), 0)` }).from(schema.runCosts).where(eq(schema.runCosts.userId, u.id));
-    const [month] = await rt.db.select({ usd: sql<string>`coalesce(sum(${schema.runCosts.costUsd}), 0)` }).from(schema.runCosts).where(and(eq(schema.runCosts.userId, u.id), gte(schema.runCosts.createdAt, monthStart)));
+    const [total] = await rt.db.select({ usd: sql<string>`coalesce(sum(${schema.runCosts.costUsd}), 0)` }).from(schema.runCosts).where(accountCost(u.id));
+    const [month] = await rt.db.select({ usd: sql<string>`coalesce(sum(${schema.runCosts.costUsd}), 0)` }).from(schema.runCosts).where(and(accountCost(u.id), gte(schema.runCosts.createdAt, monthStart)));
     const [rating] = await rt.db.select({ avg: avg(schema.feedback.rating), n: count() }).from(schema.feedback).where(eq(schema.feedback.userId, u.id));
     const cred = await rt.db.query.tabletCredentials.findFirst({ where: eq(schema.tabletCredentials.userId, u.id) });
     const first = runs.length ? new Date(Math.min(...runs.map((r) => r.createdAt.getTime()))) : null;
@@ -276,13 +276,13 @@ export async function getUserDetail(userId: string) {
       tokens: sql<string>`sum(${schema.runCosts.inputTokens} + ${schema.runCosts.outputTokens} + ${schema.runCosts.cacheReadTokens} + ${schema.runCosts.cacheWriteTokens})`,
     })
     .from(schema.runCosts)
-    .where(eq(schema.runCosts.userId, userId))
+    .where(accountCost(userId))
     .groupBy(schema.runCosts.runId);
   const costByRun = new Map(perRun.map((c) => [c.runId, { models: c.models, modes: c.modes, usd: Number(c.usd), tokens: Number(c.tokens) }] as const));
   const costs = await rt.db
     .select({ model: schema.runCosts.model, mode: schema.runCosts.mode, usd: sql<string>`sum(${schema.runCosts.costUsd})`, pages: sql<number>`sum(${schema.runCosts.pages})`, inTok: sql<number>`sum(${schema.runCosts.inputTokens})`, outTok: sql<number>`sum(${schema.runCosts.outputTokens})` })
     .from(schema.runCosts)
-    .where(eq(schema.runCosts.userId, userId))
+    .where(accountCost(userId))
     .groupBy(schema.runCosts.model, schema.runCosts.mode);
   const auditRows = await rt.db.query.adminAudit.findMany({ where: eq(schema.adminAudit.targetUserId, userId), orderBy: desc(schema.adminAudit.createdAt), limit: 20 });
   const settings = (await repo.getUser(rt.db, userId)).settings;

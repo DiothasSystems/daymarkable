@@ -64,8 +64,8 @@ export default async function AdminUsers({ searchParams }: { searchParams: Promi
               <th>Confidence</th>
               <th>Calibrated</th>
               <th>Role · industry</th>
-              <th>Cost month</th>
-              <th>Cost to date</th>
+              <th title="Reading notebook pages only. Shared headlines and puzzles are on the Tokens page.">Page cost month</th>
+              <th title="Reading notebook pages only.">Page cost to date</th>
               <th>Last run</th>
             </tr>
           </thead>

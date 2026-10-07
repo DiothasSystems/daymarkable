@@ -35,9 +35,9 @@ export default async function AdminUserDetail({ params, searchParams }: { params
       {billed ? <div className="notice ok" style={{ marginBottom: 16 }}>{billed}</div> : null}
       <div className="grid four" style={{ marginBottom: 24 }}>
         <div className="card">
-          <p className="kicker">Token cost</p>
+          <p className="kicker">Notebook page tokens</p>
           <div className="stat">{fmtUsd(u.costMonthUsd)}</div>
-          <div className="meta" style={{ marginTop: 8 }}>this month · {fmtUsd(u.costTotalUsd)} to date</div>
+          <div className="meta" style={{ marginTop: 8 }}>this month · {fmtUsd(u.costTotalUsd)} to date · shared headlines and puzzles are on Tokens</div>
         </div>
         <div className="card">
           <p className="kicker">Cost per night</p>
@@ -169,7 +169,7 @@ export default async function AdminUserDetail({ params, searchParams }: { params
 
       <div className="grid two" style={{ marginBottom: 24 }}>
         <div className="card">
-          <p className="kicker">Cost by model · stage</p>
+          <p className="kicker">Notebook page reading · cost by model</p>
           <div className="table-wrap">
             <table>
               <thead><tr><th>Model</th><th>Mode</th><th>Pages</th><th>In tok</th><th>Out tok</th><th>USD</th></tr></thead>
@@ -187,7 +187,7 @@ export default async function AdminUserDetail({ params, searchParams }: { params
           <div className="meta">
             {detail.runs.length} run{detail.runs.length === 1 ? "" : "s"} on record
             <br />{detail.runs.filter((r) => r.status === "succeeded").length} succeeded · {detail.runs.filter((r) => r.status === "failed").length} failed
-            <br />{fmtUsd(detail.runs.reduce((n, r) => n + (r.cost?.usd ?? 0), 0))} of decode cost across them
+            <br />{fmtUsd(detail.runs.reduce((n, r) => n + (r.cost?.usd ?? 0), 0))} of notebook page reading across them
             <br />Every run is listed below with the model that read it.
           </div>
         </div>

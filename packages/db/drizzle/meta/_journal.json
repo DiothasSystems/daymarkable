@@ -169,6 +169,13 @@
       "when": 1791312949660,
       "tag": "0023_daily_power_pack",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791375454481,
+      "tag": "0024_cold_nomad",
+      "breakpoints": true
     }
   ]
 }

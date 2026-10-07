@@ -10,3 +10,4 @@ export * from "./recurrence.js";
 export * from "./dailyNotes.js";
 export * from "./actionBuckets.js";
 export * from "./typedDate.js";
+export * from "./newsTopics.js";

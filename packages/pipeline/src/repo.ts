@@ -40,7 +40,9 @@ export function defaultSettings(): UserSettings {
     deliveryVerifiedAt: null,
     deliveryDocuments: { planner: true, actionList: true, meetingNotes: true },
     weeklyNotesArchive: true,
-    dailyUpdate: { enabled: true, topics: [] },
+    // Off until the customer opts in: setup shows the topic list only once they do, and a brief with
+    // no topics prints nothing anyway.
+    dailyUpdate: { enabled: false, topics: [] },
     dailyPuzzle: { enabled: true },
     pendingDelivery: null,
     confidenceThreshold: 0.7,
@@ -762,6 +764,25 @@ export async function claimDailyPuzzleWords(
     .values({ localDate, kind, words: [...words], model })
     .onConflictDoNothing();
   return (await getDailyPuzzleWords(db, localDate, kind)) ?? [...words];
+}
+
+export type BriefSectionRow = (typeof schema.dailyBriefs.$inferSelect)["sections"][number];
+
+/** The night's shared news edition, if a run has already written it. */
+export async function getDailyBrief(db: Db, localDate: string, edition: string): Promise<BriefSectionRow[] | null> {
+  const row = await db.query.dailyBriefs.findFirst({
+    where: and(eq(schema.dailyBriefs.localDate, localDate), eq(schema.dailyBriefs.edition, edition)),
+  });
+  return row?.sections ?? null;
+}
+
+/**
+ * Store an edition unless one is already there, and return whichever is stored: two runs racing
+ * to midnight both get the same headlines, the first one's.
+ */
+export async function claimDailyBrief(db: Db, localDate: string, edition: string, sections: readonly BriefSectionRow[], model: string): Promise<BriefSectionRow[]> {
+  await db.insert(schema.dailyBriefs).values({ localDate, edition, sections: [...sections], model }).onConflictDoNothing();
+  return (await getDailyBrief(db, localDate, edition)) ?? [...sections];
 }
 
 /**

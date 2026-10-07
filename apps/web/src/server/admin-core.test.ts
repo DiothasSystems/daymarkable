@@ -123,9 +123,13 @@ describe("describeOptions", () => {
     expect(on.value).toBe("On");
     expect(on.detail).toMatch(/no topics/);
 
-    const withTopics = find(describeOptions({ dailyUpdate: { enabled: true, topics: ["broadband", "Arsenal"] } }), "Daily brief");
-    expect(withTopics.detail).toContain("broadband");
+    const withTopics = find(describeOptions({ dailyUpdate: { enabled: true, topics: ["telecom", "nfl"] } }), "Daily brief");
+    expect(withTopics.detail).toContain("Telecom");
     expect(withTopics.detail).toContain("2 topics");
+
+    // A free-text topic saved before the fixed list is not read, so it is not shown as if it were.
+    const legacy = find(describeOptions({ dailyUpdate: { enabled: true, topics: ["broadband hardware"] } }), "Daily brief");
+    expect(legacy.detail).toMatch(/no topics/);
   });
 
   /**

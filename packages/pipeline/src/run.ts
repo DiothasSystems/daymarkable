@@ -5,9 +5,9 @@
  * Idempotent per (user, local-date[, seq]) (rule 4/11). Only changed pages are processed
  * (rule 2). Nothing here logs note content — counts, hashes, ids only (rule 5).
  */
-import { appendLines, buildDailyNotes, buildOutputSet, dailyNotesDate, dailyNotesName, lineTokens, mergeRun, newLines, pageLines, type DailyNoteEntry, type MergePage, type PrintedItem } from "@daymarkable/core";
+import { NEWS_TOPICS, appendLines, buildDailyNotes, buildOutputSet, chosenTopicIds, dailyNotesDate, dailyNotesName, editionFor, lineTokens, mergeRun, newLines, newsTopic, pageLines, type DailyNoteEntry, type MergePage, type PrintedItem } from "@daymarkable/core";
 import { composeActionList, composeDailyNotes, composeDailyPuzzle, composeDailyUpdate, composePlanner, inkCoverage, parseInkSvg, type PuzzleInput } from "@daymarkable/compose";
-import { crosswordWords, gatherDailyUpdate } from "@daymarkable/news";
+import { crosswordWords, gatherEdition } from "@daymarkable/news";
 import {
   GENERAL_KNOWLEDGE,
   GENERAL_WORDS,
@@ -298,6 +298,11 @@ export const FIRST_RUN_LOOKBACK_DAYS = 1;
 /**
  * The overnight brief. Never throws: a night without news is a night without news, and failing the
  * run over it would cost the customer their planner as well.
+ *
+ * The news itself is the night's shared EDITION (packages/core newsTopics.ts): written once, for
+ * every topic on the list, by the first run of the date that needs it, and stored; every other run
+ * reads it. This customer's Daily Update is the slice of it they ticked. The edition's cost is the
+ * HOUSE's, like the crossword's (rule 16) — this run paid only because it reached midnight first.
  */
 async function buildDailyUpdate(
   deps: PipelineDeps,
@@ -306,33 +311,46 @@ async function buildDailyUpdate(
   generatedAt: string,
   runLabel: string,
   runId: string,
-  stats: RunStats,
   log: (m: string) => void,
 ): Promise<Awaited<ReturnType<typeof composeDailyUpdate>> | null> {
-  const topics = user.settings.dailyUpdate.topics;
-  if (topics.length === 0) {
-    // No notebook at all rather than one that says "add some topics". The setup flow asks for
-    // topics at the moment the feature is turned on, so an empty list is a choice — and a daily
-    // page whose only content is a nag is worse than no page.
-    log("news: skipped, no topics set");
+  const chosen = chosenTopicIds(user.settings.dailyUpdate.topics);
+  if (chosen.length === 0) {
+    // No notebook at all rather than one that says "pick some topics". The setup flow asks for
+    // topics at the moment the feature is turned on, so an empty choice is a choice.
+    log("news: skipped, no topics chosen");
     return null;
   }
-  if (!deps.newsClient) return null;
-  const update = await gatherDailyUpdate(topics, deps.newsClient, { model: deps.newsModel, log });
-  if (update.searches > 0 || update.usage.output_tokens > 0) {
-    // Recorded as its own stage so /admin/expenses separates the brief from reading pages — this
-    // is the cost that happens whether or not the customer wrote anything.
-    stats.costUsd += await repo.recordCosts(db2(deps), runId, user.id, "news", [
-      { ...update.usage, model: deps.newsModel, mode: "standard" as const, pages: update.searches, cost_usd: update.costUsd },
-    ]);
+  const edition = editionFor(user.timezone);
+  let stored = await repo.getDailyBrief(db2(deps), localDate, edition);
+  let unavailable: string | null = null;
+  if (stored) {
+    log(`news: ${edition} edition for ${localDate} already written, shared`);
+  } else {
+    if (!deps.newsClient) return null;
+    const result = await gatherEdition(NEWS_TOPICS, deps.newsClient, { model: deps.newsModel, region: "the United States", log });
+    if (result.searches > 0 || result.usage.output_tokens > 0) {
+      await repo.recordHouseCosts(db2(deps), runId, "news", [
+        { ...result.usage, model: deps.newsModel, mode: "standard" as const, pages: result.searches, cost_usd: result.costUsd },
+      ]);
+    }
+    if (result.error) {
+      // Not stored, so the next run of the night tries again rather than every customer getting an
+      // empty brief from one bad minute.
+      log(`news: no edition this morning (${result.error})`);
+      unavailable = "The news search did not answer this morning. Tomorrow's brief will pick up where this one left off.";
+    } else {
+      stored = await repo.claimDailyBrief(db2(deps), localDate, edition, result.sections, deps.newsModel);
+    }
   }
-  if (update.error) log(`news: no brief this morning (${update.error})`);
+  const byId = new Map((stored ?? []).map((s) => [s.topicId, s.items] as const));
   return composeDailyUpdate({
-    sections: update.sections,
+    // A ticked topic the edition has no section for (its request failed) prints as a quiet night
+    // rather than vanishing, so the customer can see it is still theirs.
+    sections: unavailable ? [] : chosen.map((id) => ({ topic: newsTopic(id)!.label, items: byId.get(id) ?? [] })),
     date: localDate,
     generatedAt,
     runLabel,
-    unavailable: update.error ? "The news search did not answer this morning. Tomorrow's brief will pick up where this one left off." : null,
+    unavailable,
   });
 }
 
@@ -877,7 +895,7 @@ export async function runPipeline(deps: PipelineDeps, params: PipelineParams): P
     // Both are switched on by default and off by the customer, and neither can fail the night:
     // a missing brief is a missing brief, not a lost planner.
     if (settings.dailyUpdate.enabled) {
-      const brief = await buildDailyUpdate(deps, user, localDate, generatedAt, runLabel, run.id, stats, log);
+      const brief = await buildDailyUpdate(deps, user, localDate, generatedAt, runLabel, run.id, log);
       if (brief) outputs.push({ kind: "daily_update" as const, name: DAILY_UPDATE_NAME, composed: brief });
     }
     if (settings.dailyPuzzle.enabled) {

@@ -758,3 +758,68 @@ describe("the first night after the rename, end to end", () => {
     expect(tonight.some((u) => u.includes("dayMarkable") || u.includes("dayLy"))).toBe(false);
   });
 });
+
+describe("the Daily Update's shared edition", () => {
+  /** Stands in for the API: one headline per topic it was asked about, and a count of requests. */
+  function newsStub() {
+    const stub = { requests: 0 };
+    const client = {
+      messages: {
+        create: async (req: { messages: Array<{ content: string }> }) => {
+          stub.requests += 1;
+          const ids = [...req.messages[0]!.content.matchAll(/^- ([a-z-]+):/gm)].map((m) => m[1]!);
+          return {
+            stop_reason: "end_turn",
+            usage: { input_tokens: 1000, output_tokens: 100 },
+            content: [
+              ...ids.map(() => ({ type: "web_search_tool_result", content: [] })),
+              { type: "text", text: JSON.stringify({ sections: ids.map((id) => ({ topic: id, items: [{ headline: `Headline for ${id}`, summary: "It happened.", source: "Wire" }] })) }) },
+            ],
+          };
+        },
+      },
+    };
+    return { stub, client: client as unknown as NonNullable<PipelineDeps["newsClient"]> };
+  }
+
+  async function subscriber(email: string, topics: string[]) {
+    const u = await repo.ensureUser(handle.db, email, "America/Chicago");
+    const s = (await repo.getUser(handle.db, u.id)).settings;
+    await handle.db.update(schema.users).set({ settings: { ...s, dailyUpdate: { enabled: true, topics } } }).where(eq(schema.users.id, u.id));
+    return u.id;
+  }
+
+  it("is written once a night for the whole list, booked to the house, and every customer reads their own slice of it", async () => {
+    const { stub, client } = newsStub();
+    const withNews = { ...deps, newsClient: client };
+    const a = await subscriber("news-a@example.com", ["telecom", "nfl"]);
+    const b = await subscriber("news-b@example.com", ["ai"]);
+    const date = "2026-10-08";
+
+    const first = await runPipeline(withNews, { userId: a, kind: "on_demand", requestedVia: "test", localDate: date, windowHours: 24 * 30 });
+    expect(first.status).toBe("succeeded");
+    // 36 topics in requests of six.
+    expect(stub.requests).toBe(6);
+    const stored = await repo.getDailyBrief(handle.db, date, "us");
+    expect(stored).toHaveLength(36);
+
+    const second = await runPipeline(withNews, { userId: b, kind: "on_demand", requestedVia: "test", localDate: date, windowHours: 24 * 30 });
+    expect(second.status).toBe("succeeded");
+    // The second customer's brief came from the stored edition: nothing more was searched.
+    expect(stub.requests).toBe(6);
+    expect(logs.some((l) => l.includes("us edition for 2026-10-08 already written, shared"))).toBe(true);
+
+    // The edition's cost is nobody's: rule 16's house row, not the first customer's.
+    const news = (await handle.db.query.runCosts.findMany()).filter((c) => c.stage === "news");
+    expect(news).toHaveLength(1);
+    expect(news[0]!.userId).toBeNull();
+  });
+
+  it("prints nothing for a customer whose saved topics are not on the list", async () => {
+    const { stub, client } = newsStub();
+    const legacy = await subscriber("news-legacy@example.com", ["broadband hardware"]);
+    await runPipeline({ ...deps, newsClient: client }, { userId: legacy, kind: "on_demand", requestedVia: "test", localDate: "2026-10-09", windowHours: 24 * 30 });
+    expect(stub.requests).toBe(0);
+    expect(logs.some((l) => l.includes("news: skipped, no topics chosen"))).toBe(true);
+  });
+});
