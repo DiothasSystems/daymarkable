@@ -7,6 +7,7 @@ import { mkdtemp, readdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { NEWS_TOPICS } from "@daymarkable/core";
 import { Sealer, generateKey, openDb, parseKey, schema, eq, type DbHandle } from "@daymarkable/db";
 import { zeroUsage } from "@daymarkable/decode";
 import { MemoryProvider } from "@daymarkable/mail";
@@ -798,15 +799,16 @@ describe("the Daily Update's shared edition", () => {
 
     const first = await runPipeline(withNews, { userId: a, kind: "on_demand", requestedVia: "test", localDate: date, windowHours: 24 * 30 });
     expect(first.status).toBe("succeeded");
-    // 36 topics in requests of six.
-    expect(stub.requests).toBe(6);
+    // The whole list, in requests of six.
+    const requests = Math.ceil(NEWS_TOPICS.length / 6);
+    expect(stub.requests).toBe(requests);
     const stored = await repo.getDailyBrief(handle.db, date, "us");
-    expect(stored).toHaveLength(36);
+    expect(stored).toHaveLength(NEWS_TOPICS.length);
 
     const second = await runPipeline(withNews, { userId: b, kind: "on_demand", requestedVia: "test", localDate: date, windowHours: 24 * 30 });
     expect(second.status).toBe("succeeded");
     // The second customer's brief came from the stored edition: nothing more was searched.
-    expect(stub.requests).toBe(6);
+    expect(stub.requests).toBe(requests);
     expect(logs.some((l) => l.includes("us edition for 2026-10-08 already written, shared"))).toBe(true);
 
     // The edition's cost is nobody's: rule 16's house row, not the first customer's.

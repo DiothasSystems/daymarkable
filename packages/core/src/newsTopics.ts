@@ -4,7 +4,7 @@
  * Until October 2026 each customer typed their own topics and their own brief was searched for them
  * — about $0.09 a customer a night, which grows with every subscriber. Now the night's brief is
  * written ONCE per edition for every topic below, stored, and each customer's Daily Update is cut
- * from it by the topics they ticked. The cost is fixed (about $0.65 a night for 36 topics) however
+ * from it by the topics they ticked. The cost is fixed (about $0.67 a night for 37 topics) however
  * many customers there are, and is booked to the house like the crossword's (rule 16).
  *
  * Editions are regional, because "the economy" and "sport" mean different things in New York and in
@@ -40,6 +40,7 @@ export const NEWS_TOPICS: readonly NewsTopic[] = [
   t("Technology", "semiconductors", "Semiconductors and hardware", "chipmakers, fabs, supply chains and export rules"),
   t("Technology", "space", "Space and science", "launches, NASA and SpaceX, and major scientific findings"),
   t("Technology", "ev-clean-energy", "EVs and clean energy", "electric vehicles, batteries, solar, wind and the grid"),
+  t("Technology", "automotive", "Automotive", "carmakers, new models, recalls, sales and the auto industry (electric vehicles have their own topic)"),
   t("Technology", "telecom", "Telecom", "carriers, 5G and broadband, spectrum, satellite internet and FCC decisions"),
 
   t("Business", "markets", "Stock markets", "US stocks, the major indexes and notable market moves"),

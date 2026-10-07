@@ -387,12 +387,12 @@ unchanged.
 20. **The Daily Update is one edition a night, not one search per customer.** Until October 2026 each
     customer typed up to five topics and got a search of their own, about $0.09 a customer a night —
     a cost that grew with every subscriber. Now the topics are a FIXED list, `NEWS_TOPICS` in
-    `packages/core/newsTopics.ts` (36 across Technology, Business, World and society, Pop culture
+    `packages/core/newsTopics.ts` (37 across Technology, Business, World and society, Pop culture
     and Sports), and the night's brief is written ONCE for all of them by `gatherEdition`
     (packages/news): six topics to a request, in parallel, one web search per topic, three
     headlines each. The first run of a local date that needs it writes it and stores it in
     `daily_briefs` (local date, edition); every other run that night reads that row, so the cost is
-    fixed — estimated $0.65 a night — however many customers there are, and a retried night prints
+    fixed — estimated $0.67 a night — however many customers there are, and a retried night prints
     the same headlines (rule 4). Like the crossword it is booked to the HOUSE (rule 16). A failed
     edition is not stored, so the next run of the night tries again; a partial one is, and a ticked
     topic whose request failed prints as a quiet night.
@@ -459,7 +459,7 @@ search per topic instead of a flat eight (`MAX_SEARCHES`), and no prompt cache �
 read by a nightly job, so every night paid a cache write at 2x input and never read it back ($0.1230
 cached vs $0.0909 uncached, same brief). That was a brief PER CUSTOMER, about 28% of a $10/month
 subscription; since October 2026 there is one edition a night for everybody (rule 20), estimated
-from those figures at about $0.018 a topic, $0.65 a night for 36 topics. `pnpm news:cost` writes a
+from those figures at about $0.018 a topic, $0.67 a night for 37 topics. `pnpm news:cost` writes a
 real edition and reports what it cost — run it before committing to a price.
 
 ## Per-user accuracy

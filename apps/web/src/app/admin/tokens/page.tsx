@@ -161,7 +161,7 @@ export default async function AdminTokens({ searchParams }: { searchParams: Prom
         <p className="muted" style={{ fontSize: 13 }}>
           One news edition is written a night for every topic on the list and shared by every subscriber who takes the
           Daily Update, so this is a fixed cost: it does not grow with customers, and it is booked to the house rather
-          than to anyone's account. Estimated at about $0.65 a night for 36 topics; <code>pnpm news:cost</code> writes
+          than to anyone's account. Estimated at about $0.67 a night for 37 topics; <code>pnpm news:cost</code> writes
           one and measures it. A night when nobody wanted a brief writes none and costs nothing.
         </p>
         <div className="grid three" style={{ marginTop: 12 }}>

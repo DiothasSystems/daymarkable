@@ -8,7 +8,7 @@
  * search is billed per search, `WEB_SEARCH_USD_PER_SEARCH` is a figure copied from Anthropic's
  * published pricing rather than measured, and the search RESULTS come back as input tokens — which
  * is what actually dominates. The edition is a fixed nightly cost (packages/core newsTopics.ts):
- * estimated at about $0.65 for 36 topics, which this is how to check.
+ * estimated at about $0.67 for 37 topics, which this is how to check.
  *
  * Re-run it before committing to a price (ECONOMICS.md), and whenever the model, the list or the
  * search pricing changes. It spends real money — the whole list is well under a dollar.
